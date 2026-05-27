@@ -65,14 +65,15 @@ const MapEngine = {
     startTime: Date.now(),
     timeScale: 1, 
     
-    activeTarget: null, // Tracks selected celestial body
+    activeTarget: null, 
     
     system: {
-        name: "FURRA", radius: 5796, x: 0, y: 0, // Furra acts as the anchor at 0,0
+        name: "FURRA", radius: 5796, x: 0, y: 0, 
         rings: { innerStart: 8296, innerEnd: 11700, outerStart: 11900, outerEnd: 13086 },
         bodies: [
-            { name: "HARMONY", a: 11796, e: 0.001, radius: 21, period: 14004, currentX: 0, currentY: 0 },     
-            { name: "KIITOS", a: 340000, e: 0.05, radius: 1876, period: 2171520, currentX: 0, currentY: 0 }  
+            // Added 3D mechanics: inc (inclination), lan (ascending node), argp (argument of periapsis)
+            { name: "HARMONY", a: 11796, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004, currentX: 0, currentY: 0, currentR: 0 },     
+            { name: "KIITOS", a: 340000, e: 0.05, inc: 2.1, lan: 45.0, argp: 90.0, radius: 1876, period: 2171520, currentX: 0, currentY: 0, currentR: 0 }  
         ]
     },
     
@@ -100,7 +101,6 @@ const MapEngine = {
 
         window.addEventListener("mouseup", (e) => {
             this.isDragging = false;
-            // If mouse didn't move, treat as a click to select bodies
             if (!this.mouseMoved) {
                 const rect = this.canvas.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
@@ -109,7 +109,7 @@ const MapEngine = {
             }
         });
         
-        // Scroll to Zoom with Optimization Limits
+        // Scroll to Zoom
         this.canvas.addEventListener("wheel", (e) => {
             const zoomAmount = e.deltaY > 0 ? 0.9 : 1.1; 
             const rect = this.canvas.getBoundingClientRect();
@@ -121,7 +121,6 @@ const MapEngine = {
 
             let newZoom = this.camera.zoom * zoomAmount;
             
-            // Limit Zoom to prevent rendering engine lag/stutter
             if (newZoom < 0.0001) newZoom = 0.0001; 
             if (newZoom > 2.0) newZoom = 2.0;
 
@@ -135,32 +134,30 @@ const MapEngine = {
         const cx = this.canvas.width / 2 + this.camera.x;
         const cy = this.canvas.height / 2 + this.camera.y;
         
-        // Check Furra first
         let distFurra = Math.hypot(mouseX - cx, mouseY - cy);
         if (distFurra < (this.system.radius * this.camera.zoom) + 10) {
             this.activeTarget = this.system;
             return;
         }
 
-        // Check Moons
         for (let body of this.system.bodies) {
             const sx = cx + (body.currentX * this.camera.zoom);
             const sy = cy + (body.currentY * this.camera.zoom);
             let visualRadius = body.radius * this.camera.zoom;
-            if (visualRadius < 5) visualRadius = 5; // generous hit-box for small moons
+            if (visualRadius < 5) visualRadius = 5; 
             
             if (Math.hypot(mouseX - sx, mouseY - sy) < visualRadius + 10) {
                 this.activeTarget = body;
                 return;
             }
         }
-        this.activeTarget = null; // Clicked empty space
+        this.activeTarget = null; 
     },
 
     selectTargetByName: function(name) {
         if (name === "FURRA") {
             this.activeTarget = this.system;
-            this.camera.x = 0; // Center map on Furra
+            this.camera.x = 0; 
             this.camera.y = 0;
             return true;
         }
@@ -222,6 +219,8 @@ const MapEngine = {
         this.system.bodies.forEach(body => {
             const theta = ((2 * Math.PI) / body.period) * elapsedSeconds;
             const r = (body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta));
+            
+            body.currentR = r; // Store current distance from core for altitude calculation
             body.currentX = r * Math.cos(theta);
             body.currentY = r * Math.sin(theta);
         });
@@ -235,7 +234,7 @@ const MapEngine = {
         const cx = this.canvas.width / 2 + this.camera.x;
         const cy = this.canvas.height / 2 + this.camera.y;
 
-        // 1. Draw Solid Ring Boundaries (Faint)
+        // 1. Draw Ring Boundaries
         this.ctx.strokeStyle = "rgba(255, 176, 0, 0.3)";
         [this.system.rings.innerStart, this.system.rings.innerEnd, this.system.rings.outerStart, this.system.rings.outerEnd].forEach(r => {
             this.ctx.beginPath();
@@ -243,18 +242,17 @@ const MapEngine = {
             this.ctx.stroke();
         });
 
-        // 2. Render Particle Ring System with Culling (Fixes Zoom Lag)
+        // 2. Render Particles
         this.ctx.fillStyle = "rgba(255, 176, 0, 0.7)";
         this.particles.forEach(p => {
             const px = cx + (p.r * Math.cos(p.angle) * this.camera.zoom);
             const py = cy + (p.r * Math.sin(p.angle) * this.camera.zoom);
-            // Only render if particle is actually on the screen
             if (px >= 0 && px <= this.canvas.width && py >= 0 && py <= this.canvas.height) {
                 this.ctx.fillRect(px, py, 1, 1);
             }
         });
 
-        // 3. Draw Orbit Paths for Moons
+        // 3. Draw Orbit Paths
         this.ctx.strokeStyle = "#ffb000";
         this.system.bodies.forEach(body => {
             this.ctx.beginPath();
@@ -265,14 +263,14 @@ const MapEngine = {
             this.ctx.setLineDash([]);
         });
 
-        // 4. Draw Furra (Masking the orbit lines behind it)
+        // 4. Draw Furra
         this.ctx.beginPath();
         this.ctx.arc(cx, cy, this.system.radius * this.camera.zoom, 0, 2 * Math.PI);
-        this.ctx.fillStyle = "#0a0500"; // Solid background color
-        this.ctx.fill();                // Fill first to mask lines behind
-        this.ctx.stroke();              // Stroke amber over top
+        this.ctx.fillStyle = "#0a0500"; 
+        this.ctx.fill();                
+        this.ctx.stroke();              
 
-        // 5. Draw Moons (Masking lines behind them)
+        // 5. Draw Moons
         this.system.bodies.forEach(body => {
             const screenX = cx + (body.currentX * this.camera.zoom);
             const screenY = cy + (body.currentY * this.camera.zoom);
@@ -286,14 +284,12 @@ const MapEngine = {
             this.ctx.fill();
             this.ctx.stroke(); 
 
-            // Highlight if active
             if (this.activeTarget === body) {
                 this.ctx.beginPath();
                 this.ctx.arc(screenX, screenY, visualRadius + 4, 0, 2 * Math.PI);
                 this.ctx.stroke();
             }
 
-            // Labels
             if (this.camera.zoom > 0.0005) {
                 this.ctx.fillStyle = "#ffb000";
                 this.ctx.font = "12px 'Courier New'";
@@ -301,28 +297,39 @@ const MapEngine = {
             }
         });
         
-        // Render Telemetry Box if Target Selected
+        // 6. Detailed Telemetry Box
         if (this.activeTarget) {
+            let isFurra = this.activeTarget.name === "FURRA";
+            let boxHeight = isFurra ? 110 : 210;
+            let startX = this.canvas.width - 290;
+            let textX = startX + 10;
+            
             this.ctx.fillStyle = "rgba(10, 5, 0, 0.8)";
-            this.ctx.fillRect(this.canvas.width - 250, 10, 240, 110);
+            this.ctx.fillRect(startX, 10, 280, boxHeight);
             this.ctx.strokeStyle = "#ffb000";
-            this.ctx.strokeRect(this.canvas.width - 250, 10, 240, 110);
+            this.ctx.strokeRect(startX, 10, 280, boxHeight);
             
             this.ctx.fillStyle = "#ffb000";
             this.ctx.font = "bold 14px 'Courier New'";
-            this.ctx.fillText(`TARGET: ${this.activeTarget.name}`, this.canvas.width - 240, 30);
+            this.ctx.fillText(`TARGET: ${this.activeTarget.name}`, textX, 30);
             
             this.ctx.font = "12px 'Courier New'";
-            this.ctx.fillText(`RADIUS: ${this.activeTarget.radius.toLocaleString()} KM`, this.canvas.width - 240, 50);
+            this.ctx.fillText(`RADIUS:   ${this.activeTarget.radius.toLocaleString()} KM`, textX, 50);
             
-            if (this.activeTarget.name !== "FURRA") {
-                this.ctx.fillText(`SEMI-MAJOR: ${this.activeTarget.a.toLocaleString()} KM`, this.canvas.width - 240, 70);
-                this.ctx.fillText(`ECCENTRICITY: ${this.activeTarget.e}`, this.canvas.width - 240, 90);
+            if (!isFurra) {
+                // Live altitude calculation
+                const alt = Math.round(this.activeTarget.currentR - this.system.radius);
+                this.ctx.fillText(`ALTITUDE: ${alt.toLocaleString()} KM`, textX, 70);
+                this.ctx.fillText(`SMA (a):  ${this.activeTarget.a.toLocaleString()} KM`, textX, 90);
+                this.ctx.fillText(`ECC (e):  ${this.activeTarget.e}`, textX, 110);
+                this.ctx.fillText(`INC (i):  ${this.activeTarget.inc.toFixed(1)}°`, textX, 130);
+                this.ctx.fillText(`LAN (Ω):  ${this.activeTarget.lan.toFixed(1)}°`, textX, 150);
+                this.ctx.fillText(`ARG (ω):  ${this.activeTarget.argp.toFixed(1)}°`, textX, 170);
                 const periodHours = (this.activeTarget.period / 3600).toFixed(2);
-                this.ctx.fillText(`PERIOD: ${periodHours} HOURS`, this.canvas.width - 240, 110);
+                this.ctx.fillText(`PERIOD:   ${periodHours} HOURS`, textX, 190);
             } else {
-                this.ctx.fillText(`CLASS: HABITABLE TERRESTRIAL`, this.canvas.width - 240, 70);
-                this.ctx.fillText(`STATUS: LOCAL ANCHOR`, this.canvas.width - 240, 90);
+                this.ctx.fillText(`CLASS:    HABITABLE TERRESTRIAL`, textX, 70);
+                this.ctx.fillText(`STATUS:   LOCAL ANCHOR`, textX, 90);
             }
         }
         
@@ -393,7 +400,6 @@ const Terminal={
                 MapEngine.stop();
                 this.outputLog.innerText = "OSIRIS KERNEL RESTORED.\nAPP TERMINATED.";
             } else if (this.currentApp === "PLANETARY CHARTS") {
-                // Check if map is running first
                 if (!MapEngine.isRunning) {
                     if (cmd === "FURRA") {
                         MapEngine.start();
@@ -403,7 +409,6 @@ const Terminal={
                         window.scrollTo(0,document.body.scrollHeight);
                     }
                 } else {
-                    // Map is running, pass command to selection engine
                     let found = MapEngine.selectTargetByName(cmd);
                     if (!found) {
                         this.inputField.value = "";
