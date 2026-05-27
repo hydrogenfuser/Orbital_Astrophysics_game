@@ -28,9 +28,8 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
     width: 100%;
     height: calc(100% - 50px);
     display: none;
-    cursor: grab;
+    cursor: crosshair;
 }
-#map-canvas:active { cursor: grabbing; }
 </style>
 </head><body>
 
@@ -61,22 +60,19 @@ const MapEngine = {
     camera: { x: 0, y: 0, zoom: 0.0015 }, 
     isDragging: false,
     dragStart: { x: 0, y: 0 },
+    mouseMoved: false,
     
     startTime: Date.now(),
     timeScale: 1, 
     
+    activeTarget: null, // Tracks selected celestial body
+    
     system: {
-        centerName: "FURRA",
-        furraRadius: 5796,
-        rings: { 
-            innerStart: 8296, 
-            innerEnd: 11700, 
-            outerStart: 11900, 
-            outerEnd: 13086 
-        },
+        name: "FURRA", radius: 5796, x: 0, y: 0, // Furra acts as the anchor at 0,0
+        rings: { innerStart: 8296, innerEnd: 11700, outerStart: 11900, outerEnd: 13086 },
         bodies: [
-            { name: "HARMONY", a: 11796, e: 0.001, radius: 21, period: 14004 },     
-            { name: "KIITOS", a: 340000, e: 0.05, radius: 1876, period: 2171520 }  
+            { name: "HARMONY", a: 11796, e: 0.001, radius: 21, period: 14004, currentX: 0, currentY: 0 },     
+            { name: "KIITOS", a: 340000, e: 0.05, radius: 1876, period: 2171520, currentX: 0, currentY: 0 }  
         ]
     },
     
@@ -88,19 +84,32 @@ const MapEngine = {
         window.addEventListener("resize", () => this.resize());
         this.generateParticles();
         
-        // Mouse Controls
+        // Mouse Controls & Click Selection
         this.canvas.addEventListener("mousedown", (e) => {
             this.isDragging = true;
+            this.mouseMoved = false;
             this.dragStart = { x: e.clientX - this.camera.x, y: e.clientY - this.camera.y };
         });
-        window.addEventListener("mouseup", () => this.isDragging = false);
+        
         window.addEventListener("mousemove", (e) => {
             if (!this.isDragging) return;
+            this.mouseMoved = true;
             this.camera.x = e.clientX - this.dragStart.x;
             this.camera.y = e.clientY - this.dragStart.y;
         });
+
+        window.addEventListener("mouseup", (e) => {
+            this.isDragging = false;
+            // If mouse didn't move, treat as a click to select bodies
+            if (!this.mouseMoved) {
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                this.checkClickSelection(mouseX, mouseY);
+            }
+        });
         
-        // Scroll to Zoom (Anchored to mouse)
+        // Scroll to Zoom with Optimization Limits
         this.canvas.addEventListener("wheel", (e) => {
             const zoomAmount = e.deltaY > 0 ? 0.9 : 1.1; 
             const rect = this.canvas.getBoundingClientRect();
@@ -110,11 +119,58 @@ const MapEngine = {
             const worldX = (mouseX - this.camera.x - this.canvas.width/2) / this.camera.zoom;
             const worldY = (mouseY - this.camera.y - this.canvas.height/2) / this.camera.zoom;
 
-            this.camera.zoom *= zoomAmount;
+            let newZoom = this.camera.zoom * zoomAmount;
+            
+            // Limit Zoom to prevent rendering engine lag/stutter
+            if (newZoom < 0.0001) newZoom = 0.0001; 
+            if (newZoom > 2.0) newZoom = 2.0;
 
+            this.camera.zoom = newZoom;
             this.camera.x = mouseX - (worldX * this.camera.zoom) - this.canvas.width/2;
             this.camera.y = mouseY - (worldY * this.camera.zoom) - this.canvas.height/2;
         });
+    },
+
+    checkClickSelection: function(mouseX, mouseY) {
+        const cx = this.canvas.width / 2 + this.camera.x;
+        const cy = this.canvas.height / 2 + this.camera.y;
+        
+        // Check Furra first
+        let distFurra = Math.hypot(mouseX - cx, mouseY - cy);
+        if (distFurra < (this.system.radius * this.camera.zoom) + 10) {
+            this.activeTarget = this.system;
+            return;
+        }
+
+        // Check Moons
+        for (let body of this.system.bodies) {
+            const sx = cx + (body.currentX * this.camera.zoom);
+            const sy = cy + (body.currentY * this.camera.zoom);
+            let visualRadius = body.radius * this.camera.zoom;
+            if (visualRadius < 5) visualRadius = 5; // generous hit-box for small moons
+            
+            if (Math.hypot(mouseX - sx, mouseY - sy) < visualRadius + 10) {
+                this.activeTarget = body;
+                return;
+            }
+        }
+        this.activeTarget = null; // Clicked empty space
+    },
+
+    selectTargetByName: function(name) {
+        if (name === "FURRA") {
+            this.activeTarget = this.system;
+            this.camera.x = 0; // Center map on Furra
+            this.camera.y = 0;
+            return true;
+        }
+        for (let body of this.system.bodies) {
+            if (body.name === name) {
+                this.activeTarget = body;
+                return true;
+            }
+        }
+        return false;
     },
 
     generateParticles: function() {
@@ -123,7 +179,6 @@ const MapEngine = {
         for(let i=0; i<count; i++) {
             let angle = Math.random() * Math.PI * 2;
             let r;
-            // 70% chance to be in the wider inner ring, 30% in the outer ring
             if (Math.random() < 0.7) { 
                 r = this.system.rings.innerStart + Math.random() * (this.system.rings.innerEnd - this.system.rings.innerStart);
             } else {
@@ -148,6 +203,7 @@ const MapEngine = {
 
     stop: function() {
         this.isRunning = false;
+        this.activeTarget = null;
         this.canvas.style.display = "none";
         document.getElementById("output-log").style.display = "block";
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -166,7 +222,6 @@ const MapEngine = {
         this.system.bodies.forEach(body => {
             const theta = ((2 * Math.PI) / body.period) * elapsedSeconds;
             const r = (body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta));
-            
             body.currentX = r * Math.cos(theta);
             body.currentY = r * Math.sin(theta);
         });
@@ -180,47 +235,45 @@ const MapEngine = {
         const cx = this.canvas.width / 2 + this.camera.x;
         const cy = this.canvas.height / 2 + this.camera.y;
 
-        // Draw Furra (Hollow Wireframe)
-        this.ctx.beginPath();
-        this.ctx.arc(cx, cy, this.system.furraRadius * this.camera.zoom, 0, 2 * Math.PI);
-        this.ctx.stroke();
-
-        // Draw Solid Ring Boundaries (Faint)
+        // 1. Draw Solid Ring Boundaries (Faint)
         this.ctx.strokeStyle = "rgba(255, 176, 0, 0.3)";
-        [
-            this.system.rings.innerStart, 
-            this.system.rings.innerEnd, 
-            this.system.rings.outerStart, 
-            this.system.rings.outerEnd
-        ].forEach(r => {
+        [this.system.rings.innerStart, this.system.rings.innerEnd, this.system.rings.outerStart, this.system.rings.outerEnd].forEach(r => {
             this.ctx.beginPath();
             this.ctx.arc(cx, cy, r * this.camera.zoom, 0, 2 * Math.PI);
             this.ctx.stroke();
         });
 
-        // Render Particle Ring System
+        // 2. Render Particle Ring System with Culling (Fixes Zoom Lag)
         this.ctx.fillStyle = "rgba(255, 176, 0, 0.7)";
         this.particles.forEach(p => {
             const px = cx + (p.r * Math.cos(p.angle) * this.camera.zoom);
             const py = cy + (p.r * Math.sin(p.angle) * this.camera.zoom);
-            this.ctx.fillRect(px, py, 1, 1);
+            // Only render if particle is actually on the screen
+            if (px >= 0 && px <= this.canvas.width && py >= 0 && py <= this.canvas.height) {
+                this.ctx.fillRect(px, py, 1, 1);
+            }
         });
 
-        // Reset Stroke for Moons
+        // 3. Draw Orbit Paths for Moons
         this.ctx.strokeStyle = "#ffb000";
-        this.ctx.fillStyle = "#ffb000";
-
-        // Draw Moons
         this.system.bodies.forEach(body => {
-            // Draw Orbit Path
             this.ctx.beginPath();
             this.ctx.setLineDash([5, 5]);
             const centerOffset = body.a * body.e * this.camera.zoom;
             this.ctx.arc(cx - centerOffset, cy, body.a * this.camera.zoom, 0, 2 * Math.PI);
             this.ctx.stroke();
             this.ctx.setLineDash([]);
+        });
 
-            // Draw Body Sphere (Hollow Wireframe)
+        // 4. Draw Furra (Masking the orbit lines behind it)
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, this.system.radius * this.camera.zoom, 0, 2 * Math.PI);
+        this.ctx.fillStyle = "#0a0500"; // Solid background color
+        this.ctx.fill();                // Fill first to mask lines behind
+        this.ctx.stroke();              // Stroke amber over top
+
+        // 5. Draw Moons (Masking lines behind them)
+        this.system.bodies.forEach(body => {
             const screenX = cx + (body.currentX * this.camera.zoom);
             const screenY = cy + (body.currentY * this.camera.zoom);
             
@@ -229,16 +282,52 @@ const MapEngine = {
 
             this.ctx.beginPath();
             this.ctx.arc(screenX, screenY, visualRadius, 0, 2 * Math.PI);
-            this.ctx.stroke(); // Now Hollow
+            this.ctx.fillStyle = "#0a0500"; 
+            this.ctx.fill();
+            this.ctx.stroke(); 
+
+            // Highlight if active
+            if (this.activeTarget === body) {
+                this.ctx.beginPath();
+                this.ctx.arc(screenX, screenY, visualRadius + 4, 0, 2 * Math.PI);
+                this.ctx.stroke();
+            }
 
             // Labels
             if (this.camera.zoom > 0.0005) {
+                this.ctx.fillStyle = "#ffb000";
                 this.ctx.font = "12px 'Courier New'";
                 this.ctx.fillText(body.name, screenX + 10, screenY + 4);
             }
         });
         
+        // Render Telemetry Box if Target Selected
+        if (this.activeTarget) {
+            this.ctx.fillStyle = "rgba(10, 5, 0, 0.8)";
+            this.ctx.fillRect(this.canvas.width - 250, 10, 240, 110);
+            this.ctx.strokeStyle = "#ffb000";
+            this.ctx.strokeRect(this.canvas.width - 250, 10, 240, 110);
+            
+            this.ctx.fillStyle = "#ffb000";
+            this.ctx.font = "bold 14px 'Courier New'";
+            this.ctx.fillText(`TARGET: ${this.activeTarget.name}`, this.canvas.width - 240, 30);
+            
+            this.ctx.font = "12px 'Courier New'";
+            this.ctx.fillText(`RADIUS: ${this.activeTarget.radius.toLocaleString()} KM`, this.canvas.width - 240, 50);
+            
+            if (this.activeTarget.name !== "FURRA") {
+                this.ctx.fillText(`SEMI-MAJOR: ${this.activeTarget.a.toLocaleString()} KM`, this.canvas.width - 240, 70);
+                this.ctx.fillText(`ECCENTRICITY: ${this.activeTarget.e}`, this.canvas.width - 240, 90);
+                const periodHours = (this.activeTarget.period / 3600).toFixed(2);
+                this.ctx.fillText(`PERIOD: ${periodHours} HOURS`, this.canvas.width - 240, 110);
+            } else {
+                this.ctx.fillText(`CLASS: HABITABLE TERRESTRIAL`, this.canvas.width - 240, 70);
+                this.ctx.fillText(`STATUS: LOCAL ANCHOR`, this.canvas.width - 240, 90);
+            }
+        }
+        
         // Scale / UI Overlay
+        this.ctx.fillStyle = "#ffb000";
         this.ctx.font = "14px 'Courier New'";
         this.ctx.fillText(`SCALE: 1px = ${(1/this.camera.zoom).toFixed(0)} km`, 10, 20);
         this.ctx.fillText(`TIME MULTIPLIER: ${this.timeScale}x`, 10, 40);
@@ -286,7 +375,7 @@ const Terminal={
                 this.inputField.disabled = false;
                 this.inputWrapper.classList.add('app-mode');
                 
-                this.outputLog.innerText = appName + " ONLINE.\nAWAITING TARGET DESIGNATION (e.g. FURRA) OR TYPE 'TERMINATE'.";
+                this.outputLog.innerText = appName + " ONLINE.\nAWAITING TARGET DESIGNATION OR TYPE 'TERMINATE'.";
                 this.inputField.focus();
             }
         }, 100);
@@ -303,17 +392,27 @@ const Terminal={
                 this.inputWrapper.classList.remove('app-mode');
                 MapEngine.stop();
                 this.outputLog.innerText = "OSIRIS KERNEL RESTORED.\nAPP TERMINATED.";
-            } else {
-                if (this.currentApp === "PLANETARY CHARTS") {
+            } else if (this.currentApp === "PLANETARY CHARTS") {
+                // Check if map is running first
+                if (!MapEngine.isRunning) {
                     if (cmd === "FURRA") {
                         MapEngine.start();
+                        MapEngine.selectTargetByName("FURRA");
                     } else {
-                        this.outputLog.innerText += "\n> " + cmd + "\nERR: TARGET NOT FOUND IN DATABASE.";
+                        this.outputLog.innerText += "\n> " + cmd + "\nERR: TARGET NOT FOUND OR MAP NOT INITIALIZED. START WITH 'FURRA'.";
                         window.scrollTo(0,document.body.scrollHeight);
                     }
                 } else {
-                    this.log("> " + cmd + "\nERR: APP [" + this.currentApp + "] IS RUNNING. TYPE 'TERMINATE' TO EXIT.");
+                    // Map is running, pass command to selection engine
+                    let found = MapEngine.selectTargetByName(cmd);
+                    if (!found) {
+                        this.inputField.value = "";
+                        this.inputField.placeholder = "ERR: UNKNOWN BODY";
+                        setTimeout(() => this.inputField.placeholder = "", 2000);
+                    }
                 }
+            } else {
+                this.log("> " + cmd + "\nERR: APP [" + this.currentApp + "] IS RUNNING. TYPE 'TERMINATE' TO EXIT.");
             }
             return;
         }
