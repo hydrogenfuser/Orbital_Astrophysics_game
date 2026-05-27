@@ -1,15 +1,7 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>ORBITAL OS</title>
 <style>
 /* SEGMENT 1.1: UNIVERSAL UI - AMBER & CRT */
-:root{--t:#ffb000;--b:#0a0500;--f:'Courier New',Courier,monospace}body{background:var(--b);color:var(--t);font-family:var(--f);margin:0;padding:20px;overflow:hidden;text-shadow:0 0 5px var(--t)}.terminal-screen,.boot-screen{display:flex;flex-direction:column;height:95vh;justify-content:flex-end}
-/* Scanlines overlay */
-body::after{content:"";position:absolute;top:0;left:0;width:100vw;height:100vh;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.1),rgba(0,0,0,0.1) 1px,transparent 1px,transparent 2px);pointer-events:none;z-index:999}
-/* Boot UI */
-.boot-screen{justify-content:center;align-items:center;text-align:center}.title{font-size:3em;font-weight:bold;margin-bottom:40px;letter-spacing:10px;text-transform:uppercase}.boot-box{border:1px solid var(--t);padding:20px;width:300px}.input-container{margin-bottom:15px;text-align:left}.input-container label{display:block;margin-bottom:5px}
-/* Terminal UI */
-#output-log{white-space:pre-wrap;overflow-y:auto;margin-bottom:10px;padding-right:10px}.input-line{display:flex;align-items:center}.prompt{margin-right:10px;font-weight:bold}
-/* Unified Input Styling */
-input[type=text],input[type=password]{background:transparent;border:1px solid rgba(255,176,0,0.3);color:var(--t);font-family:var(--f);font-size:16px;outline:none;text-shadow:0 0 5px var(--t);padding:5px;width:280px}input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}#terminal-input{border:none;flex-grow:1;width:auto}#submit-btn{border:1px solid var(--t);padding:5px 15px;cursor:pointer;margin-top:10px;display:inline-block}#submit-btn:hover{background:var(--t);color:var(--b);text-shadow:none}
+:root{--t:#ffb000;--b:#0a0500;--f:'Courier New',Courier,monospace}body{background:var(--b);color:var(--t);font-family:var(--f);margin:0;padding:20px;overflow:hidden;text-shadow:0 0 5px var(--t)}.terminal-screen,.boot-screen{display:flex;flex-direction:column;height:95vh;justify-content:flex-end}body::after{content:"";position:absolute;top:0;left:0;width:100vw;height:100vh;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.1),rgba(0,0,0,0.1) 1px,transparent 1px,transparent 2px);pointer-events:none;z-index:999}.boot-screen{justify-content:center;align-items:center;text-align:center}.title{font-size:3em;font-weight:bold;margin-bottom:40px;letter-spacing:10px;text-transform:uppercase}.boot-box{border:1px solid var(--t);padding:20px;width:300px}.input-container{margin-bottom:15px;text-align:left}.input-container label{display:block;margin-bottom:5px}#output-log{white-space:pre-wrap;overflow-y:auto;margin-bottom:10px;padding-right:10px}.input-line{display:flex;align-items:center}.prompt{margin-right:10px;font-weight:bold}input[type=text],input[type=password]{background:transparent;border:1px solid rgba(255,176,0,0.3);color:var(--t);font-family:var(--f);font-size:16px;outline:none;text-shadow:0 0 5px var(--t);padding:5px;width:280px}input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}#terminal-input{border:none;flex-grow:1;width:auto}#submit-btn{border:1px solid var(--t);padding:5px 15px;cursor:pointer;margin-top:10px;display:inline-block}#submit-btn:hover{background:var(--t);color:var(--b);text-shadow:none}
 </style>
 </head><body>
 <div id="boot-screen" class="boot-screen">
@@ -25,23 +17,67 @@ input[type=text],input[type=password]{background:transparent;border:1px solid rg
     <div class="input-line"><span class="prompt">></span><input type="text" id="terminal-input" autocomplete="off"></div>
 </div>
 <script>
-// SEGMENT 1.2: AUTH SYSTEM (MOUSE ENABLED)
+// SEGMENT 1.2: AUTH SYSTEM
 const AuthSystem={isAuthenticated:!1,validUser:"DIRECTOR",validPass:"TIER0",attemptLogin:function(){const e=document.getElementById("user-input").value.toUpperCase().trim(),t=document.getElementById("pass-input").value.toUpperCase().trim();e===this.validUser&&t===this.validPass?(this.isAuthenticated=!0,document.getElementById("boot-screen").style.display="none",document.getElementById("terminal-screen").style.display="flex",Terminal.log("\n[AUTH SUCCESS] WELCOME TO ORBITAL.\nType 'HELP' for commands."),Terminal.inputField.focus()):(Terminal.clearInputs(),Terminal.log("ERR: INVALID CREDENTIALS."))}};
-// SEGMENT 1.3: TERMINAL ENGINE & COMMAND PARSER
-const Terminal={outputLog:document.getElementById("output-log"),inputField:document.getElementById("terminal-input"),userInput:document.getElementById("user-input"),init:function(){
-    // Handle Enter keys
-    this.userInput.addEventListener("keydown",e=>{"Enter"===e.key&&this.userInput.value.trim()!=""&&document.getElementById("pass-input").focus()});document.getElementById("pass-input").addEventListener("keydown",e=>{"Enter"===e.key&&AuthSystem.attemptLogin()});this.inputField.addEventListener("keydown",e=>{"Enter"===e.key&&(e=this.inputField.value,""!==e.trim()&&this.processInput(e),this.inputField.value="")});
-    // Handle Mouse Clicks
-    document.getElementById("submit-btn").addEventListener("click",()=>AuthSystem.attemptLogin());
-    // Auto-focus first box
-    this.userInput.focus()
-},processInput:function(e){this.log("> "+e);const t=e.toLowerCase().trim();
-    // COMMAND PARSER START
-    if(t=="help"){this.log("AVAILABLE COMMANDS:\nHELP - Displays this list.\nLIST - Lists current agency assets.\nLOGOUT - Secure terminal.")}
-    else if(t=="list"){this.log("AGENCY ASSET LIST:\n--- TIER 0 ---\n[READY] sounding_rocket_alpha\n[BUILDING] test_stand_01 (4h 12m)\n--- PROTOTECKS ---\n(None Registered)")}
-    else if(t=="logout"){location.reload()}
-    else{this.log("ERR: UNKNOWN COMMAND.")}
-    // COMMAND PARSER END
-},log:function(e){this.outputLog.innerText+="\n"+e,window.scrollTo(0,document.body.scrollHeight)},clearInputs:function(){document.getElementById("user-input").value="",document.getElementById("pass-input").value="",this.userInput.focus()}};window.onload=()=>Terminal.init();
+
+// SEGMENT 1.3: TERMINAL ENGINE
+const Terminal={
+    outputLog:document.getElementById("output-log"),
+    inputField:document.getElementById("terminal-input"),
+    userInput:document.getElementById("user-input"),
+    currentApp: null, // Tracks if an executable is currently running
+    
+    init:function(){
+        this.userInput.addEventListener("keydown",e=>{"Enter"===e.key&&this.userInput.value.trim()!=""&&document.getElementById("pass-input").focus()});
+        document.getElementById("pass-input").addEventListener("keydown",e=>{"Enter"===e.key&&AuthSystem.attemptLogin()});
+        this.inputField.addEventListener("keydown",e=>{"Enter"===e.key&&(e=this.inputField.value,""!==e.trim()&&this.processInput(e),this.inputField.value="")});
+        document.getElementById("submit-btn").addEventListener("click",()=>AuthSystem.attemptLogin());
+        this.userInput.focus();
+    },
+    
+    processInput:function(input){
+        this.log("> " + input);
+        const cmd = input.toUpperCase().trim();
+
+        // If an app is running, intercept all commands until TERMINATE
+        if (this.currentApp !== null) {
+            if (cmd === "TERMINATE") {
+                this.log("[" + this.currentApp + "] TERMINATED. RETURNED TO KERNEL.");
+                this.currentApp = null;
+            } else {
+                this.log("ERR: APP [" + this.currentApp + "] IS RUNNING. TYPE 'TERMINATE' TO EXIT.");
+            }
+            return;
+        }
+
+        // --- COMMAND PARSER (EASY TO REPLACE TIDBITS) ---
+        switch(cmd) {
+            case "HELP":
+                this.log("AVAILABLE COMMANDS:\nHELP - Displays this list.\nLIST - Lists current agency assets.\nLOGOUT - Secure terminal.\n\nEXECUTABLES:\nVAB\nDSN\nCONTRACTS\nMETAR DATA\nPLANETARY CHARTS");
+                break;
+            case "LIST":
+                this.log("AGENCY ASSET LIST:\n--- TIER 0 ---\n[READY] sounding_rocket_alpha\n[BUILDING] test_stand_01 (4h 12m)\n--- PROTOTECKS ---\n(None Registered)");
+                break;
+            case "LOGOUT":
+                location.reload();
+                break;
+            case "VAB":
+            case "DSN":
+            case "CONTRACTS":
+            case "METAR DATA":
+            case "PLANETARY CHARTS":
+                this.currentApp = cmd;
+                this.log("EXECUTING [" + cmd + "]...\nPROCESS COMPLETE. APP RUNNING IN FOREGROUND.");
+                break;
+            default:
+                this.log("ERR: UNKNOWN COMMAND.");
+        }
+        // --- END COMMAND PARSER ---
+    },
+    
+    log:function(e){this.outputLog.innerText+="\n"+e,window.scrollTo(0,document.body.scrollHeight)},
+    clearInputs:function(){document.getElementById("user-input").value="",document.getElementById("pass-input").value="",this.userInput.focus()}
+};
+window.onload=()=>Terminal.init();
 </script>
 </body></html>
