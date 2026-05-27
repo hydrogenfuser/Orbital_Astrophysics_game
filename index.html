@@ -2,6 +2,8 @@
 <style>
 /* SEGMENT 1.1: UNIVERSAL UI - AMBER & CRT */
 :root{--t:#ffb000;--b:#0a0500;--f:'Courier New',Courier,monospace}body{background:var(--b);color:var(--t);font-family:var(--f);margin:0;padding:20px;overflow:hidden;text-shadow:0 0 5px var(--t)}.terminal-screen,.boot-screen{display:flex;flex-direction:column;height:95vh;justify-content:flex-end}body::after{content:"";position:absolute;top:0;left:0;width:100vw;height:100vh;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.1),rgba(0,0,0,0.1) 1px,transparent 1px,transparent 2px);pointer-events:none;z-index:999}.boot-screen{justify-content:center;align-items:center;text-align:center}.title{font-size:3em;font-weight:bold;margin-bottom:40px;letter-spacing:10px;text-transform:uppercase}.boot-box{border:1px solid var(--t);padding:20px;width:300px}.input-container{margin-bottom:15px;text-align:left}.input-container label{display:block;margin-bottom:5px}#output-log{white-space:pre-wrap;overflow-y:auto;margin-bottom:10px;padding-right:10px}.input-line{display:flex;align-items:center}.prompt{margin-right:10px;font-weight:bold}input[type=text],input[type=password]{background:transparent;border:1px solid rgba(255,176,0,0.3);color:var(--t);font-family:var(--f);font-size:16px;outline:none;text-shadow:0 0 5px var(--t);padding:5px;width:280px}input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}#terminal-input{border:none;flex-grow:1;width:auto}#submit-btn{border:1px solid var(--t);padding:5px 15px;cursor:pointer;margin-top:10px;display:inline-block}#submit-btn:hover{background:var(--t);color:var(--b);text-shadow:none}
+/* APP MODE UI CHANGES */
+.input-line.app-mode {border-top: 1px solid var(--t); padding-top: 10px; margin-top: 10px;}
 </style>
 </head><body>
 <div id="boot-screen" class="boot-screen">
@@ -14,7 +16,7 @@
 </div>
 <div id="terminal-screen" class="terminal-screen" style="display:none;">
     <div id="output-log">OSIRIS KERNEL BOOT (AMBER)... OK.</div>
-    <div class="input-line"><span class="prompt">></span><input type="text" id="terminal-input" autocomplete="off"></div>
+    <div id="input-wrapper" class="input-line"><span class="prompt">></span><input type="text" id="terminal-input" autocomplete="off"></div>
 </div>
 <script>
 // SEGMENT 1.2: AUTH SYSTEM
@@ -24,8 +26,9 @@ const AuthSystem={isAuthenticated:!1,validUser:"DIRECTOR",validPass:"TIER0",atte
 const Terminal={
     outputLog:document.getElementById("output-log"),
     inputField:document.getElementById("terminal-input"),
+    inputWrapper:document.getElementById("input-wrapper"),
     userInput:document.getElementById("user-input"),
-    currentApp: null, // Tracks if an executable is currently running
+    currentApp: null,
     
     init:function(){
         this.userInput.addEventListener("keydown",e=>{"Enter"===e.key&&this.userInput.value.trim()!=""&&document.getElementById("pass-input").focus()});
@@ -34,23 +37,67 @@ const Terminal={
         document.getElementById("submit-btn").addEventListener("click",()=>AuthSystem.attemptLogin());
         this.userInput.focus();
     },
+
+    // --- NEW LOADING BAR SYSTEM ---
+    launchApp:function(appName){
+        this.currentApp = "LOADING"; 
+        this.inputField.disabled = true; // Lock keyboard
+        
+        // Random time between 5s (5000ms) and 10s (10000ms)
+        const loadTime = Math.floor(Math.random() * 5000) + 5000;
+        const ticks = loadTime / 100;
+        let currentTick = 0;
+        
+        const loader = setInterval(() => {
+            currentTick++;
+            let pct = Math.floor((currentTick / ticks) * 100);
+            
+            // Build the progress bar visual: [██████░░░░]
+            let pBar = "[";
+            for(let i=0; i<20; i++) pBar += (i < pct/5) ? "█" : "░";
+            pBar += "] " + pct + "%";
+            
+            // Overwrite the entire log screen
+            this.outputLog.innerText = "ACCESSING " + appName + " MAINFRAME...\n" + pBar;
+            
+            if (currentTick >= ticks) {
+                clearInterval(loader);
+                this.currentApp = appName;
+                this.inputField.disabled = false;
+                this.inputWrapper.classList.add('app-mode'); // Turn on orange border
+                
+                // Final App UI
+                this.outputLog.innerText = appName + " ONLINE.\nAWAITING TARGET DESIGNATION (e.g. FURRA) OR TYPE 'TERMINATE'.";
+                this.inputField.focus();
+            }
+        }, 100);
+    },
     
     processInput:function(input){
-        this.log("> " + input);
         const cmd = input.toUpperCase().trim();
 
-        // If an app is running, intercept all commands until TERMINATE
+        // APP LOCKOUT LOGIC
         if (this.currentApp !== null) {
+            if (this.currentApp === "LOADING") return; // Completely ignore typing while loading
+
             if (cmd === "TERMINATE") {
-                this.log("[" + this.currentApp + "] TERMINATED. RETURNED TO KERNEL.");
                 this.currentApp = null;
+                this.inputWrapper.classList.remove('app-mode'); // Remove border
+                this.outputLog.innerText = "OSIRIS KERNEL RESTORED.\nAPP TERMINATED.";
             } else {
-                this.log("ERR: APP [" + this.currentApp + "] IS RUNNING. TYPE 'TERMINATE' TO EXIT.");
+                // INSIDE PLANETARY CHARTS
+                if (this.currentApp === "PLANETARY CHARTS") {
+                    this.outputLog.innerText += "\n> " + cmd + "\nERR: RENDER ENGINE OFFLINE. TARGET [" + cmd + "] CANNOT BE DRAWN YET.";
+                    window.scrollTo(0,document.body.scrollHeight);
+                } else {
+                    this.log("> " + cmd + "\nERR: APP [" + this.currentApp + "] IS RUNNING. TYPE 'TERMINATE' TO EXIT.");
+                }
             }
             return;
         }
 
-        // --- COMMAND PARSER (EASY TO REPLACE TIDBITS) ---
+        // --- KERNEL COMMAND PARSER ---
+        this.log("> " + cmd);
         switch(cmd) {
             case "HELP":
                 this.log("AVAILABLE COMMANDS:\nHELP - Displays this list.\nLIST - Lists current agency assets.\nLOGOUT - Secure terminal.\n\nEXECUTABLES:\nVAB\nDSN\nCONTRACTS\nMETAR DATA\nPLANETARY CHARTS");
@@ -61,18 +108,19 @@ const Terminal={
             case "LOGOUT":
                 location.reload();
                 break;
+            case "PLANETARY CHARTS":
+                this.launchApp(cmd);
+                break;
             case "VAB":
             case "DSN":
             case "CONTRACTS":
             case "METAR DATA":
-            case "PLANETARY CHARTS":
                 this.currentApp = cmd;
                 this.log("EXECUTING [" + cmd + "]...\nPROCESS COMPLETE. APP RUNNING IN FOREGROUND.");
                 break;
             default:
                 this.log("ERR: UNKNOWN COMMAND.");
         }
-        // --- END COMMAND PARSER ---
     },
     
     log:function(e){this.outputLog.innerText+="\n"+e,window.scrollTo(0,document.body.scrollHeight)},
