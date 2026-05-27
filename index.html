@@ -26,7 +26,7 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
     top: 0;
     left: 0;
     width: 100%;
-    height: calc(100% - 50px); /* Leaves room for the prompt */
+    height: calc(100% - 50px);
     display: none;
     cursor: grab;
 }
@@ -58,30 +58,35 @@ const MapEngine = {
     ctx: null,
     isRunning: false,
     
-    // Camera settings
-    camera: { x: 0, y: 0, zoom: 0.0015 }, // 1 pixel = 1km. Start zoomed out to see Kiitos (340k km)
+    camera: { x: 0, y: 0, zoom: 0.0015 }, 
     isDragging: false,
     dragStart: { x: 0, y: 0 },
     
-    // Physics / Time settings
     startTime: Date.now(),
-    timeScale: 1, // 1 = Real Time. Increase to 3600 to see 1 hour per real-time second.
+    timeScale: 1, 
     
-    // Data: All distances in km, periods in seconds
     system: {
-        centerName: "FURRA", // Focusing on Furra local system for now
+        centerName: "FURRA",
         furraRadius: 5796,
-        rings: { inner: 8296, outer: 13086 }, // 2500km to 7290km altitude
+        rings: { 
+            innerStart: 8296, 
+            innerEnd: 11700, 
+            outerStart: 11900, 
+            outerEnd: 13086 
+        },
         bodies: [
-            { name: "HARMONY", a: 11796, e: 0.001, radius: 21, period: 14004 },     // 3.89h
-            { name: "KIITOS", a: 340000, e: 0.05, radius: 1876, period: 2171520 }  // 603.2h (18.85 days)
+            { name: "HARMONY", a: 11796, e: 0.001, radius: 21, period: 14004 },     
+            { name: "KIITOS", a: 340000, e: 0.05, radius: 1876, period: 2171520 }  
         ]
     },
+    
+    particles: [],
 
     init: function() {
         this.ctx = this.canvas.getContext("2d");
         this.resize();
         window.addEventListener("resize", () => this.resize());
+        this.generateParticles();
         
         // Mouse Controls
         this.canvas.addEventListener("mousedown", (e) => {
@@ -97,28 +102,40 @@ const MapEngine = {
         
         // Scroll to Zoom (Anchored to mouse)
         this.canvas.addEventListener("wheel", (e) => {
-            const zoomAmount = e.deltaY > 0 ? 0.9 : 1.1; // 10% zoom per tick
-            
-            // Mouse pos relative to canvas
+            const zoomAmount = e.deltaY > 0 ? 0.9 : 1.1; 
             const rect = this.canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
 
-            // Mouse pos in world space BEFORE zoom
             const worldX = (mouseX - this.camera.x - this.canvas.width/2) / this.camera.zoom;
             const worldY = (mouseY - this.camera.y - this.canvas.height/2) / this.camera.zoom;
 
             this.camera.zoom *= zoomAmount;
 
-            // Adjust camera offsets so mouse points to the exact same world space AFTER zoom
             this.camera.x = mouseX - (worldX * this.camera.zoom) - this.canvas.width/2;
             this.camera.y = mouseY - (worldY * this.camera.zoom) - this.canvas.height/2;
         });
     },
 
+    generateParticles: function() {
+        this.particles = [];
+        const count = 3000; 
+        for(let i=0; i<count; i++) {
+            let angle = Math.random() * Math.PI * 2;
+            let r;
+            // 70% chance to be in the wider inner ring, 30% in the outer ring
+            if (Math.random() < 0.7) { 
+                r = this.system.rings.innerStart + Math.random() * (this.system.rings.innerEnd - this.system.rings.innerStart);
+            } else {
+                r = this.system.rings.outerStart + Math.random() * (this.system.rings.outerEnd - this.system.rings.outerStart);
+            }
+            this.particles.push({ angle, r });
+        }
+    },
+
     resize: function() {
         this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight - 50; // Account for input line
+        this.canvas.height = window.innerHeight - 50; 
     },
 
     start: function() {
@@ -147,9 +164,7 @@ const MapEngine = {
         const elapsedSeconds = ((Date.now() - this.startTime) / 1000) * this.timeScale;
         
         this.system.bodies.forEach(body => {
-            // θ = (2π / T) * t
             const theta = ((2 * Math.PI) / body.period) * elapsedSeconds;
-            // r = a(1 - e^2) / (1 + e * cos(θ))
             const r = (body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta));
             
             body.currentX = r * Math.cos(theta);
@@ -160,49 +175,63 @@ const MapEngine = {
     render: function() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.strokeStyle = "#ffb000";
-        this.ctx.fillStyle = "#ffb000";
         this.ctx.lineWidth = 1;
 
         const cx = this.canvas.width / 2 + this.camera.x;
         const cy = this.canvas.height / 2 + this.camera.y;
 
-        // Draw Furra (Center)
+        // Draw Furra (Hollow Wireframe)
         this.ctx.beginPath();
         this.ctx.arc(cx, cy, this.system.furraRadius * this.camera.zoom, 0, 2 * Math.PI);
-        this.ctx.fill();
+        this.ctx.stroke();
 
-        // Draw Rings
-        this.ctx.beginPath();
-        this.ctx.arc(cx, cy, this.system.rings.inner * this.camera.zoom, 0, 2 * Math.PI);
-        this.ctx.arc(cx, cy, this.system.rings.outer * this.camera.zoom, 0, 2 * Math.PI);
-        this.ctx.fillStyle = "rgba(255, 176, 0, 0.2)";
-        this.ctx.fill("evenodd"); // Creates the donut shape
-        this.ctx.fillStyle = "#ffb000"; // Reset
+        // Draw Solid Ring Boundaries (Faint)
+        this.ctx.strokeStyle = "rgba(255, 176, 0, 0.3)";
+        [
+            this.system.rings.innerStart, 
+            this.system.rings.innerEnd, 
+            this.system.rings.outerStart, 
+            this.system.rings.outerEnd
+        ].forEach(r => {
+            this.ctx.beginPath();
+            this.ctx.arc(cx, cy, r * this.camera.zoom, 0, 2 * Math.PI);
+            this.ctx.stroke();
+        });
+
+        // Render Particle Ring System
+        this.ctx.fillStyle = "rgba(255, 176, 0, 0.7)";
+        this.particles.forEach(p => {
+            const px = cx + (p.r * Math.cos(p.angle) * this.camera.zoom);
+            const py = cy + (p.r * Math.sin(p.angle) * this.camera.zoom);
+            this.ctx.fillRect(px, py, 1, 1);
+        });
+
+        // Reset Stroke for Moons
+        this.ctx.strokeStyle = "#ffb000";
+        this.ctx.fillStyle = "#ffb000";
 
         // Draw Moons
         this.system.bodies.forEach(body => {
-            // Draw Orbit Path (Approximation using semi-major axis for visualization)
+            // Draw Orbit Path
             this.ctx.beginPath();
             this.ctx.setLineDash([5, 5]);
-            // To be perfectly accurate visually, center is offset by c = a*e
             const centerOffset = body.a * body.e * this.camera.zoom;
             this.ctx.arc(cx - centerOffset, cy, body.a * this.camera.zoom, 0, 2 * Math.PI);
             this.ctx.stroke();
             this.ctx.setLineDash([]);
 
-            // Draw Body Sphere
+            // Draw Body Sphere (Hollow Wireframe)
             const screenX = cx + (body.currentX * this.camera.zoom);
             const screenY = cy + (body.currentY * this.camera.zoom);
             
-            // Enforce minimum visual size so they don't vanish completely at high zoom-outs
             let visualRadius = body.radius * this.camera.zoom;
             if (visualRadius < 1.5) visualRadius = 1.5;
 
             this.ctx.beginPath();
             this.ctx.arc(screenX, screenY, visualRadius, 0, 2 * Math.PI);
-            this.ctx.fill();
+            this.ctx.stroke(); // Now Hollow
 
-            // Labels (Scale dependent)
+            // Labels
             if (this.camera.zoom > 0.0005) {
                 this.ctx.font = "12px 'Courier New'";
                 this.ctx.fillText(body.name, screenX + 10, screenY + 4);
@@ -230,7 +259,7 @@ const Terminal={
         this.inputField.addEventListener("keydown",e=>{"Enter"===e.key&&(e=this.inputField.value,""!==e.trim()&&this.processInput(e),this.inputField.value="")});
         document.getElementById("submit-btn").addEventListener("click",()=>AuthSystem.attemptLogin());
         this.userInput.focus();
-        MapEngine.init(); // Initialize map listeners
+        MapEngine.init(); 
     },
 
     launchApp:function(appName){
@@ -272,7 +301,7 @@ const Terminal={
             if (cmd === "TERMINATE") {
                 this.currentApp = null;
                 this.inputWrapper.classList.remove('app-mode');
-                MapEngine.stop(); // Stops map if running
+                MapEngine.stop();
                 this.outputLog.innerText = "OSIRIS KERNEL RESTORED.\nAPP TERMINATED.";
             } else {
                 if (this.currentApp === "PLANETARY CHARTS") {
