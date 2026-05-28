@@ -57,22 +57,32 @@ const MapEngine = {
     ctx: null,
     isRunning: false,
     
-    camera: { x: 0, y: 0, zoom: 0.0000015 }, // Start zoomed out to see Furra orbit
+    camera: { x: 0, y: 0, zoom: 0.0000015 }, 
     isDragging: false,
     dragStart: { x: 0, y: 0 },
     mouseMoved: false,
     isTracking: false, 
     
     startTime: Date.now(),
-    timeScale: 3600, 
+    timeScale: 1, // TRUE TIME SCALING
     
     activeTarget: null, 
     
     system: {
-        name: "OSIRIS", radius: 12.6, discRadius: 24000000, currentX: 0, currentY: 0,
+        name: "OSIRIS", radius: 12.6, currentX: 0, currentY: 0,
+        // Solid Accretion Disc Segments
+        discs: [
+            { start: 12.6, end: 8000000, color: "rgba(255, 176, 0, 0.4)" },
+            { start: 8000000, end: 16000000, color: "rgba(255, 176, 0, 0.2)" },
+            { start: 16000000, end: 24000000, color: "rgba(255, 176, 0, 0.08)" }
+        ],
+        desc_astro: "CLASS: STELLAR BLACK HOLE\nMASS:  2.542 SOLAR MASSES\nAGE:   ~200 MILLION YEARS",
+        desc_topo: "SURFACE: EVENT HORIZON\nTEMP:    ~6000K (DISC)\nHAZARD:  EXTREME RADIATION",
         bodies: [
             {
                 name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, currentX: 0, currentY: 0, currentR: 0,
+                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nGRAVITY: 1.0G (STANDARD)\nDAY:   32 HOURS",
+                desc_topo: "SURFACE: LIQUID WATER / ROCK\nATMOS:   N2, O2, AR (DENSE)\nHAZARD:  EQUATORIAL DUST",
                 rings: [
                     { name: "A", start: 8296, end: 9596, color: "rgba(255, 176, 0, 0.15)" },
                     { name: "B", start: 9596, end: 11296, color: "rgba(255, 176, 0, 0.30)" },
@@ -81,8 +91,12 @@ const MapEngine = {
                     { name: "E", start: 12596, end: 13086, color: "rgba(255, 176, 0, 0.10)" }
                 ],
                 bodies: [
-                    { name: "HARMONY", a: 11796, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004, currentX: 0, currentY: 0, currentR: 0 },     
-                    { name: "KIITOS", a: 340000, e: 0.05, inc: 2.1, lan: 45.0, argp: 90.0, radius: 1876, period: 2171520, currentX: 0, currentY: 0, currentR: 0 }  
+                    { name: "HARMONY", a: 11796, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004, currentX: 0, currentY: 0, currentR: 0,
+                      desc_astro: "CLASS: SHEPHERD MOON\nGRAVITY: MICROGRAVITY\nLOCKED:  YES",
+                      desc_topo: "SURFACE: ROCK / ICE\nROLE:    RING CLEARANCE\nHAZARD:  KESSLER SYNDROME" },     
+                    { name: "KIITOS", a: 340000, e: 0.05, inc: 2.1, lan: 45.0, argp: 90.0, radius: 1876, period: 2171520, currentX: 0, currentY: 0, currentR: 0,
+                      desc_astro: "CLASS: MAJOR LUNAR BODY\nGRAVITY: ~0.16G (1/6 FURRA)\nLOCKED:  YES",
+                      desc_topo: "SURFACE: REGOLITH / CRATERS\nROLE:    TIDAL DRIVER\nHAZARD:  VACUUM" }  
                 ]
             }
         ]
@@ -129,7 +143,7 @@ const MapEngine = {
             let newZoom = this.camera.zoom * zoomAmount;
             
             if (newZoom < 0.00000005) newZoom = 0.00000005; 
-            if (newZoom > 10.0) newZoom = 10.0; // Extreme zoom allowed to see 12.6km radius
+            if (newZoom > 10.0) newZoom = 10.0; 
 
             this.camera.zoom = newZoom;
             
@@ -138,9 +152,9 @@ const MapEngine = {
                 this.camera.y = mouseY - (worldY * this.camera.zoom) - this.canvas.height/2;
             }
 
-            // --- CONTEXTUAL AUTO-TRACKING LOGIC ---
+            // Contextual Auto-Tracking 
             let visibleMajorBodies = [];
-            let bodiesToCheck = [this.system, ...this.system.bodies]; // Osiris and Furra
+            let bodiesToCheck = [this.system, ...this.system.bodies]; 
             const cx = this.canvas.width / 2 + this.camera.x;
             const cy = this.canvas.height / 2 + this.camera.y;
 
@@ -153,13 +167,11 @@ const MapEngine = {
             });
 
             if (e.deltaY < 0) {
-                // Zooming IN: If isolated on a single body, automatically lock onto it
                 if (visibleMajorBodies.length === 1 && !this.isTracking) {
                     this.activeTarget = visibleMajorBodies[0];
                     this.isTracking = true;
                 }
             } else {
-                // Zooming OUT: If another body enters the screen, elegantly break the tracking lock
                 if (this.isTracking && visibleMajorBodies.length > 1) {
                     this.isTracking = false;
                 }
@@ -172,7 +184,7 @@ const MapEngine = {
         const cy = this.canvas.height / 2 + this.camera.y;
         
         let oVisRad = this.system.radius * this.camera.zoom;
-        if (oVisRad < 15) oVisRad = 15; // Generous hit box for tiny central anchor
+        if (oVisRad < 15) oVisRad = 15; 
 
         if (Math.hypot(mouseX - cx, mouseY - cy) < oVisRad) {
             this.activeTarget = this.system;
@@ -291,18 +303,21 @@ const MapEngine = {
         const cx = this.canvas.width / 2 + this.camera.x;
         const cy = this.canvas.height / 2 + this.camera.y;
 
-        // 1. Render Osiris Accretion Disc (24M km)
-        let discVisRad = this.system.discRadius * this.camera.zoom;
-        if (discVisRad > 0.5) {
-            let grad = this.ctx.createRadialGradient(cx, cy, 0, cx, cy, discVisRad);
-            grad.addColorStop(0, "rgba(50, 150, 255, 0.9)");   // Dense blue inner/jets
-            grad.addColorStop(0.3, "rgba(200, 230, 255, 0.4)"); // Fading blue
-            grad.addColorStop(0.7, "rgba(255, 255, 255, 0.2)"); // White hot outer
-            grad.addColorStop(1, "rgba(255, 255, 255, 0)");     // Vacuum taper
-            this.ctx.beginPath();
-            this.ctx.arc(cx, cy, discVisRad, 0, 2 * Math.PI);
-            this.ctx.fillStyle = grad;
-            this.ctx.fill();
+        // 1. Render Osiris Solid Accretion Discs
+        if (this.camera.zoom > 0.0000001) {
+            this.system.discs.forEach(disc => {
+                const discRadius = (disc.start + disc.end) / 2;
+                const discWidth = disc.end - disc.start;
+                // Only render if it's large enough to be seen, prevents sub-pixel rendering bugs
+                if (discRadius * this.camera.zoom > 0.5) {
+                    this.ctx.beginPath();
+                    this.ctx.arc(cx, cy, discRadius * this.camera.zoom, 0, 2 * Math.PI);
+                    this.ctx.lineWidth = discWidth * this.camera.zoom;
+                    this.ctx.strokeStyle = disc.color;
+                    this.ctx.stroke();
+                }
+            });
+            this.ctx.lineWidth = 1; 
         }
 
         // 2. Draw Osiris Event Horizon (12.6 km)
@@ -397,46 +412,71 @@ const MapEngine = {
             });
         });
         
-        // 8. Detailed Telemetry Box
+        // 8. Comprehensive Inventory Telemetry Box
         if (this.activeTarget) {
             let isAnchor = this.activeTarget.name === "OSIRIS";
             let isPlanet = this.activeTarget.name === "FURRA";
-            let boxHeight = isAnchor ? 110 : 210;
-            let startX = this.canvas.width - 290;
+            
+            let boxWidth = 340;
+            let boxHeight = isAnchor ? 230 : 340;
+            let startX = this.canvas.width - (boxWidth + 10);
             let textX = startX + 10;
             
-            this.ctx.fillStyle = "rgba(10, 5, 0, 0.8)";
-            this.ctx.fillRect(startX, 10, 280, boxHeight);
+            this.ctx.fillStyle = "rgba(10, 5, 0, 0.85)";
+            this.ctx.fillRect(startX, 10, boxWidth, boxHeight);
             this.ctx.strokeStyle = "#ffb000";
-            this.ctx.strokeRect(startX, 10, 280, boxHeight);
+            this.ctx.strokeRect(startX, 10, boxWidth, boxHeight);
             
             this.ctx.fillStyle = "#ffb000";
-            this.ctx.font = "bold 14px 'Courier New'";
-            this.ctx.fillText(`TARGET: ${this.activeTarget.name}`, textX, 30);
-            this.ctx.font = "12px 'Courier New'";
-            this.ctx.fillText(`RADIUS:   ${this.activeTarget.radius.toLocaleString()} KM`, textX, 50);
+            this.ctx.font = "bold 16px 'Courier New'";
+            this.ctx.fillText(`TARGET DIRECTORY: ${this.activeTarget.name}`, textX, 30);
             
-            if (isAnchor) {
-                this.ctx.fillText(`CLASS:    BLACK HOLE (2.54M☉)`, textX, 70);
-                this.ctx.fillText(`DISC:     0.16 AU`, textX, 90);
-            } else {
+            // Separator line
+            this.ctx.beginPath();
+            this.ctx.moveTo(startX, 40);
+            this.ctx.lineTo(startX + boxWidth, 40);
+            this.ctx.stroke();
+
+            this.ctx.font = "bold 12px 'Courier New'";
+            this.ctx.fillText(`[ ASTROPHYSICS ]`, textX, 60);
+            this.ctx.font = "12px 'Courier New'";
+            this.ctx.fillText(`RADIUS:  ${this.activeTarget.radius.toLocaleString()} KM`, textX, 80);
+            let astroLines = this.activeTarget.desc_astro.split('\n');
+            for(let i=0; i<astroLines.length; i++) this.ctx.fillText(astroLines[i], textX, 100 + (i*20));
+
+            let currentY = 100 + (astroLines.length * 20);
+
+            if (!isAnchor) {
+                this.ctx.font = "bold 12px 'Courier New'";
+                this.ctx.fillText(`[ ORBITAL DATA ]`, textX, currentY);
+                this.ctx.font = "12px 'Courier New'";
+                
                 let parentRadius = isPlanet ? 0 : this.system.bodies[0].radius;
                 const alt = Math.round(this.activeTarget.currentR - parentRadius);
-                this.ctx.fillText(`DISTANCE: ${alt.toLocaleString()} KM`, textX, 70);
-                this.ctx.fillText(`SMA (a):  ${this.activeTarget.a.toLocaleString()} KM`, textX, 90);
-                this.ctx.fillText(`ECC (e):  ${this.activeTarget.e}`, textX, 110);
-                this.ctx.fillText(`INC (i):  ${this.activeTarget.inc.toFixed(1)}°`, textX, 130);
-                this.ctx.fillText(`LAN (Ω):  ${this.activeTarget.lan.toFixed(1)}°`, textX, 150);
-                this.ctx.fillText(`ARG (ω):  ${this.activeTarget.argp.toFixed(1)}°`, textX, 170);
+                this.ctx.fillText(`DISTANCE: ${alt.toLocaleString()} KM`, textX, currentY + 20);
+                this.ctx.fillText(`SMA (a):  ${this.activeTarget.a.toLocaleString()} KM`, textX, currentY + 40);
+                this.ctx.fillText(`ECC (e):  ${this.activeTarget.e}`, textX, currentY + 60);
+                this.ctx.fillText(`INC (i):  ${this.activeTarget.inc.toFixed(1)}°`, textX, currentY + 80);
+                this.ctx.fillText(`LAN (Ω):  ${this.activeTarget.lan.toFixed(1)}°`, textX, currentY + 100);
+                this.ctx.fillText(`ARG (ω):  ${this.activeTarget.argp.toFixed(1)}°`, textX, currentY + 120);
                 
                 if (isPlanet) {
                     const periodDays = (this.activeTarget.period / (3600*32)).toFixed(2);
-                    this.ctx.fillText(`PERIOD:   ${periodDays} FURRA DAYS`, textX, 190);
+                    this.ctx.fillText(`PERIOD:   ${periodDays} FURRA DAYS`, textX, currentY + 140);
                 } else {
                     const periodHours = (this.activeTarget.period / 3600).toFixed(2);
-                    this.ctx.fillText(`PERIOD:   ${periodHours} HOURS`, textX, 190);
+                    this.ctx.fillText(`PERIOD:   ${periodHours} HOURS`, textX, currentY + 140);
                 }
+                currentY += 170;
+            } else {
+                currentY += 10;
             }
+
+            this.ctx.font = "bold 12px 'Courier New'";
+            this.ctx.fillText(`[ TOPOGRAPHY & COMPOSITE ]`, textX, currentY);
+            this.ctx.font = "12px 'Courier New'";
+            let topoLines = this.activeTarget.desc_topo.split('\n');
+            for(let i=0; i<topoLines.length; i++) this.ctx.fillText(topoLines[i], textX, currentY + 20 + (i*20));
         }
         
         // Scale / UI Overlay
