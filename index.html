@@ -51,36 +51,40 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
 <script>
 const AuthSystem={isAuthenticated:!1,validUser:"DIRECTOR",validPass:"TIER0",attemptLogin:function(){const e=document.getElementById("user-input").value.toUpperCase().trim(),t=document.getElementById("pass-input").value.toUpperCase().trim();e===this.validUser&&t===this.validPass?(this.isAuthenticated=!0,document.getElementById("boot-screen").style.display="none",document.getElementById("terminal-screen").style.display="flex",Terminal.log("\n[AUTH SUCCESS] WELCOME TO ORBITAL.\nType 'HELP' for commands."),Terminal.inputField.focus()):(Terminal.clearInputs(),Terminal.log("ERR: INVALID CREDENTIALS."))}};
 
-// --- ASTROPHYSICS ENGINE ---
+// --- HIERARCHICAL ASTROPHYSICS ENGINE ---
 const MapEngine = {
     canvas: document.getElementById("map-canvas"),
     ctx: null,
     isRunning: false,
     
-    camera: { x: 0, y: 0, zoom: 0.0015 }, 
+    camera: { x: 0, y: 0, zoom: 0.0001 }, 
     isDragging: false,
     dragStart: { x: 0, y: 0 },
     mouseMoved: false,
+    isTracking: false, // Locks camera to activeTarget
     
     startTime: Date.now(),
-    timeScale: 1, 
+    timeScale: 3600, // Defaulted to 3600x (1 real second = 1 game hour) to see orbits move
     
     activeTarget: null, 
     
     system: {
-        name: "FURRA", radius: 5796, x: 0, y: 0, 
-        // Ring segments defined by absolute radius from planetary core
-        rings: [
-            { name: "A", start: 8296, end: 9596, color: "rgba(255, 176, 0, 0.15)" },
-            { name: "B", start: 9596, end: 11296, color: "rgba(255, 176, 0, 0.30)" }, // Brightest
-            { name: "C", start: 11296, end: 11646, color: "rgba(255, 176, 0, 0.20)" },
-            // Harmony Gap: 11646 to 11946
-            { name: "D", start: 11946, end: 12596, color: "rgba(255, 176, 0, 0.25)" },
-            { name: "E", start: 12596, end: 13086, color: "rgba(255, 176, 0, 0.10)" }  // Faintest
-        ],
+        name: "OSIRIS", radius: 50000, currentX: 0, currentY: 0, // Central Black Hole Anchor
         bodies: [
-            { name: "HARMONY", a: 11796, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004, currentX: 0, currentY: 0, currentR: 0 },     
-            { name: "KIITOS", a: 340000, e: 0.05, inc: 2.1, lan: 45.0, argp: 90.0, radius: 1876, period: 2171520, currentX: 0, currentY: 0, currentR: 0 }  
+            {
+                name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, currentX: 0, currentY: 0, currentR: 0,
+                rings: [
+                    { name: "A", start: 8296, end: 9596, color: "rgba(255, 176, 0, 0.15)" },
+                    { name: "B", start: 9596, end: 11296, color: "rgba(255, 176, 0, 0.30)" },
+                    { name: "C", start: 11296, end: 11646, color: "rgba(255, 176, 0, 0.20)" },
+                    { name: "D", start: 11946, end: 12596, color: "rgba(255, 176, 0, 0.25)" },
+                    { name: "E", start: 12596, end: 13086, color: "rgba(255, 176, 0, 0.10)" }
+                ],
+                bodies: [
+                    { name: "HARMONY", a: 11796, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004, currentX: 0, currentY: 0, currentR: 0 },     
+                    { name: "KIITOS", a: 340000, e: 0.05, inc: 2.1, lan: 45.0, argp: 90.0, radius: 1876, period: 2171520, currentX: 0, currentY: 0, currentR: 0 }  
+                ]
+            }
         ]
     },
 
@@ -89,9 +93,9 @@ const MapEngine = {
         this.resize();
         window.addEventListener("resize", () => this.resize());
         
-        // Mouse Controls & Click Selection
         this.canvas.addEventListener("mousedown", (e) => {
             this.isDragging = true;
+            this.isTracking = false; // Break camera lock on drag
             this.mouseMoved = false;
             this.dragStart = { x: e.clientX - this.camera.x, y: e.clientY - this.camera.y };
         });
@@ -113,9 +117,8 @@ const MapEngine = {
             }
         });
         
-        // Scroll to Zoom
         this.canvas.addEventListener("wheel", (e) => {
-            const zoomAmount = e.deltaY > 0 ? 0.9 : 1.1; 
+            const zoomAmount = e.deltaY > 0 ? 0.8 : 1.25; 
             const rect = this.canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
@@ -125,12 +128,16 @@ const MapEngine = {
 
             let newZoom = this.camera.zoom * zoomAmount;
             
-            if (newZoom < 0.0001) newZoom = 0.0001; 
-            if (newZoom > 2.0) newZoom = 2.0;
+            // Expanded zoom capabilities to handle hundreds of millions of km
+            if (newZoom < 0.0000002) newZoom = 0.0000002; 
+            if (newZoom > 5.0) newZoom = 5.0;
 
             this.camera.zoom = newZoom;
-            this.camera.x = mouseX - (worldX * this.camera.zoom) - this.canvas.width/2;
-            this.camera.y = mouseY - (worldY * this.camera.zoom) - this.canvas.height/2;
+            
+            if(!this.isTracking) {
+                this.camera.x = mouseX - (worldX * this.camera.zoom) - this.canvas.width/2;
+                this.camera.y = mouseY - (worldY * this.camera.zoom) - this.canvas.height/2;
+            }
         });
     },
 
@@ -138,37 +145,56 @@ const MapEngine = {
         const cx = this.canvas.width / 2 + this.camera.x;
         const cy = this.canvas.height / 2 + this.camera.y;
         
-        let distFurra = Math.hypot(mouseX - cx, mouseY - cy);
-        if (distFurra < (this.system.radius * this.camera.zoom) + 10) {
+        // 1. Check Osiris
+        let distOsiris = Math.hypot(mouseX - cx, mouseY - cy);
+        if (distOsiris < (this.system.radius * this.camera.zoom) + 10) {
             this.activeTarget = this.system;
+            this.isTracking = true;
             return;
         }
 
-        for (let body of this.system.bodies) {
-            const sx = cx + (body.currentX * this.camera.zoom);
-            const sy = cy + (body.currentY * this.camera.zoom);
-            let visualRadius = body.radius * this.camera.zoom;
-            if (visualRadius < 5) visualRadius = 5; 
-            
-            if (Math.hypot(mouseX - sx, mouseY - sy) < visualRadius + 10) {
-                this.activeTarget = body;
+        // 2. Check Furra and Moons
+        for (let planet of this.system.bodies) {
+            const px = cx + (planet.currentX * this.camera.zoom);
+            const py = cy + (planet.currentY * this.camera.zoom);
+            if (Math.hypot(mouseX - px, mouseY - py) < (planet.radius * this.camera.zoom) + 15) {
+                this.activeTarget = planet;
+                this.isTracking = true;
                 return;
+            }
+            // Moons
+            for (let moon of planet.bodies) {
+                const mx = cx + (moon.currentX * this.camera.zoom);
+                const my = cy + (moon.currentY * this.camera.zoom);
+                if (Math.hypot(mouseX - mx, mouseY - my) < (moon.radius * this.camera.zoom) + 10) {
+                    this.activeTarget = moon;
+                    this.isTracking = true;
+                    return;
+                }
             }
         }
         this.activeTarget = null; 
+        this.isTracking = false;
     },
 
     selectTargetByName: function(name) {
-        if (name === "FURRA") {
+        if (name === "OSIRIS") {
             this.activeTarget = this.system;
-            this.camera.x = 0; 
-            this.camera.y = 0;
+            this.isTracking = true;
             return true;
         }
-        for (let body of this.system.bodies) {
-            if (body.name === name) {
-                this.activeTarget = body;
+        for (let planet of this.system.bodies) {
+            if (planet.name === name) {
+                this.activeTarget = planet;
+                this.isTracking = true;
                 return true;
+            }
+            for (let moon of planet.bodies) {
+                if (moon.name === name) {
+                    this.activeTarget = moon;
+                    this.isTracking = true;
+                    return true;
+                }
             }
         }
         return false;
@@ -183,13 +209,14 @@ const MapEngine = {
         this.isRunning = true;
         this.canvas.style.display = "block";
         document.getElementById("output-log").style.display = "none";
-        this.startTime = Date.now();
+        // Do not reset startTime here, this allows orbits to persist over absolute time
         this.loop();
     },
 
     stop: function() {
         this.isRunning = false;
         this.activeTarget = null;
+        this.isTracking = false;
         this.canvas.style.display = "none";
         document.getElementById("output-log").style.display = "block";
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -205,14 +232,29 @@ const MapEngine = {
     update: function() {
         const elapsedSeconds = ((Date.now() - this.startTime) / 1000) * this.timeScale;
         
-        this.system.bodies.forEach(body => {
-            const theta = ((2 * Math.PI) / body.period) * elapsedSeconds;
-            const r = (body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta));
+        // Calculate Furra (Relative to Osiris)
+        this.system.bodies.forEach(planet => {
+            const tP = ((2 * Math.PI) / planet.period) * elapsedSeconds;
+            const rP = (planet.a * (1 - Math.pow(planet.e, 2))) / (1 + planet.e * Math.cos(tP));
+            planet.currentR = rP; 
+            planet.currentX = rP * Math.cos(tP);
+            planet.currentY = rP * Math.sin(tP);
             
-            body.currentR = r; 
-            body.currentX = r * Math.cos(theta);
-            body.currentY = r * Math.sin(theta);
+            // Calculate Moons (Relative to Furra)
+            planet.bodies.forEach(moon => {
+                const tM = ((2 * Math.PI) / moon.period) * elapsedSeconds;
+                const rM = (moon.a * (1 - Math.pow(moon.e, 2))) / (1 + moon.e * Math.cos(tM));
+                moon.currentR = rM;
+                moon.currentX = planet.currentX + (rM * Math.cos(tM));
+                moon.currentY = planet.currentY + (rM * Math.sin(tM));
+            });
         });
+
+        // Camera Tracking Lock
+        if (this.activeTarget && this.isTracking) {
+            this.camera.x = -(this.activeTarget.currentX * this.camera.zoom);
+            this.camera.y = -(this.activeTarget.currentY * this.camera.zoom);
+        }
     },
 
     render: function() {
@@ -221,81 +263,98 @@ const MapEngine = {
         const cx = this.canvas.width / 2 + this.camera.x;
         const cy = this.canvas.height / 2 + this.camera.y;
 
-        // 1. Render Solid Ring Segments (A to E)
-        this.system.rings.forEach(ring => {
-            const ringCenterRadius = (ring.start + ring.end) / 2;
-            const ringWidth = ring.end - ring.start;
-            
-            this.ctx.beginPath();
-            this.ctx.arc(cx, cy, ringCenterRadius * this.camera.zoom, 0, 2 * Math.PI);
-            this.ctx.lineWidth = ringWidth * this.camera.zoom;
-            this.ctx.strokeStyle = ring.color;
-            this.ctx.stroke();
-        });
-
-        // Reset line width for standard UI drawing
-        this.ctx.lineWidth = 1;
-
-        // 2. Draw Faint Boundary Lines for the rings
-        this.ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
-        this.system.rings.forEach(ring => {
-            this.ctx.beginPath();
-            this.ctx.arc(cx, cy, ring.start * this.camera.zoom, 0, 2 * Math.PI);
-            this.ctx.stroke();
-            this.ctx.beginPath();
-            this.ctx.arc(cx, cy, ring.end * this.camera.zoom, 0, 2 * Math.PI);
-            this.ctx.stroke();
-        });
-
-        // 3. Draw Orbit Paths
-        this.ctx.strokeStyle = "#ffb000";
-        this.system.bodies.forEach(body => {
-            this.ctx.beginPath();
-            this.ctx.setLineDash([5, 5]);
-            const centerOffset = body.a * body.e * this.camera.zoom;
-            this.ctx.arc(cx - centerOffset, cy, body.a * this.camera.zoom, 0, 2 * Math.PI);
-            this.ctx.stroke();
-            this.ctx.setLineDash([]);
-        });
-
-        // 4. Draw Furra
+        // 1. Draw Osiris
         this.ctx.beginPath();
         this.ctx.arc(cx, cy, this.system.radius * this.camera.zoom, 0, 2 * Math.PI);
         this.ctx.fillStyle = "#0a0500"; 
-        this.ctx.fill();                
-        this.ctx.stroke();              
+        this.ctx.fill();
+        this.ctx.strokeStyle = "#ffb000";
+        this.ctx.stroke();
 
-        // 5. Draw Moons
-        this.system.bodies.forEach(body => {
-            const screenX = cx + (body.currentX * this.camera.zoom);
-            const screenY = cy + (body.currentY * this.camera.zoom);
-            
-            let visualRadius = body.radius * this.camera.zoom;
-            if (visualRadius < 1.5) visualRadius = 1.5;
+        this.system.bodies.forEach(planet => {
+            const px = cx + (planet.currentX * this.camera.zoom);
+            const py = cy + (planet.currentY * this.camera.zoom);
 
+            // 2. Draw Planet Orbit Path
             this.ctx.beginPath();
-            this.ctx.arc(screenX, screenY, visualRadius, 0, 2 * Math.PI);
-            this.ctx.fillStyle = "#0a0500"; 
-            this.ctx.fill();
-            this.ctx.stroke(); 
+            this.ctx.setLineDash([5, 5]);
+            this.ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
+            const pOffset = planet.a * planet.e * this.camera.zoom;
+            this.ctx.arc(cx - pOffset, cy, planet.a * this.camera.zoom, 0, 2 * Math.PI);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
 
-            if (this.activeTarget === body) {
-                this.ctx.beginPath();
-                this.ctx.arc(screenX, screenY, visualRadius + 4, 0, 2 * Math.PI);
-                this.ctx.stroke();
+            // 3. Draw Rings (if zoomed in enough)
+            if (this.camera.zoom > 0.00001) {
+                planet.rings.forEach(ring => {
+                    const ringRadius = (ring.start + ring.end) / 2;
+                    const ringWidth = ring.end - ring.start;
+                    this.ctx.beginPath();
+                    this.ctx.arc(px, py, ringRadius * this.camera.zoom, 0, 2 * Math.PI);
+                    this.ctx.lineWidth = ringWidth * this.camera.zoom;
+                    this.ctx.strokeStyle = ring.color;
+                    this.ctx.stroke();
+                });
+                this.ctx.lineWidth = 1; // Reset
             }
 
-            if (this.camera.zoom > 0.0005) {
+            // 4. Draw Moon Orbit Paths
+            planet.bodies.forEach(moon => {
+                this.ctx.beginPath();
+                this.ctx.setLineDash([2, 4]);
+                this.ctx.strokeStyle = "rgba(255, 176, 0, 0.3)";
+                const mOffset = moon.a * moon.e * this.camera.zoom;
+                this.ctx.arc(px - mOffset, py, moon.a * this.camera.zoom, 0, 2 * Math.PI);
+                this.ctx.stroke();
+                this.ctx.setLineDash([]);
+            });
+
+            // 5. Draw Planet Body
+            let pVisRad = planet.radius * this.camera.zoom;
+            if (pVisRad < 2) pVisRad = 2;
+            this.ctx.beginPath();
+            this.ctx.arc(px, py, pVisRad, 0, 2 * Math.PI);
+            this.ctx.fillStyle = "#0a0500"; this.ctx.fill();
+            this.ctx.strokeStyle = "#ffb000"; this.ctx.stroke();
+            if (this.activeTarget === planet) {
+                this.ctx.beginPath(); this.ctx.arc(px, py, pVisRad + 5, 0, 2 * Math.PI); this.ctx.stroke();
+            }
+
+            // Labels
+            if (this.camera.zoom > 0.000005) {
                 this.ctx.fillStyle = "#ffb000";
                 this.ctx.font = "12px 'Courier New'";
-                this.ctx.fillText(body.name, screenX + 10, screenY + 4);
+                this.ctx.fillText(planet.name, px + 10, py + 4);
             }
+
+            // 6. Draw Moon Bodies
+            planet.bodies.forEach(moon => {
+                const mx = cx + (moon.currentX * this.camera.zoom);
+                const my = cy + (moon.currentY * this.camera.zoom);
+                let mVisRad = moon.radius * this.camera.zoom;
+                if (mVisRad < 1.5) mVisRad = 1.5;
+
+                this.ctx.beginPath();
+                this.ctx.arc(mx, my, mVisRad, 0, 2 * Math.PI);
+                this.ctx.fillStyle = "#0a0500"; this.ctx.fill();
+                this.ctx.strokeStyle = "#ffb000"; this.ctx.stroke();
+                
+                if (this.activeTarget === moon) {
+                    this.ctx.beginPath(); this.ctx.arc(mx, my, mVisRad + 4, 0, 2 * Math.PI); this.ctx.stroke();
+                }
+
+                if (this.camera.zoom > 0.00005) {
+                    this.ctx.fillStyle = "#ffb000";
+                    this.ctx.fillText(moon.name, mx + 8, my + 4);
+                }
+            });
         });
         
-        // 6. Detailed Telemetry Box
+        // 7. Detailed Telemetry Box
         if (this.activeTarget) {
-            let isFurra = this.activeTarget.name === "FURRA";
-            let boxHeight = isFurra ? 110 : 210;
+            let isAnchor = this.activeTarget.name === "OSIRIS";
+            let isPlanet = this.activeTarget.name === "FURRA";
+            let boxHeight = isAnchor ? 90 : (isPlanet ? 210 : 210);
             let startX = this.canvas.width - 290;
             let textX = startX + 10;
             
@@ -307,23 +366,28 @@ const MapEngine = {
             this.ctx.fillStyle = "#ffb000";
             this.ctx.font = "bold 14px 'Courier New'";
             this.ctx.fillText(`TARGET: ${this.activeTarget.name}`, textX, 30);
-            
             this.ctx.font = "12px 'Courier New'";
             this.ctx.fillText(`RADIUS:   ${this.activeTarget.radius.toLocaleString()} KM`, textX, 50);
             
-            if (!isFurra) {
-                const alt = Math.round(this.activeTarget.currentR - this.system.radius);
+            if (isAnchor) {
+                this.ctx.fillText(`CLASS:    BLACK HOLE (2.54M☉)`, textX, 70);
+            } else {
+                let parentRadius = isPlanet ? this.system.radius : this.system.bodies[0].radius;
+                const alt = Math.round(this.activeTarget.currentR - parentRadius);
                 this.ctx.fillText(`ALTITUDE: ${alt.toLocaleString()} KM`, textX, 70);
                 this.ctx.fillText(`SMA (a):  ${this.activeTarget.a.toLocaleString()} KM`, textX, 90);
                 this.ctx.fillText(`ECC (e):  ${this.activeTarget.e}`, textX, 110);
                 this.ctx.fillText(`INC (i):  ${this.activeTarget.inc.toFixed(1)}°`, textX, 130);
                 this.ctx.fillText(`LAN (Ω):  ${this.activeTarget.lan.toFixed(1)}°`, textX, 150);
                 this.ctx.fillText(`ARG (ω):  ${this.activeTarget.argp.toFixed(1)}°`, textX, 170);
-                const periodHours = (this.activeTarget.period / 3600).toFixed(2);
-                this.ctx.fillText(`PERIOD:   ${periodHours} HOURS`, textX, 190);
-            } else {
-                this.ctx.fillText(`CLASS:    HABITABLE TERRESTRIAL`, textX, 70);
-                this.ctx.fillText(`STATUS:   LOCAL ANCHOR`, textX, 90);
+                
+                if (isPlanet) {
+                    const periodDays = (this.activeTarget.period / (3600*32)).toFixed(2);
+                    this.ctx.fillText(`PERIOD:   ${periodDays} FURRA DAYS`, textX, 190);
+                } else {
+                    const periodHours = (this.activeTarget.period / 3600).toFixed(2);
+                    this.ctx.fillText(`PERIOD:   ${periodHours} HOURS`, textX, 190);
+                }
             }
         }
         
@@ -332,6 +396,7 @@ const MapEngine = {
         this.ctx.font = "14px 'Courier New'";
         this.ctx.fillText(`SCALE: 1px = ${(1/this.camera.zoom).toFixed(0)} km`, 10, 20);
         this.ctx.fillText(`TIME MULTIPLIER: ${this.timeScale}x`, 10, 40);
+        if (this.isTracking) this.ctx.fillText(`[CAMERA LOCKED TO TARGET]`, 10, 60);
     }
 };
 
@@ -395,11 +460,14 @@ const Terminal={
                 this.outputLog.innerText = "OSIRIS KERNEL RESTORED.\nAPP TERMINATED.";
             } else if (this.currentApp === "PLANETARY CHARTS") {
                 if (!MapEngine.isRunning) {
-                    if (cmd === "FURRA") {
+                    if (cmd === "FURRA" || cmd === "OSIRIS") {
                         MapEngine.start();
-                        MapEngine.selectTargetByName("FURRA");
+                        MapEngine.selectTargetByName(cmd);
+                        // Auto-adjust initial zoom based on target
+                        if (cmd === "OSIRIS") MapEngine.camera.zoom = 0.000001;
+                        if (cmd === "FURRA") MapEngine.camera.zoom = 0.001;
                     } else {
-                        this.outputLog.innerText += "\n> " + cmd + "\nERR: TARGET NOT FOUND OR MAP NOT INITIALIZED. START WITH 'FURRA'.";
+                        this.outputLog.innerText += "\n> " + cmd + "\nERR: TARGET NOT FOUND OR MAP NOT INITIALIZED. START WITH 'FURRA' OR 'OSIRIS'.";
                         window.scrollTo(0,document.body.scrollHeight);
                     }
                 } else {
