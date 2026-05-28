@@ -57,46 +57,113 @@ const MapEngine = {
     ctx: null,
     isRunning: false,
     
-    camera: { x: 0, y: 0, zoom: 0.0000015 }, 
+    camera: { x: 0, y: 0, zoom: 0.0000003 }, 
     isDragging: false,
     dragStart: { x: 0, y: 0 },
     mouseMoved: false,
     isTracking: false, 
     
     startTime: Date.now(),
-    timeScale: 1, // TRUE TIME SCALING
+    timeScale: 1, 
     
     activeTarget: null, 
+    encyclopediaHovered: false,
+    btnBounds: null,
     
     system: {
         name: "OSIRIS", radius: 12.6, currentX: 0, currentY: 0,
-        // Solid Accretion Disc Segments
         discs: [
-            { start: 12.6, end: 8000000, color: "rgba(255, 176, 0, 0.4)" },
-            { start: 8000000, end: 16000000, color: "rgba(255, 176, 0, 0.2)" },
-            { start: 16000000, end: 24000000, color: "rgba(255, 176, 0, 0.08)" }
+            { start: 12.6, end: 24000000, color: "rgba(255, 176, 0, 0.25)" }
         ],
-        desc_astro: "CLASS: STELLAR BLACK HOLE\nMASS:  2.542 SOLAR MASSES\nAGE:   ~200 MILLION YEARS",
-        desc_topo: "SURFACE: EVENT HORIZON\nTEMP:    ~6000K (DISC)\nHAZARD:  EXTREME RADIATION",
+        desc_astro: "CLASS: STELLAR BLACK HOLE\nMASS:  2.542 SOLAR MASSES\nAGE:   200 MILLION YEARS",
         bodies: [
             {
-                name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, currentX: 0, currentY: 0, currentR: 0,
-                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nGRAVITY: 1.0G (STANDARD)\nDAY:   32 HOURS",
-                desc_topo: "SURFACE: LIQUID WATER / ROCK\nATMOS:   N2, O2, AR (DENSE)\nHAZARD:  EQUATORIAL DUST",
+                name: "CHELANOVIN", a: 25000000, e: 0.02, inc: 0.1, lan: 10.0, argp: 5.0, radius: 4102.5, period: 12000000, currentX: 0, currentY: 0, currentR: 0,
+                desc_astro: "CLASS: METALLIC INFRA-TERRESTRIAL\nGRAVITY: 0.52G\nCOMPOSITION: W, PT, TI, FE, AU, C",
+                rings: [], bodies: []
+            },
+            {
+                name: "ESTROGEMUS", a: 50000000, e: 0.03, inc: 0.5, lan: 25.0, argp: 12.0, radius: 35136, period: 22000000, currentX: 0, currentY: 0, currentR: 0,
+                desc_astro: "CLASS: MINOR GAS GIANT\nGRAVITY: 3.12G\nPRESSURE: 46 ATM",
                 rings: [
-                    { name: "A", start: 8296, end: 9596, color: "rgba(255, 176, 0, 0.15)" },
-                    { name: "B", start: 9596, end: 11296, color: "rgba(255, 176, 0, 0.30)" },
-                    { name: "C", start: 11296, end: 11646, color: "rgba(255, 176, 0, 0.20)" },
-                    { name: "D", start: 11946, end: 12596, color: "rgba(255, 176, 0, 0.25)" },
-                    { name: "E", start: 12596, end: 13086, color: "rgba(255, 176, 0, 0.10)" }
+                    { name: "A", start: 45000, end: 55000, color: "rgba(255, 176, 0, 0.2)" },
+                    { name: "B", start: 60000, end: 75000, color: "rgba(255, 176, 0, 0.15)" }
                 ],
                 bodies: [
-                    { name: "HARMONY", a: 11796, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004, currentX: 0, currentY: 0, currentR: 0,
-                      desc_astro: "CLASS: SHEPHERD MOON\nGRAVITY: MICROGRAVITY\nLOCKED:  YES",
-                      desc_topo: "SURFACE: ROCK / ICE\nROLE:    RING CLEARANCE\nHAZARD:  KESSLER SYNDROME" },     
-                    { name: "KIITOS", a: 340000, e: 0.05, inc: 2.1, lan: 45.0, argp: 90.0, radius: 1876, period: 2171520, currentX: 0, currentY: 0, currentR: 0,
-                      desc_astro: "CLASS: MAJOR LUNAR BODY\nGRAVITY: ~0.16G (1/6 FURRA)\nLOCKED:  YES",
-                      desc_topo: "SURFACE: REGOLITH / CRATERS\nROLE:    TIDAL DRIVER\nHAZARD:  VACUUM" }  
+                    { name: "PHERRUS", a: 56236, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 1173.5, period: 86400, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: LOCKED METALLIC LUNAR\nCOMPOSITION: CU, FE, AU, PT, TI" },
+                    { name: "THYME", a: 58000, e: 0.002, inc: 0.1, lan: 0.0, argp: 0.0, radius: 48.5, period: 95000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: LOCKED RING MOON\nFEATURES: EQUATORIAL RIDGE, GEYSERS" },
+                    { name: "TRANNIS", a: 90000, e: 0.01, inc: 0.2, lan: 15.0, argp: 0.0, radius: 260, period: 180000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: LOCKED IMPACTED MOON\nCOMPOSITION: FE, CH4 ICE\nCRATER W: 91KM" },
+                    { name: "EDWARD", a: 150000, e: 0.15, inc: 8.5, lan: 40.0, argp: 30.0, radius: 225.5, period: 450000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: HIGH ECCENTRIC LUNAR\nSURFACE: ALKALINE METAL DUST" },
+                    { name: "EDWARD_II", a: 180000, e: 0.05, inc: 2.3, lan: 12.0, argp: 45.0, radius: 69.5, period: 600000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: SUB-MOON (RETROGRADE)\nCOMPOSITION: LIGHT ALKALINE METALS" },
+                    { name: "EDWARD_III", a: 195000, e: 0.01, inc: 0.5, lan: 5.0, argp: 10.0, radius: 9, period: 720000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: SUB-SUB-MOON\nFEATURES: MICROMETEORITE CRATERS" }
+                ]
+            },
+            {
+                name: "VAANAT", a: 120000000, e: 0.006, inc: 1.2, lan: 33.0, argp: 45.0, radius: 5169, period: 32000000, currentX: 0, currentY: 0, currentR: 0,
+                desc_astro: "CLASS: SUPER-VENUSIAN TERRESTRIAL\nPRESSURE: 135 ATM\nROTATION: 96 DAYS 4 HOURS",
+                rings: [],
+                bodies: [
+                    { name: "GLEISE", a: 25000, e: 0.23, inc: 3.4, lan: 15.0, argp: 80.0, radius: 165, period: 140000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: ERUPTIVE remnant RECEPTACLE\nFEATURES: STASLAGMITE SLAG SPIKES" }
+                ]
+            },
+            {
+                name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, currentX: 0, currentY: 0, currentR: 0,
+                desc_astro: "CLASS: HABITABLE TROPICAL WORLD\nGRAVITY: 1.0G (STANDARD)\nAXIAL TILT: 14.32°",
+                rings: [
+                    { name: "MAIN", start: 6296, end: 13086, color: "rgba(255, 176, 0, 0.25)" }
+                ],
+                bodies: [
+                    { name: "HARMONY", a: 11796, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: SHEPHERD MOON\nFEATURES: CRYSTALLINE EQUATORIAL RIDGE" },     
+                    { name: "KIITOS", a: 340000, e: 0.05, inc: 2.1, lan: 45.0, argp: 90.0, radius: 1876, period: 2171520, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: MAJOR LOCKED LUNAR\nGRAVITY: 1/6TH FURRA\nFEATURES: BASALTIC SEAS" }  
+                ]
+            },
+            {
+                name: "CALLID", a: 400000000, e: 0.025, inc: 0.8, lan: 12.0, argp: 110.0, radius: 5118.5, period: 65000000, currentX: 0, currentY: 0, currentR: 0,
+                desc_astro: "CLASS: GEOLOGICAL HYDROCARBON HELL\nATMOSPHERE: 3X FURRA DENSITY\nAXIAL TILT: 37.5°",
+                rings: [
+                    { name: "INNER", start: 8000, end: 12000, color: "rgba(255, 176, 0, 0.15)" },
+                    { name: "OUTER", start: 16000, end: 24000, color: "rgba(255, 176, 0, 0.1)" }
+                ],
+                bodies: [
+                    { name: "ARTHUR", a: 14000, e: 0.0, inc: 0.0, lan: 0.0, argp: 0.0, radius: 1811, period: 36900, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: GEOSYNC IRON LUNAR\nSURFACE: MOLTEN TORN APART BY GRAVITY" },
+                    { name: "MONARCH", a: 32000, e: 0.01, inc: 1.1, lan: 50.0, argp: 12.0, radius: 269, period: 85000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: RAPID ROTATION PANCAKE LUNAR\nCOMPOSITION: FE, CU, LIGHT METALS" }
+                ]
+            },
+            {
+                name: "RSAK", a: 650000000, e: 0.012, inc: 2.4, lan: 88.0, argp: 15.0, radius: 3386, period: 110000000, currentX: 0, currentY: 0, currentR: 0,
+                desc_astro: "CLASS: BINARY METALLIC TWIN (PRIMARY)\nATMOSPHERE: 0.098 ATM\nENVIRONMENT: CO-ORBITAL NEBULA DRAG",
+                rings: [],
+                bodies: [
+                    { name: "RSUK", a: 23772, e: 0.0, inc: 0.0, lan: 0.0, argp: 0.0, radius: 3386, period: 250000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: BINARY METALLIC TWIN (SECONDARY)\nSTATUS: LOCKED MUTUAL GRAVITY TEAR" },
+                    { name: "ION", a: 120000, e: 0.04, inc: 15.2, lan: 110.0, argp: 45.0, radius: 770.5, period: 1800000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: CAPTURED ICE GIANT DWARF LUNAR\nCOMPOSITION: NE, XE, KR, H ICES" }
+                ]
+            },
+            {
+                name: "GAV", a: 1100000000, e: 0.048, inc: 1.1, lan: 140.0, argp: 210.0, radius: 82000, period: 240000000, currentX: 0, currentY: 0, currentR: 0,
+                desc_astro: "CLASS: HEAVY GAS GIANT\nRADIATION: CRITICAL (BELTS INSTABLE)\nMAGNETOSPHERE: HYPER-INTENSE",
+                rings: [],
+                bodies: [
+                    { name: "ALKA", a: 140000, e: 0.002, inc: 0.1, lan: 0.0, argp: 0.0, radius: 1185, period: 900000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: SUB-SURFACE WATER ICE LUNAR\nCONTRIBUTION: 17% GAV RAD BELT" },
+                    { name: "OGNETMETCHIKI", a: 260000, e: 0.005, inc: 0.3, lan: 10.0, argp: 0.0, radius: 2064.5, period: 2200000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: ACTIVE ISOTOPIC VOLCANIC WORLD\nCOMPOSITION: U, RA, SR, FE OXIDES" },
+                    { name: "WACO", a: 450000, e: 0.01, inc: 0.5, lan: 35.0, argp: 90.0, radius: 1288, period: 5100000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: BINARY LUNAR CORE (3X MAJOR)\nCOMPOSITION: CH4, H, H2O ICES" },
+                    { name: "TACO", a: 480000, e: 0.01, inc: 0.5, lan: 35.0, argp: 270.0, radius: 446.5, period: 5100000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: BINARY LUNAR SATELLITE\nSTATUS: MUTUALLY LOCKED" },
+                    { name: "PRIMUSK", a: 750000, e: 0.003, inc: 0.0, lan: 0.0, argp: 0.0, radius: 1556, period: 11000000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: ATMOSPHERIC HYDROCARBON MOON\nPRESSURE: 12 ATM\nCOMPOSITION: N2, CH4" },
+                    { name: "KALLIE", a: 1200000, e: 0.35, inc: 90.0, lan: 180.0, argp: 0.0, radius: 50.78, period: 25000000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: ECCENTRIC POLAR EXOSPHERIC LUNAR\nCOMPOSITION: HE ICE, TUNGSTEN METALS" }
+                ]
+            },
+            {
+                name: "STIX", a: 1800000000, e: 0.009, inc: 0.2, lan: 210.0, argp: 330.0, radius: 114183, period: 490000000, currentX: 0, currentY: 0, currentR: 0,
+                desc_astro: "CLASS: ULTRA-MASSIVE ICE GIANT\nGRAVITY: 4.7G (LOW DENSITY)\nTHERMOSPHERE: BREEDING FUSION FLAMES",
+                rings: [
+                    { name: "MAXIMUM", start: 130000, end: 20500000, color: "rgba(255, 176, 0, 0.2)" }
+                ],
+                bodies: [
+                    { name: "TETHYRIS", a: 350000, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 2988.5, period: 1800000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: SHALLOW OCEAN SYSTEM MARITIME\nATMOSPHERE: 1.2 ATM (N2, O2)" },
+                    { name: "DION", a: 580000, e: 0.004, inc: 0.1, lan: 12.0, argp: 45.0, radius: 1366, period: 3900000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: ICE MOON VIA SUB-SURFACE CORE\nATMOSPHERE: 0.62 ATM (N2, CH4)" },
+                    { name: "FRAGMENT", a: 720000, e: 0.0, inc: 0.0, lan: 0.0, argp: 0.0, radius: 6, period: 5500000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: EXTREME MICROSCOPIC MINOR LUNAR\nSTRUCTURE: AXIAL TRENCH (1KM DEEP)" },
+                    { name: "TROYAS", a: 950000, e: 0.02, inc: 0.5, lan: 66.0, argp: 12.0, radius: 496, period: 8200000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: IRREGULAR ICE MATRIX LUNAR\nCOMPOSITION: GAS ICES, H2O ICE" },
+                    { name: "ACHIL", a: 1400000, e: 0.005, inc: 0.2, lan: 30.0, argp: 90.0, radius: 1172, period: 15000000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: SHEPHERD INFRA-STRUCTURE ICE LUNAR\nFEATURES: STEEP RIDGE (34KM HIGH)" },
+                    { name: "MINOS", a: 1900000, e: 0.012, inc: 0.4, lan: 45.0, argp: 180.0, radius: 885, period: 23000000, currentX: 0, currentY: 0, currentR: 0, desc_astro: "CLASS: ACTIVE RING FEEDER MOON\nMECHANISM: ICE ERUPTION SYSTEM FRACTURE" }
                 ]
             }
         ]
@@ -115,6 +182,23 @@ const MapEngine = {
         });
         
         window.addEventListener("mousemove", (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            const mX = e.clientX - rect.left;
+            const mY = e.clientY - rect.top;
+
+            let overButton = false;
+            if (this.btnBounds && mX >= this.btnBounds.x1 && mX <= this.btnBounds.x2 && mY >= this.btnBounds.y1 && mY <= this.btnBounds.y2) {
+                overButton = true;
+            }
+
+            if (overButton) {
+                if (!this.encyclopediaHovered) this.encyclopediaHovered = true;
+                this.canvas.style.cursor = "pointer";
+            } else {
+                if (this.encyclopediaHovered) this.encyclopediaHovered = false;
+                this.canvas.style.cursor = "crosshair";
+            }
+
             if (!this.isDragging) return;
             this.mouseMoved = true;
             this.camera.x = e.clientX - this.dragStart.x;
@@ -127,6 +211,11 @@ const MapEngine = {
                 const rect = this.canvas.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
+                
+                if (this.btnBounds && mouseX >= this.btnBounds.x1 && mouseX <= this.btnBounds.x2 && mouseY >= this.btnBounds.y1 && mouseY <= this.btnBounds.y2) {
+                    return; 
+                }
+                
                 this.checkClickSelection(mouseX, mouseY);
             }
         });
@@ -142,8 +231,8 @@ const MapEngine = {
 
             let newZoom = this.camera.zoom * zoomAmount;
             
-            if (newZoom < 0.00000005) newZoom = 0.00000005; 
-            if (newZoom > 10.0) newZoom = 10.0; 
+            if (newZoom < 0.00000001) newZoom = 0.00000001; 
+            if (newZoom > 20.0) newZoom = 20.0; 
 
             this.camera.zoom = newZoom;
             
@@ -152,7 +241,6 @@ const MapEngine = {
                 this.camera.y = mouseY - (worldY * this.camera.zoom) - this.canvas.height/2;
             }
 
-            // Contextual Auto-Tracking 
             let visibleMajorBodies = [];
             let bodiesToCheck = [this.system, ...this.system.bodies]; 
             const cx = this.canvas.width / 2 + this.camera.x;
@@ -286,8 +374,16 @@ const MapEngine = {
                 const tM = ((2 * Math.PI) / moon.period) * elapsedSeconds;
                 const rM = (moon.a * (1 - Math.pow(moon.e, 2))) / (1 + moon.e * Math.cos(tM));
                 moon.currentR = rM;
-                moon.currentX = planet.currentX + (rM * Math.cos(tM));
-                moon.currentY = planet.currentY + (rM * Math.sin(tM));
+                if(planet.name === "RSAK" && moon.name === "RSUK") {
+                    moon.currentX = planet.currentX + (rM * Math.cos(tM));
+                    moon.currentY = planet.currentY + (rM * Math.sin(tM));
+                } else if (planet.name === "RSAK" && moon.name === "ION") {
+                    moon.currentX = planet.currentX + (rM * Math.cos(tM * 0.3));
+                    moon.currentY = planet.currentY + (rM * Math.sin(tM * 0.3));
+                } else {
+                    moon.currentX = planet.currentX + (rM * Math.cos(tM));
+                    moon.currentY = planet.currentY + (rM * Math.sin(tM));
+                }
             });
         });
 
@@ -303,12 +399,11 @@ const MapEngine = {
         const cx = this.canvas.width / 2 + this.camera.x;
         const cy = this.canvas.height / 2 + this.camera.y;
 
-        // 1. Render Osiris Solid Accretion Discs
-        if (this.camera.zoom > 0.0000001) {
+        // 1. Render Osiris Solid Accretion Discs (Solid Color, No Gradient Step Layers)
+        if (this.camera.zoom > 0.00000001) {
             this.system.discs.forEach(disc => {
                 const discRadius = (disc.start + disc.end) / 2;
                 const discWidth = disc.end - disc.start;
-                // Only render if it's large enough to be seen, prevents sub-pixel rendering bugs
                 if (discRadius * this.camera.zoom > 0.5) {
                     this.ctx.beginPath();
                     this.ctx.arc(cx, cy, discRadius * this.camera.zoom, 0, 2 * Math.PI);
@@ -320,7 +415,7 @@ const MapEngine = {
             this.ctx.lineWidth = 1; 
         }
 
-        // 2. Draw Osiris Event Horizon (12.6 km)
+        // 2. Draw Osiris Event Horizon
         let oVisRad = this.system.radius * this.camera.zoom;
         if (oVisRad < 1.5) oVisRad = 1.5; 
         this.ctx.beginPath();
@@ -347,14 +442,14 @@ const MapEngine = {
             this.ctx.stroke();
             this.ctx.setLineDash([]);
 
-            // 4. Draw Rings
-            if (this.camera.zoom > 0.000005) {
+            // 4. Draw Rings (Realistic Scaling Width Check)
+            if (this.camera.zoom > 0.0000001) {
                 planet.rings.forEach(ring => {
                     const ringRadius = (ring.start + ring.end) / 2;
                     const ringWidth = ring.end - ring.start;
                     this.ctx.beginPath();
                     this.ctx.arc(px, py, ringRadius * this.camera.zoom, 0, 2 * Math.PI);
-                    this.ctx.lineWidth = ringWidth * this.camera.zoom;
+                    this.ctx.lineWidth = Math.max(0.5, ringWidth * this.camera.zoom);
                     this.ctx.strokeStyle = ring.color;
                     this.ctx.stroke();
                 });
@@ -372,7 +467,7 @@ const MapEngine = {
                 this.ctx.setLineDash([]);
             });
 
-            // 6. Draw Planet Body
+            // 6. Draw Planet Body (Realistic Visual Metric Sizing Check)
             let pVisRad = planet.radius * this.camera.zoom;
             if (pVisRad < 2) pVisRad = 2;
             this.ctx.beginPath();
@@ -383,10 +478,10 @@ const MapEngine = {
                 this.ctx.beginPath(); this.ctx.arc(px, py, pVisRad + 5, 0, 2 * Math.PI); this.ctx.stroke();
             }
 
-            if (this.camera.zoom > 0.000005) {
+            if (this.camera.zoom > 0.0000001) {
                 this.ctx.fillStyle = "#ffb000";
                 this.ctx.font = "12px 'Courier New'";
-                this.ctx.fillText(planet.name, px + 10, py + 4);
+                this.ctx.fillText(planet.name, px + pVisRad + 5, py + 4);
             }
 
             // 7. Draw Moon Bodies
@@ -405,22 +500,28 @@ const MapEngine = {
                     this.ctx.beginPath(); this.ctx.arc(mx, my, mVisRad + 4, 0, 2 * Math.PI); this.ctx.stroke();
                 }
 
-                if (this.camera.zoom > 0.00005) {
+                if (this.camera.zoom > 0.000005) {
                     this.ctx.fillStyle = "#ffb000";
-                    this.ctx.fillText(moon.name, mx + 8, my + 4);
+                    this.ctx.font = "10px 'Courier New'";
+                    this.ctx.fillText(moon.name, mx + mVisRad + 4, my + 3);
                 }
             });
         });
         
-        // 8. Comprehensive Inventory Telemetry Box
+        // 8. Mainframe Telemetry Inventory Display Panel
         if (this.activeTarget) {
             let isAnchor = this.activeTarget.name === "OSIRIS";
-            let isPlanet = this.activeTarget.name === "FURRA";
             
             let boxWidth = 340;
-            let boxHeight = isAnchor ? 230 : 340;
             let startX = this.canvas.width - (boxWidth + 10);
             let textX = startX + 10;
+            
+            let astroLines = this.activeTarget.desc_astro.split('\n');
+            let buttonY = 100 + (astroLines.length * 20);
+            if (!isAnchor) {
+                buttonY += 150; 
+            }
+            let boxHeight = buttonY + 55;
             
             this.ctx.fillStyle = "rgba(10, 5, 0, 0.85)";
             this.ctx.fillRect(startX, 10, boxWidth, boxHeight);
@@ -431,7 +532,6 @@ const MapEngine = {
             this.ctx.font = "bold 16px 'Courier New'";
             this.ctx.fillText(`TARGET DIRECTORY: ${this.activeTarget.name}`, textX, 30);
             
-            // Separator line
             this.ctx.beginPath();
             this.ctx.moveTo(startX, 40);
             this.ctx.lineTo(startX + boxWidth, 40);
@@ -440,46 +540,48 @@ const MapEngine = {
             this.ctx.font = "bold 12px 'Courier New'";
             this.ctx.fillText(`[ ASTROPHYSICS ]`, textX, 60);
             this.ctx.font = "12px 'Courier New'";
-            this.ctx.fillText(`RADIUS:  ${this.activeTarget.radius.toLocaleString()} KM`, textX, 80);
-            let astroLines = this.activeTarget.desc_astro.split('\n');
+            this.ctx.fillText(`RADIUS:  ${Math.round(this.activeTarget.radius).toLocaleString()} KM`, textX, 80);
             for(let i=0; i<astroLines.length; i++) this.ctx.fillText(astroLines[i], textX, 100 + (i*20));
 
-            let currentY = 100 + (astroLines.length * 20);
-
             if (!isAnchor) {
+                let currentY = buttonY - 150;
                 this.ctx.font = "bold 12px 'Courier New'";
                 this.ctx.fillText(`[ ORBITAL DATA ]`, textX, currentY);
                 this.ctx.font = "12px 'Courier New'";
                 
-                let parentRadius = isPlanet ? 0 : this.system.bodies[0].radius;
-                const alt = Math.round(this.activeTarget.currentR - parentRadius);
-                this.ctx.fillText(`DISTANCE: ${alt.toLocaleString()} KM`, textX, currentY + 20);
-                this.ctx.fillText(`SMA (a):  ${this.activeTarget.a.toLocaleString()} KM`, textX, currentY + 40);
-                this.ctx.fillText(`ECC (e):  ${this.activeTarget.e}`, textX, currentY + 60);
-                this.ctx.fillText(`INC (i):  ${this.activeTarget.inc.toFixed(1)}°`, textX, currentY + 80);
-                this.ctx.fillText(`LAN (Ω):  ${this.activeTarget.lan.toFixed(1)}°`, textX, currentY + 100);
-                this.ctx.fillText(`ARG (ω):  ${this.activeTarget.argp.toFixed(1)}°`, textX, currentY + 120);
-                
-                if (isPlanet) {
-                    const periodDays = (this.activeTarget.period / (3600*32)).toFixed(2);
-                    this.ctx.fillText(`PERIOD:   ${periodDays} FURRA DAYS`, textX, currentY + 140);
-                } else {
-                    const periodHours = (this.activeTarget.period / 3600).toFixed(2);
-                    this.ctx.fillText(`PERIOD:   ${periodHours} HOURS`, textX, currentY + 140);
-                }
-                currentY += 170;
-            } else {
-                currentY += 10;
+                this.ctx.fillText(`DISTANCE: ${Math.round(this.activeTarget.currentR || 0).toLocaleString()} KM`, textX, currentY + 20);
+                if(this.activeTarget.a) this.ctx.fillText(`SMA (a):  ${this.activeTarget.a.toLocaleString()} KM`, textX, currentY + 40);
+                if(this.activeTarget.e !== undefined) this.ctx.fillText(`ECC (e):  ${this.activeTarget.e}`, textX, currentY + 60);
+                if(this.activeTarget.inc !== undefined) this.ctx.fillText(`INC (i):  ${this.activeTarget.inc.toFixed(1)}°`, textX, currentY + 80);
+                if(this.activeTarget.period) this.ctx.fillText(`PERIOD:   ${(this.activeTarget.period / 3600).toFixed(1)} HOURS`, textX, currentY + 100);
             }
 
-            this.ctx.font = "bold 12px 'Courier New'";
-            this.ctx.fillText(`[ TOPOGRAPHY & COMPOSITE ]`, textX, currentY);
-            this.ctx.font = "12px 'Courier New'";
-            let topoLines = this.activeTarget.desc_topo.split('\n');
-            for(let i=0; i<topoLines.length; i++) this.ctx.fillText(topoLines[i], textX, currentY + 20 + (i*20));
+            // Draw Dynamic Interactivity Encyclopedia Button Placeholder
+            let btnX = startX + 10;
+            let btnY = buttonY + 10;
+            let btnW = boxWidth - 20;
+            let btnH = 35;
+            
+            let btnColor = this.encyclopediaHovered ? "#ffdf00" : "#ffb000"; 
+            let btnFill = this.encyclopediaHovered ? "rgba(255, 176, 0, 0.2)" : "rgba(255, 176, 0, 0.05)";
+            
+            this.ctx.fillStyle = btnFill;
+            this.ctx.fillRect(btnX, btnY, btnW, btnH);
+            this.ctx.strokeStyle = btnColor;
+            this.ctx.strokeRect(btnX, btnY, btnW, btnH);
+            
+            this.ctx.fillStyle = btnColor;
+            this.ctx.font = "bold 13px 'Courier New'";
+            this.ctx.textAlign = "center";
+            this.ctx.fillText("ENCYCLOPEDIA", btnX + btnW / 2, btnY + 22);
+            this.ctx.textAlign = "left"; 
+            
+            this.btnBounds = { x1: btnX, y1: btnY, x2: btnX + btnW, y2: btnY + btnH };
+        } else {
+            this.btnBounds = null;
         }
         
-        // Scale / UI Overlay
+        // Scale / UI Overlay Metrics
         this.ctx.fillStyle = "#ffb000";
         this.ctx.font = "14px 'Courier New'";
         this.ctx.fillText(`SCALE: 1px = ${(1/this.camera.zoom).toFixed(0)} km`, 10, 20);
@@ -510,7 +612,7 @@ const Terminal={
         this.inputField.disabled = true; 
         this.inputField.value = "";
         
-        const loadTime = Math.floor(Math.random() * 5000) + 5000;
+        const loadTime = Math.floor(Math.random() * 2000) + 1500;
         const ticks = loadTime / 100;
         let currentTick = 0;
         
@@ -548,15 +650,9 @@ const Terminal={
                 this.outputLog.innerText = "OSIRIS KERNEL RESTORED.\nAPP TERMINATED.";
             } else if (this.currentApp === "PLANETARY CHARTS") {
                 if (!MapEngine.isRunning) {
-                    if (cmd === "FURRA" || cmd === "OSIRIS") {
-                        MapEngine.start();
-                        MapEngine.selectTargetByName(cmd);
-                        if (cmd === "OSIRIS") MapEngine.camera.zoom = 0.0000015;
-                        if (cmd === "FURRA") MapEngine.camera.zoom = 0.001;
-                    } else {
-                        this.outputLog.innerText += "\n> " + cmd + "\nERR: TARGET NOT FOUND. START WITH 'FURRA' OR 'OSIRIS'.";
-                        window.scrollTo(0,document.body.scrollHeight);
-                    }
+                    MapEngine.start();
+                    let found = MapEngine.selectTargetByName(cmd);
+                    if (!found) MapEngine.selectTargetByName("OSIRIS");
                 } else {
                     let found = MapEngine.selectTargetByName(cmd);
                     if (!found) {
@@ -570,24 +666,3 @@ const Terminal={
             }
             return;
         }
-
-        this.log("> " + cmd);
-        switch(cmd) {
-            case "HELP": this.log("AVAILABLE COMMANDS:\nHELP\nLIST\nLOGOUT\n\nEXECUTABLES:\nVAB\nDSN\nCONTRACTS\nMETAR DATA\nPLANETARY CHARTS"); break;
-            case "LIST": this.log("AGENCY ASSET LIST:\n--- TIER 0 ---\n[READY] sounding_rocket_alpha\n[BUILDING] test_stand_01 (4h 12m)"); break;
-            case "LOGOUT": location.reload(); break;
-            case "PLANETARY CHARTS": this.launchApp(cmd); break;
-            case "VAB": case "DSN": case "CONTRACTS": case "METAR DATA":
-                this.currentApp = cmd;
-                this.log("EXECUTING [" + cmd + "]...\nPROCESS COMPLETE. APP RUNNING IN FOREGROUND.");
-                break;
-            default: this.log("ERR: UNKNOWN COMMAND.");
-        }
-    },
-    
-    log:function(e){this.outputLog.innerText+="\n"+e,window.scrollTo(0,document.body.scrollHeight)},
-    clearInputs:function(){document.getElementById("user-input").value="",document.getElementById("pass-input").value="",this.userInput.focus()}
-};
-window.onload=()=>Terminal.init();
-</script>
-</body></html>
