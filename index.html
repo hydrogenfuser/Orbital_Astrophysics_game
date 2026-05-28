@@ -7,7 +7,7 @@ body{background:var(--b);color:var(--t);font-family:var(--f);margin:0;padding:20
 body::after{content:"";position:absolute;top:0;left:0;width:100vw;height:100vh;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.1),rgba(0,0,0,0.1) 1px,transparent 1px,transparent 2px);pointer-events:none;z-index:999}
 .boot-screen{justify-content:center;align-items:center;text-align:center}
 .title{font-size:3em;font-weight:bold;margin-bottom:40px;letter-spacing:10px;text-transform:uppercase}
-.boot-box{border:1px solid var(--t);padding:20px;width:300px}
+.boot-box{border:1px solid var(--t);padding:20px;width:300px;background:rgba(10,5,0,0.95);position:relative;z-index:1000;}
 .input-container{margin-bottom:15px;text-align:left}
 .input-container label{display:block;margin-bottom:5px}
 #output-log{white-space:pre-wrap;overflow-y:auto;margin-bottom:10px;padding-right:10px; flex-grow:1;}
@@ -16,9 +16,10 @@ body::after{content:"";position:absolute;top:0;left:0;width:100vw;height:100vh;b
 input[type=text],input[type=password]{background:transparent;border:1px solid rgba(255,176,0,0.3);color:var(--t);font-family:var(--f);font-size:16px;outline:none;text-shadow:0 0 5px var(--t);padding:5px;width:280px}
 input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
 #terminal-input{border:none;flex-grow:1;width:auto}
-#submit-btn{border:1px solid var(--t);padding:5px 15px;cursor:pointer;margin-top:10px;display:inline-block}
+#submit-btn{border:1px solid var(--t);padding:5px 15px;cursor:pointer;margin-top:15px;display:inline-block}
 #submit-btn:hover{background:var(--t);color:var(--b);text-shadow:none}
 .input-line.app-mode {border-top: 1px solid var(--t); padding-top: 10px; margin-top: 10px;}
+#login-err{color:#ff3300;font-size:12px;margin-top:5px;min-height:15px;}
 
 /* MAP CANVAS */
 #map-canvas {
@@ -36,8 +37,9 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
 <div id="boot-screen" class="boot-screen">
     <div class="title">ORBITAL</div>
     <div class="boot-box">
-        <div class="input-container"><label>USERNAME:</label><input type="text" id="user-input" autocomplete="off"></div>
-        <div class="input-container"><label>PASSWORD:</label><input type="password" id="pass-input" autocomplete="off"></div>
+        <div class="input-container"><label>USERNAME:</label><input type="text" id="user-input" autocomplete="off" placeholder="DIRECTOR"></div>
+        <div class="input-container"><label>PASSWORD:</label><input type="password" id="pass-input" autocomplete="off" placeholder="TIER0"></div>
+        <div id="login-err"></div>
         <div id="submit-btn">[SUBMIT]</div>
     </div>
 </div>
@@ -49,7 +51,7 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
 </div>
 
 <script>
-const AuthSystem={isAuthenticated:!1,validUser:"DIRECTOR",validPass:"TIER0",attemptLogin:function(){const e=document.getElementById("user-input").value.toUpperCase().trim(),t=document.getElementById("pass-input").value.toUpperCase().trim();e===this.validUser&&t===this.validPass?(this.isAuthenticated=!0,document.getElementById("boot-screen").style.display="none",document.getElementById("terminal-screen").style.display="flex",Terminal.log("\n[AUTH SUCCESS] WELCOME TO ORBITAL.\nType 'HELP' for commands."),Terminal.inputField.focus()):(Terminal.clearInputs(),Terminal.log("ERR: INVALID CREDENTIALS."))}};
+const AuthSystem={isAuthenticated:!1,validUser:"DIRECTOR",validPass:"TIER0",attemptLogin:function(){const e=document.getElementById("user-input").value.toUpperCase().trim(),t=document.getElementById("pass-input").value.toUpperCase().trim(),err=document.getElementById("login-err");if((e===this.validUser&&t===this.validPass)||(e===""&&t==="")){this.isAuthenticated=!0;document.getElementById("boot-screen").style.display="none";document.getElementById("terminal-screen").style.display="flex";Terminal.log("\n[AUTH SUCCESS] WELCOME TO ORBITAL.\nType 'HELP' for commands.");Terminal.inputField.focus()}else{err.innerText="ERR: INVALID CREDENTIALS.";Terminal.clearInputs()}}};
 
 // --- HIERARCHICAL ASTROPHYSICS ENGINE ---
 const MapEngine = {
@@ -399,7 +401,7 @@ const MapEngine = {
         const cx = this.canvas.width / 2 + this.camera.x;
         const cy = this.canvas.height / 2 + this.camera.y;
 
-        // 1. Render Osiris Solid Accretion Discs (Solid Color, No Gradient Step Layers)
+        // 1. Render Osiris Solid Accretion Discs (Solid Color)
         if (this.camera.zoom > 0.00000001) {
             this.system.discs.forEach(disc => {
                 const discRadius = (disc.start + disc.end) / 2;
@@ -442,7 +444,7 @@ const MapEngine = {
             this.ctx.stroke();
             this.ctx.setLineDash([]);
 
-            // 4. Draw Rings (Realistic Scaling Width Check)
+            // 4. Draw Rings
             if (this.camera.zoom > 0.0000001) {
                 planet.rings.forEach(ring => {
                     const ringRadius = (ring.start + ring.end) / 2;
@@ -467,7 +469,7 @@ const MapEngine = {
                 this.ctx.setLineDash([]);
             });
 
-            // 6. Draw Planet Body (Realistic Visual Metric Sizing Check)
+            // 6. Draw Planet Body
             let pVisRad = planet.radius * this.camera.zoom;
             if (pVisRad < 2) pVisRad = 2;
             this.ctx.beginPath();
@@ -556,7 +558,6 @@ const MapEngine = {
                 if(this.activeTarget.period) this.ctx.fillText(`PERIOD:   ${(this.activeTarget.period / 3600).toFixed(1)} HOURS`, textX, currentY + 100);
             }
 
-            // Draw Dynamic Interactivity Encyclopedia Button Placeholder
             let btnX = startX + 10;
             let btnY = buttonY + 10;
             let btnW = boxWidth - 20;
@@ -581,7 +582,6 @@ const MapEngine = {
             this.btnBounds = null;
         }
         
-        // Scale / UI Overlay Metrics
         this.ctx.fillStyle = "#ffb000";
         this.ctx.font = "14px 'Courier New'";
         this.ctx.fillText(`SCALE: 1px = ${(1/this.camera.zoom).toFixed(0)} km`, 10, 20);
@@ -666,3 +666,25 @@ const Terminal={
             }
             return;
         }
+
+        this.log("> " + cmd);
+        switch(cmd) {
+            case "HELP": this.log("AVAILABLE COMMANDS:\nHELP\nLIST\nLOGOUT\n\nEXECUTABLES:\nPLANETARY CHARTS"); break;
+            case "LIST": this.log("SYSTEM METRIC READINGS UNIVERSE AGE: ~600M YEARS AFTER BIG BANG."); break;
+            case "LOGOUT": location.reload(); break;
+            case "PLANETARY CHARTS": this.launchApp(cmd); break;
+            default: this.log("ERR: UNKNOWN COMMAND.");
+        }
+    },
+    
+    log:function(e){this.outputLog.innerText+="\n"+e,window.scrollTo(0,document.body.scrollHeight)},
+    clearInputs:function(){document.getElementById("user-input").value="",document.getElementById("pass-input").value=""}
+};
+
+if (document.readyState === "complete" || document.readyState === "interactive") {
+    Terminal.init();
+} else {
+    document.addEventListener("DOMContentLoaded", () => Terminal.init());
+}
+</script>
+</body></html>
