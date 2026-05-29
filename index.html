@@ -78,7 +78,7 @@ const MapEngine = {
     
     isRunning: false,
     startTime: Date.now(),
-    timeScale: 3600, // 1 real second = 1 hour (makes true-scale orbits visible)
+    timeScale: 3600, // 1 real second = 1 hour 
     
     activeTarget: null,
     lastTargetPos: null,
@@ -111,12 +111,10 @@ const MapEngine = {
 
     init: function() {
         this.ctx = this.uiCanvas.getContext("2d");
-        
         this.scene = new THREE.Scene();
         this.scene.background = null; 
         
         const aspect = window.innerWidth / (window.innerHeight - 50);
-        // logarithmicDepthBuffer prevents Z-fighting when dealing with massive true-scale distances
         this.camera = new THREE.PerspectiveCamera(45, aspect, 0.0001, 1e9); 
         
         this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, logarithmicDepthBuffer: true });
@@ -134,54 +132,70 @@ const MapEngine = {
 
     createBodyMesh: function(bodyData, parentObj, isStar = false) {
         const scaledRadius = bodyData.radius * this.UNIT_SCALE;
-        
-        // Force minimum visual radius ONLY if extremely zoomed out, otherwise true scale
         const geometry = new THREE.SphereGeometry(scaledRadius, 32, 32);
-        const material = new THREE.MeshBasicMaterial({ 
-            color: 0xffb000, 
-            wireframe: true,
-            transparent: true,
-            opacity: isStar ? 1.0 : 0.8
-        });
         
-        const mesh = new THREE.Mesh(geometry, material);
+        // 1. SOLID CORE (Blocks background and back-wireframes)
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0x0a0500 }); // Match CSS background var(--b)
+        // PolygonOffset prevents z-fighting between the solid core and the wireframe shell
+        coreMat.polygonOffset = true;
+        coreMat.polygonOffsetFactor = 1;
+        coreMat.polygonOffsetUnits = 1;
+        const coreMesh = new THREE.Mesh(geometry, coreMat);
+        
+        // 2. WIREFRAME SHELL
+        const wireMat = new THREE.MeshBasicMaterial({ 
+            color: 0xffb000, wireframe: true, transparent: true, opacity: isStar ? 1.0 : 0.6
+        });
+        const wireMesh = new THREE.Mesh(geometry, wireMat);
+        coreMesh.add(wireMesh); // Attach shell to core
+
         const pivot = new THREE.Group();
         
         if (!isStar) {
             pivot.rotation.y = THREE.MathUtils.degToRad(bodyData.lan);
             pivot.rotation.x = THREE.MathUtils.degToRad(bodyData.inc);
             
-            // Rebuild Orbit Line
+            // Rebuild Orbit Line with Exact Elliptical Math
             const points = [];
             const pathMaterial = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.2 });
             const segments = 128;
             for(let i=0; i<=segments; i++) {
                 const theta = (i / segments) * Math.PI * 2;
-                const r = bodyData.a * this.UNIT_SCALE;
-                points.push(new THREE.Vector3(Math.cos(theta)*r, 0, Math.sin(theta)*r));
+                // Calculate true radius for this angle based on eccentricity
+                const r = (bodyData.a * (1 - Math.pow(bodyData.e, 2))) / (1 + bodyData.e * Math.cos(theta));
+                points.push(new THREE.Vector3(Math.cos(theta) * r * this.UNIT_SCALE, 0, Math.sin(theta) * r * this.UNIT_SCALE));
             }
             const pathGeom = new THREE.BufferGeometry().setFromPoints(points);
             pivot.add(new THREE.Line(pathGeom, pathMaterial));
         }
 
-        // Build Rings if they exist
+        // Build Rings & Discs (Opaque)
         if (bodyData.rings || bodyData.discs) {
             const ringArray = bodyData.rings || bodyData.discs;
             ringArray.forEach(ring => {
                 const rGeom = new THREE.RingGeometry(ring.start * this.UNIT_SCALE, ring.end * this.UNIT_SCALE, 64);
-                const rMat = new THREE.MeshBasicMaterial({ 
+                
+                // Solid Ring Core
+                const rCoreMat = new THREE.MeshBasicMaterial({ color: 0x0a0500, side: THREE.DoubleSide });
+                rCoreMat.polygonOffset = true; rCoreMat.polygonOffsetFactor = 1; rCoreMat.polygonOffsetUnits = 1;
+                const rCoreMesh = new THREE.Mesh(rGeom, rCoreMat);
+                
+                // Wireframe Ring Shell
+                const rWireMat = new THREE.MeshBasicMaterial({ 
                     color: ring.color, side: THREE.DoubleSide, wireframe: true, transparent: true, opacity: 0.15 
                 });
-                const rMesh = new THREE.Mesh(rGeom, rMat);
-                rMesh.rotation.x = Math.PI / 2; // Lay flat on the XZ plane
-                mesh.add(rMesh);
+                const rWireMesh = new THREE.Mesh(rGeom, rWireMat);
+                
+                rCoreMesh.add(rWireMesh);
+                rCoreMesh.rotation.x = Math.PI / 2; // Lay flat
+                coreMesh.add(rCoreMesh);
             });
         }
         
-        pivot.add(mesh);
+        pivot.add(coreMesh);
         parentObj.add(pivot);
         
-        bodyData.mesh = mesh;
+        bodyData.mesh = coreMesh;
         bodyData.pivot = pivot;
     },
 
@@ -217,9 +231,7 @@ const MapEngine = {
             const targetPos = new THREE.Vector3();
             target.mesh.getWorldPosition(targetPos);
             
-            // Set dynamic camera offset based on true object size
             const camOffset = (target.radius * this.UNIT_SCALE) * 4; 
-            
             this.camera.position.copy(targetPos).add(new THREE.Vector3(0, camOffset, camOffset * 1.5));
             this.controls.target.copy(targetPos);
             this.lastTargetPos = targetPos.clone();
@@ -280,34 +292,30 @@ const MapEngine = {
             });
         });
 
-        // FIXED FOCUS SYSTEM: Rigidly track target's world position
         if (this.activeTarget && this.activeTarget.mesh) {
             const currentPos = new THREE.Vector3();
             this.activeTarget.mesh.getWorldPosition(currentPos);
             
             if (this.lastTargetPos) {
                 const delta = currentPos.clone().sub(this.lastTargetPos);
-                this.camera.position.add(delta); // Move camera exactly with the body
+                this.camera.position.add(delta); 
             }
-            this.controls.target.copy(currentPos); // Lock crosshairs on body
+            this.controls.target.copy(currentPos); 
             this.lastTargetPos = currentPos.clone();
         }
-
         this.controls.update();
     },
 
     drawUI: function() {
         this.ctx.clearRect(0, 0, this.uiCanvas.width, this.uiCanvas.height);
-        this.ctx.fillStyle = "#ffb000";
-        this.ctx.font = "14px 'Courier New'";
+        this.ctx.fillStyle = "#ffb000"; this.ctx.font = "14px 'Courier New'";
         this.ctx.fillText(`TIME MULTIPLIER: ${this.timeScale}x (1s = 1hr)`, 10, 20);
-        this.ctx.fillText(`SCALE: TRUE 1:1`, 10, 40);
+        this.ctx.fillText(`SCALE: TRUE 1:1 | OPAQUE MESHING: ACTIVE`, 10, 40);
 
         if (this.activeTarget) {
             let isAnchor = this.activeTarget.name === "OSIRIS";
             let boxWidth = 340;
-            let startX = this.uiCanvas.width - (boxWidth + 10);
-            let textX = startX + 10;
+            let startX = this.uiCanvas.width - (boxWidth + 10); let textX = startX + 10;
             let astroLines = this.activeTarget.desc_astro.split('\n');
             let buttonY = 100 + (astroLines.length * 20);
             if (!isAnchor) buttonY += 130; 
