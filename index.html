@@ -87,27 +87,27 @@ const MapEngine = {
     
     system: {
         name: "OSIRIS", radius: 12.6, axialTilt: 0,
-        desc_astro: "CLASS: STELLAR BLACK HOLE \nMASS:  2.542 SOLAR MASSES \nHORIZON REGION: 72 KM (ISCO) ",
+        desc_astro: "CLASS: STELLAR BLACK HOLE\nHORIZON REGION: 72 KM (ISCO)\nDISC MESH: VOLUMETRIC TOROIDAL",
         discs: [ 
             { name: "ACCRETION DISC", start: 72, end: 16000000, type: "accretion" } 
         ],
         bodies: [
             {
                 name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, axialTilt: 14.32,
-                desc_astro: "CLASS: HABITABLE TERRESTRIAL [cite: 5, 35]\nATMOSPHERE: 1.09236 ATM [cite: 37]\nAXIAL TILT: 14.32° [cite: 40]",
+                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nAXIAL TILT: 14.32°\nRINGS: SOLID FILLED WITH SHARP SEGMENT BOUNDARIES",
                 rings: [
-                    { name: "RING A", start: 5796 + 2500, end: 5796 + 3100, color: 0xffb000 },
-                    { name: "RING B", start: 5796 + 3200, end: 5796 + 4100, color: 0xffb000 },
-                    { name: "RING C", start: 5796 + 4200, end: 5796 + 5100, color: 0xffb000 },
-                    // HARMONY MOON GAP CLEARING BETWEEN C AND D (Altitude ~5100 to ~6600)
-                    { name: "RING D", start: 5796 + 6600, end: 5796 + 7300, color: 0xffb000 },
-                    { name: "RING E", start: 5796 + 7400, end: 5796 + 7920, color: 0xffb000 }
+                    { name: "RING A", start: 5796 + 2500, end: 5796 + 3100 },
+                    { name: "RING B", start: 5796 + 3200, end: 5796 + 4100 },
+                    { name: "RING C", start: 5796 + 4200, end: 5796 + 5100 },
+                    // HARMONY MOON GAP CLEARING BETWEEN C AND D (Altitude 5,100km to 6,600km)
+                    { name: "RING D", start: 5796 + 6600, end: 5796 + 7300 },
+                    { name: "RING E", start: 5796 + 7400, end: 5796 + 7920 }
                 ],
                 bodies: [
                     { name: "HARMONY", a: 5796 + 6000, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004,
-                      desc_astro: "CLASS: SHEPHERD MOON [cite: 46]\nREGION: C / D RING SEGMENT GAP [cite: 45]" },     
+                      desc_astro: "CLASS: SHEPHERD MOON\nREGION: C / D RING SEGMENT GAP" },     
                     { name: "KIITOS", a: 340000, e: 0.05, inc: 0.0, lan: 0.0, argp: 90.0, radius: 1876, period: 2171520,
-                      desc_astro: "CLASS: MAJOR LUNAR BODY [cite: 47]\nTIDALLY LOCKED [cite: 48]" }  
+                      desc_astro: "CLASS: MAJOR LUNAR BODY\nTIDALLY LOCKED" }  
                 ]
             }
         ]
@@ -149,14 +149,14 @@ const MapEngine = {
         const scaledRadius = bodyData.radius * this.UNIT_SCALE;
         const geometry = new THREE.SphereGeometry(scaledRadius, 32, 32);
         
-        // Solid Black Hole Core 
+        // Un-meshed clean black core sphere for Osiris / planets
         const coreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
         coreMat.polygonOffset = true; coreMat.polygonOffsetFactor = 1; coreMat.polygonOffsetUnits = 1;
         const coreMesh = new THREE.Mesh(geometry, coreMat);
         
-        // Wireframe Shell - Skipped entirely for Osiris to keep it an un-meshed dark sphere
+        // Add a clean terminal wireframe only for non-star entities (Furra & Moons)
         if (!isStar) {
-            const wireMat = new THREE.MeshBasicMaterial({ color: 0xffb000, wireframe: true, transparent: true, opacity: 0.6 });
+            const wireMat = new THREE.MeshBasicMaterial({ color: 0xffb000, wireframe: true, transparent: true, opacity: 0.5 });
             const wireMesh = new THREE.Mesh(geometry, wireMat);
             coreMesh.add(wireMesh);
         }
@@ -174,7 +174,7 @@ const MapEngine = {
             
             const points = [];
             const pathMaterial = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.2 });
-            const segments = 512; 
+            const segments = 256; 
             for(let i=0; i<=segments; i++) {
                 const theta = (i / segments) * Math.PI * 2;
                 const r = (bodyData.a * (1 - Math.pow(bodyData.e, 2))) / (1 + bodyData.e * Math.cos(theta));
@@ -186,47 +186,86 @@ const MapEngine = {
 
         equatorGroup.rotation.x = THREE.MathUtils.degToRad(bodyData.axialTilt || 0);
 
-        // Vector Array Geometry Generator Loops (No structural connecting meshes inside rings)
-        if (bodyData.rings || bodyData.discs) {
-            const ringArray = bodyData.rings || bodyData.discs;
-            ringArray.forEach(ring => {
-                const isAccretion = ring.type === "accretion";
-                const ringGroup = new THREE.Group();
-                const numCircles = isAccretion ? 400 : 8; 
+        // --- VOLUMETRIC TOROID ACCRETION DISC MESH & FILLED PLANETARY RINGS ---
+        if (bodyData.discs) {
+            bodyData.discs.forEach(disc => {
+                // Generate a continuous, flared cross-section lathe profile
+                const lathePoints = [];
+                const innerR = disc.start * this.UNIT_SCALE; 
+                const outerR = disc.end * this.UNIT_SCALE;
+                const steps = 64;
                 
-                for(let j = 0; j < numCircles; j++) {
-                    const t = numCircles > 1 ? j / (numCircles - 1) : 0;
-                    
-                    // Logarithmic/Exponential radius placement mapping outwards from 72km boundary
-                    const r = isAccretion ? 
-                        ring.start + Math.pow(t, 4) * (ring.end - ring.start) : 
-                        ring.start + t * (ring.end - ring.start);
-                    
-                    // Exaggerated flared configuration (Flat on inside, highly expanded on outside edge)
-                    let maxThickness = 0;
-                    if (isAccretion) {
-                        maxThickness = Math.pow(t, 3) * (ring.end * 0.15) * this.UNIT_SCALE;
-                    }
-                    
-                    // Universal Uniform Terminal Amber Orange
-                    const lineColor = new THREE.Color(0xffb000);
-                    const lineMat = new THREE.LineBasicMaterial({ color: lineColor, transparent: true, opacity: isAccretion ? 0.25 : 0.5 });
-                    const volumes = isAccretion ? 2 : 1;
-                    
-                    for(let v = 0; v < volumes; v++) {
-                        const y = isAccretion ? (Math.random() - 0.5) * maxThickness : 0;
-                        const points = [];
-                        const segments = 128;
-                        
-                        for(let i=0; i<=segments; i++) {
-                            const theta = (i / segments) * Math.PI * 2;
-                            points.push(new THREE.Vector3(Math.cos(theta) * r * this.UNIT_SCALE, y, Math.sin(theta) * r * this.UNIT_SCALE));
-                        }
-                        const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
-                        ringGroup.add(new THREE.LineLoop(lineGeom, lineMat)); // Clean vector loop closure
-                    }
+                // Construct the upper curve profile (exponentially flares out)
+                for (let i = 0; i <= steps; i++) {
+                    const t = i / steps;
+                    const r = innerR + Math.pow(t, 2) * (outerR - innerR);
+                    const thickness = Math.pow(t, 2) * (outerR * 0.12); 
+                    lathePoints.push(new THREE.Vector2(r, thickness));
                 }
-                equatorGroup.add(ringGroup);
+                // Return along the bottom curve profile to close the solid mass
+                for (let i = steps; i >= 0; i--) {
+                    const t = i / steps;
+                    const r = innerR + Math.pow(t, 2) * (outerR - innerR);
+                    const thickness = Math.pow(t, 2) * (outerR * 0.12);
+                    lathePoints.push(new THREE.Vector2(r, -thickness));
+                }
+                
+                const discGeom = new THREE.LatheGeometry(lathePoints, 128);
+                // Translucent material allows looking into the mass cross section without blinding the singularity
+                const discMat = new THREE.MeshBasicMaterial({
+                    color: 0xffb000,
+                    transparent: true,
+                    opacity: 0.22,
+                    side: THREE.DoubleSide
+                });
+                const discMesh = new THREE.Mesh(discGeom, discMat);
+                
+                // Add low-opacity structural contour loops to accentuate the curved cross-section
+                const contourMat = new THREE.MeshBasicMaterial({
+                    color: 0xffb000,
+                    transparent: true,
+                    opacity: 0.04,
+                    wireframe: true
+                });
+                const contourMesh = new THREE.Mesh(discGeom, contourMat);
+                discMesh.add(contourMesh);
+                
+                equatorGroup.add(discMesh);
+            });
+        }
+
+        if (bodyData.rings) {
+            bodyData.rings.forEach(ring => {
+                const innerR = ring.start * this.UNIT_SCALE;
+                const outerR = ring.end * this.UNIT_SCALE;
+                
+                // Create a solid plane fill for the ring segment area
+                const ringGeom = new THREE.RingGeometry(innerR, outerR, 128);
+                const ringMat = new THREE.MeshBasicMaterial({
+                    color: 0xffb000,
+                    transparent: true,
+                    opacity: 0.18,
+                    side: THREE.DoubleSide
+                });
+                const ringMesh = new THREE.Mesh(ringGeom, ringMat);
+                ringMesh.rotation.x = Math.PI / 2; // Flat on orbital floor
+                equatorGroup.add(ringMesh);
+                
+                // Draw standalone sharp boundary loop vectors ONLY at start and end metrics
+                const drawBoundary = (radius) => {
+                    const linePoints = [];
+                    const lineSegments = 256;
+                    for (let i = 0; i <= lineSegments; i++) {
+                        const theta = (i / lineSegments) * Math.PI * 2;
+                        linePoints.push(new THREE.Vector3(Math.cos(theta) * radius, 0, Math.sin(theta) * radius));
+                    }
+                    const lineGeom = new THREE.BufferGeometry().setFromPoints(linePoints);
+                    const lineMat = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.6 });
+                    return new THREE.LineLoop(lineGeom, lineMat);
+                };
+                
+                equatorGroup.add(drawBoundary(innerR));
+                equatorGroup.add(drawBoundary(outerR));
             });
         }
         
@@ -354,8 +393,8 @@ const MapEngine = {
     drawUI: function() {
         this.ctx.clearRect(0, 0, this.uiCanvas.width, this.uiCanvas.height);
         this.ctx.fillStyle = "#ffb000"; this.ctx.font = "14px 'Courier New'";
-        this.ctx.fillText(`TIME SCALING: 1:1 REAL TIME ENGINE SPEED`, 10, 20);
-        this.ctx.fillText(`OSIRIS CORE VISUALIZATION: SINGLE UNMESHED BALL`, 10, 40);
+        this.ctx.fillText(`CHRONO ENGINE: 1:1 REAL TIME ACCELERATION`, 10, 20);
+        this.ctx.fillText(`OSIRIS MASS MODEL: CONTINUOUS SOLID TOROID PROFILE`, 10, 40);
 
         if (this.activeTarget) {
             let isAnchor = this.activeTarget.name === "OSIRIS";
@@ -366,7 +405,7 @@ const MapEngine = {
             if (!isAnchor) buttonY += 130; 
             let boxHeight = buttonY + 20;
             
-            this.ctx.fillStyle = "rgba(10, 5, 0, 0.85)"; this.ctx.fillRect(startX, 10, boxWidth, boxHeight);
+            this.ctx.fillStyle = "rgba(10, 5, 0, 0.9)"; this.ctx.fillRect(startX, 10, boxWidth, boxHeight);
             this.ctx.strokeStyle = "#ffb000"; this.ctx.strokeRect(startX, 10, boxWidth, boxHeight);
             
             this.ctx.fillStyle = "#ffb000"; this.ctx.font = "bold 16px 'Courier New'";
@@ -374,14 +413,14 @@ const MapEngine = {
             
             this.ctx.beginPath(); this.ctx.moveTo(startX, 40); this.ctx.lineTo(startX + boxWidth, 40); this.ctx.stroke();
 
-            this.ctx.font = "bold 12px 'Courier New'"; this.ctx.fillText(`[ CANONICAL METRICS ]`, textX, 60);
+            this.ctx.font = "bold 12px 'Courier New'"; this.ctx.fillText(`[ VISUAL MANIFEST ]`, textX, 60);
             this.ctx.font = "12px 'Courier New'";
             this.ctx.fillText(`RADIUS:  ${this.activeTarget.radius.toLocaleString()} KM`, textX, 80);
             for(let i=0; i<astroLines.length; i++) this.ctx.fillText(astroLines[i], textX, 100 + (i*20));
 
             if (!isAnchor) {
                 let currentY = buttonY - 130;
-                this.ctx.font = "bold 12px 'Courier New'"; this.ctx.fillText(`[ ORBITAL DATA ]`, textX, currentY);
+                this.ctx.font = "bold 12px 'Courier New'"; this.ctx.fillText(`[ TELEMETRY ]`, textX, currentY);
                 this.ctx.font = "12px 'Courier New'";
                 this.ctx.fillText(`SMA (a):  ${this.activeTarget.a.toLocaleString()} KM`, textX, currentY + 20);
                 this.ctx.fillText(`ECC (e):  ${this.activeTarget.e}`, textX, currentY + 40);
@@ -418,7 +457,7 @@ const Terminal={
             let pct = Math.floor((currentTick / ticks) * 100);
             let pBar = "["; for(let i=0; i<20; i++) pBar += (i < pct/5) ? "█" : "░"; pBar += "] " + pct + "%";
             
-            this.outputLog.innerText = "ACCESSING " + appName + " MAINFRAME...\n" + pBar;
+            this.outputLog.innerText = "PARSING COMPONENT MASSEs...\n" + pBar;
             
             if (currentTick >= ticks) {
                 clearInterval(loader);
@@ -426,7 +465,7 @@ const Terminal={
                 this.inputField.disabled = false;
                 this.inputWrapper.classList.add('app-mode');
                 
-                this.outputLog.innerText = appName + " ONLINE.\nAWAITING CANONICAL TARGET DESIGNATION OR 'TERMINATE'.";
+                this.outputLog.innerText = appName + " ONLINE.\nENTER TARGET DESIGNATION OR TYPE 'TERMINATE'.";
                 this.inputField.focus();
             }
         }, 50);
@@ -441,37 +480,37 @@ const Terminal={
                 this.currentApp = null;
                 this.inputWrapper.classList.remove('app-mode');
                 MapEngine.stop();
-                this.outputLog.innerText = "OSIRIS KERNEL RESTORED.\nAPP TERMINATED.";
+                this.outputLog.innerText = "OSIRIS CORE MONITOR ACTIVE.\nREADY.";
             } else if (this.currentApp === "PLANETARY CHARTS") {
                 if (!MapEngine.isRunning) {
                     if (cmd === "FURRA" || cmd === "OSIRIS" || cmd === "KIITOS" || cmd === "HARMONY") {
                         MapEngine.start();
                         MapEngine.selectTargetByName(cmd);
                     } else {
-                        this.outputLog.innerText += "\n> " + cmd + "\nERR: TARGET BLOCKED. EXCEEDS SPECIFIED SECTOR RESTRICTIONS.";
+                        this.outputLog.innerText += "\n> " + cmd + "\nERR: REQUEST DENIED. SECTOR SELECTION EXCEEDS CANON DOCUMENTATION.";
                         window.scrollTo(0,document.body.scrollHeight);
                     }
                 } else {
                     let found = MapEngine.selectTargetByName(cmd);
                     if (!found) {
                         this.inputField.value = "";
-                        this.inputField.placeholder = "ERR: OBJECT RESTRICTED / OUTSIDE BOUNDS";
+                        this.inputField.placeholder = "ERR: OBJECT DETACHED OR RESTRICTED";
                         setTimeout(() => this.inputField.placeholder = "", 2000);
                     }
                 }
             } else {
-                this.log("> " + cmd + "\nERR: APP [" + this.currentApp + "] IS RUNNING. TYPE 'TERMINATE' TO EXIT.");
+                this.log("> " + cmd + "\nERR: APPLICATION LOCK ACTIVE. TYPE 'TERMINATE' TO BREAK CONNECTION.");
             }
             return;
         }
 
         this.log("> " + cmd);
         switch(cmd) {
-            case "HELP": this.log("AVAILABLE COMMANDS:\nHELP\nLIST\nLOGOUT\n\nEXECUTABLES:\nPLANETARY CHARTS"); break;
-            case "LIST": this.log("AUTHORIZED OBJECT DATABASE:\n- OSIRIS (BLACK HOLE ANCHOR)\n- FURRA (HOMEWORLD)\n- HARMONY (RING GAP SHEPHERD)\n- KIITOS (MAJOR LUNAR)"); break;
+            case "HELP": this.log("COMMAND MENU:\nHELP\nLIST\nLOGOUT\n\nSYSTEM MODULES:\nPLANETARY CHARTS"); break;
+            case "LIST": this.log("CANON BALANCES INSTALLED:\n- OSIRIS (UNMESHED CORE ANCHOR)\n- FURRA (TERRESTRIAL MOUNT)\n- HARMONY (GAP COMPONENT)\n- KIITOS (OUTER SYSTEM LUNAR)"); break;
             case "LOGOUT": location.reload(); break;
             case "PLANETARY CHARTS": this.launchApp(cmd); break;
-            default: this.log("ERR: UNKNOWN COMMAND SEQUENCE.");
+            default: this.log("ERR: SYSTEM INSTRUCTION FAULT.");
         }
     },
     
