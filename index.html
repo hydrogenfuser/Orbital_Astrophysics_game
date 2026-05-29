@@ -10,7 +10,7 @@ body::after{content:"";position:absolute;top:0;left:0;width:100vw;height:100vh;b
 .boot-screen{justify-content:center;align-items:center;text-align:center}
 .title{font-size:3em;font-weight:bold;margin-bottom:40px;letter-spacing:10px;text-transform:uppercase}
 .boot-box{border:1px solid var(--t);padding:20px;width:300px}
-.input-container{margin-bottom:15px;text-align:left}
+.input-container"><label>USERNAME:</label><input type="text" id="user-input" autocomplete="off"></div>
 .input-container label{display:block;margin-bottom:5px}
 #output-log{white-space:pre-wrap;overflow-y:auto;margin-bottom:10px;padding-right:10px; flex-grow:1; z-index: 10;}
 .input-line{display:flex;align-items:center; z-index:10;}
@@ -78,7 +78,7 @@ const MapEngine = {
     
     isRunning: false,
     startTime: Date.now(),
-    timeScale: 3600, // 1 real second = 1 hour 
+    timeScale: 1, // 1:1 Real-time speed
     
     activeTarget: null,
     lastTargetPos: null,
@@ -87,19 +87,27 @@ const MapEngine = {
     
     system: {
         name: "OSIRIS", radius: 12.6, axialTilt: 0,
-        desc_astro: "CLASS: STELLAR BLACK HOLE\nMASS:  2.542 SOLAR MASSES",
-        discs: [ { start: 80000, end: 16000000, color: 0xffb000 } ],
+        desc_astro: "CLASS: STELLAR BLACK HOLE\nMASS:  2.542 SOLAR MASSES\nHORIZON REGION: 72 KM (ISCO)",
+        discs: [ 
+            { name: "ACCRETION DISC", start: 72, end: 16000000, type: "accretion" } 
+        ],
         bodies: [
             {
-                name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, axialTilt: 14.0,
-                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nGRAVITY: 1.0G (STANDARD)\nAXIAL TILT: 14.0°",
-                rings: [ { name: "MAIN RING", start: 8296, end: 13086, color: 0xffb000 } ],
+                name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, axialTilt: 14.32,
+                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nATMOSPHERE: 1.09236 ATM\nAXIAL TILT: 14.32°",
+                rings: [
+                    { name: "RING A", start: 5796 + 2500, end: 5796 + 3200, color: 0xffb000 },
+                    { name: "RING B", start: 5796 + 3300, end: 5796 + 4200, color: 0xffb000 },
+                    { name: "RING C", start: 5796 + 4300, end: 5796 + 5300, color: 0xffb000 },
+                    // HARMONY GAP AT RADIUS ~11,100 to ~11,900 (Altitude ~5300 to ~6100)
+                    { name: "RING D", start: 5796 + 6200, end: 5796 + 7100, color: 0xffb000 },
+                    { name: "RING E", start: 5796 + 7200, end: 5796 + 7920, color: 0xffb000 }
+                ],
                 bodies: [
-                    // INC and LAN set to 0 to strictly follow the 14-deg equatorial plane
-                    { name: "HARMONY", a: 11796, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004,
-                      desc_astro: "CLASS: SHEPHERD MOON" },     
+                    { name: "HARMONY", a: 5796 + 5700, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004,
+                      desc_astro: "CLASS: SHEPHERD MOON\nREGION: C / D RING GAP" },     
                     { name: "KIITOS", a: 340000, e: 0.05, inc: 0.0, lan: 0.0, argp: 90.0, radius: 1876, period: 2171520,
-                      desc_astro: "CLASS: MAJOR LUNAR BODY" }  
+                      desc_astro: "CLASS: MAJOR LUNAR BODY\nTIDALLY LOCKED" }  
                 ]
             }
         ]
@@ -125,7 +133,6 @@ const MapEngine = {
         window.addEventListener("resize", () => this.resize());
     },
 
-    // Solves Kepler's Equation (M = E - e*sin(E)) using Newton-Raphson
     solveKepler: function(M, e) {
         let E = M;
         for (let i = 0; i < 5; i++) {
@@ -142,17 +149,14 @@ const MapEngine = {
         const scaledRadius = bodyData.radius * this.UNIT_SCALE;
         const geometry = new THREE.SphereGeometry(scaledRadius, 32, 32);
         
-        // 1. SOLID CORE
         const coreMat = new THREE.MeshBasicMaterial({ color: 0x0a0500 });
         coreMat.polygonOffset = true; coreMat.polygonOffsetFactor = 1; coreMat.polygonOffsetUnits = 1;
         const coreMesh = new THREE.Mesh(geometry, coreMat);
         
-        // 2. WIREFRAME SHELL
         const wireMat = new THREE.MeshBasicMaterial({ color: 0xffb000, wireframe: true, transparent: true, opacity: isStar ? 1.0 : 0.6 });
         const wireMesh = new THREE.Mesh(geometry, wireMat);
         coreMesh.add(wireMesh);
 
-        // HIERARCHY: pivot (LAN) -> incGroup (INC) -> argpGroup (ARGP) -> translationGroup (Orbit Path) -> equatorGroup (Axial Tilt)
         const pivot = new THREE.Group();
         const incGroup = new THREE.Group();
         const argpGroup = new THREE.Group();
@@ -160,15 +164,13 @@ const MapEngine = {
         const equatorGroup = new THREE.Group();
         
         if (!isStar) {
-            // Apply Orbital Orientation mathematically
             pivot.rotation.y = THREE.MathUtils.degToRad(bodyData.lan);
             incGroup.rotation.x = THREE.MathUtils.degToRad(bodyData.inc);
             argpGroup.rotation.y = THREE.MathUtils.degToRad(bodyData.argp);
             
-            // Generate High-Res Orbit Line based on true focus
             const points = [];
-            const pathMaterial = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.25 });
-            const segments = 512; // High resolution for smooth ellipses
+            const pathMaterial = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.2 });
+            const segments = 512; 
             for(let i=0; i<=segments; i++) {
                 const theta = (i / segments) * Math.PI * 2;
                 const r = (bodyData.a * (1 - Math.pow(bodyData.e, 2))) / (1 + bodyData.e * Math.cos(theta));
@@ -178,28 +180,64 @@ const MapEngine = {
             argpGroup.add(new THREE.Line(pathGeom, pathMaterial));
         }
 
-        // Apply Axial Tilt to the equator
         equatorGroup.rotation.x = THREE.MathUtils.degToRad(bodyData.axialTilt || 0);
 
-        // Build Rings & Discs (Parented to the tilted equator)
+        // Generation Loop: Concentric vector circle loops (No inner mesh surfaces/spokes)
         if (bodyData.rings || bodyData.discs) {
             const ringArray = bodyData.rings || bodyData.discs;
             ringArray.forEach(ring => {
-                const rGeom = new THREE.RingGeometry(ring.start * this.UNIT_SCALE, ring.end * this.UNIT_SCALE, 128);
-                const rCoreMat = new THREE.MeshBasicMaterial({ color: 0x0a0500, side: THREE.DoubleSide });
-                rCoreMat.polygonOffset = true; rCoreMat.polygonOffsetFactor = 1; rCoreMat.polygonOffsetUnits = 1;
-                const rCoreMesh = new THREE.Mesh(rGeom, rCoreMat);
+                const isAccretion = ring.type === "accretion";
+                const ringGroup = new THREE.Group();
+                const numCircles = isAccretion ? 350 : 8; 
                 
-                const rWireMat = new THREE.MeshBasicMaterial({ color: ring.color, side: THREE.DoubleSide, wireframe: true, transparent: true, opacity: 0.15 });
-                const rWireMesh = new THREE.Mesh(rGeom, rWireMat);
-                
-                rCoreMesh.add(rWireMesh);
-                rCoreMesh.rotation.x = Math.PI / 2;
-                equatorGroup.add(rCoreMesh);
+                for(let j = 0; j < numCircles; j++) {
+                    const t = numCircles > 1 ? j / (numCircles - 1) : 0;
+                    
+                    // Accretion profiles scale exponentially from the 72km ISCO boundary
+                    const r = isAccretion ? 
+                        ring.start + Math.pow(t, 4) * (ring.end - ring.start) : 
+                        ring.start + t * (ring.end - ring.start);
+                    
+                    // Dynamic Flaring Calculations (Thick towards outside, razor thin inside)
+                    let maxThickness = 0;
+                    if (isAccretion) {
+                        maxThickness = Math.pow(t, 2) * (ring.end * 0.03) * this.UNIT_SCALE;
+                    }
+                    
+                    // Spectrum Color Shift for Osiris Accretion Disc (Blue inside -> White Hot outside)
+                    let lineColor = 0xffb000;
+                    if (isAccretion) {
+                        lineColor = new THREE.Color();
+                        if (t < 0.2) {
+                            lineColor.setRGB(0.2, 0.5, 1.0); // Jet Blue Core
+                        } else {
+                            const whiteProgress = (t - 0.2) / 0.8;
+                            lineColor.setRGB(1.0, 0.7 + (whiteProgress * 0.3), 0.3 + (whiteProgress * 0.7)); // White-Hot Flare
+                        }
+                    } else {
+                        lineColor = new THREE.Color(ring.color);
+                    }
+
+                    const lineMat = new THREE.LineBasicMaterial({ color: lineColor, transparent: true, opacity: isAccretion ? 0.3 : 0.5 });
+                    const volumes = isAccretion ? 2 : 1;
+                    
+                    for(let v = 0; v < volumes; v++) {
+                        const y = isAccretion ? (Math.random() - 0.5) * maxThickness : 0;
+                        const points = [];
+                        const segments = 128;
+                        
+                        for(let i=0; i<=segments; i++) {
+                            const theta = (i / segments) * Math.PI * 2;
+                            points.push(new THREE.Vector3(Math.cos(theta) * r * this.UNIT_SCALE, y, Math.sin(theta) * r * this.UNIT_SCALE));
+                        }
+                        const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
+                        ringGroup.add(new THREE.LineLoop(lineGeom, lineMat));
+                    }
+                }
+                equatorGroup.add(ringGroup);
             });
         }
         
-        // Assemble Hierarchy
         equatorGroup.add(coreMesh);
         translationGroup.add(equatorGroup);
         argpGroup.add(translationGroup);
@@ -207,7 +245,6 @@ const MapEngine = {
         pivot.add(incGroup);
         parentObj.add(pivot);
         
-        // Store References for Update Loop
         bodyData.mesh = coreMesh;
         bodyData.translationGroup = translationGroup;
         bodyData.equatorGroup = equatorGroup;
@@ -221,7 +258,6 @@ const MapEngine = {
         this.system.bodies.forEach(planet => {
             this.createBodyMesh(planet, this.system.group);
             planet.bodies.forEach(moon => {
-                // Moons parented to Equator Group so they inherit the axial tilt!
                 this.createBodyMesh(moon, planet.equatorGroup); 
             });
         });
@@ -246,7 +282,7 @@ const MapEngine = {
             const targetPos = new THREE.Vector3();
             target.mesh.getWorldPosition(targetPos);
             
-            const camOffset = (target.radius * this.UNIT_SCALE) * 4; 
+            const camOffset = (target.radius * this.UNIT_SCALE) * 5; 
             this.camera.position.copy(targetPos).add(new THREE.Vector3(0, camOffset, camOffset * 1.5));
             this.controls.target.copy(targetPos);
             this.lastTargetPos = targetPos.clone();
@@ -295,7 +331,6 @@ const MapEngine = {
         
         const processOrbitalMechanics = (body) => {
             if (!body.period) return;
-            // Keplerian Math for accurate velocity over eccentric orbits
             const M = ((2 * Math.PI) / body.period) * elapsedSeconds;
             const E = this.solveKepler(M, body.e);
             const theta = this.getTrueAnomaly(E, body.e);
@@ -327,8 +362,8 @@ const MapEngine = {
     drawUI: function() {
         this.ctx.clearRect(0, 0, this.uiCanvas.width, this.uiCanvas.height);
         this.ctx.fillStyle = "#ffb000"; this.ctx.font = "14px 'Courier New'";
-        this.ctx.fillText(`TIME MULTIPLIER: ${this.timeScale}x (1s = 1hr)`, 10, 20);
-        this.ctx.fillText(`KEPLERIAN PHYSICS: ACTIVE | SOLVER: NEWTON-RAPHSON`, 10, 40);
+        this.ctx.fillText(`TIME MULTIPLIER: 1:1 REAL TIME`, 10, 20);
+        this.ctx.fillText(`SYSTEM HORIZON ISCO: 72 KM`, 10, 40);
 
         if (this.activeTarget) {
             let isAnchor = this.activeTarget.name === "OSIRIS";
@@ -358,8 +393,8 @@ const MapEngine = {
                 this.ctx.font = "12px 'Courier New'";
                 this.ctx.fillText(`SMA (a):  ${this.activeTarget.a.toLocaleString()} KM`, textX, currentY + 20);
                 this.ctx.fillText(`ECC (e):  ${this.activeTarget.e}`, textX, currentY + 40);
-                this.ctx.fillText(`INC (i):  ${this.activeTarget.inc.toFixed(1)}°`, textX, currentY + 60);
-                this.ctx.fillText(`LAN (Ω):  ${this.activeTarget.lan.toFixed(1)}°`, textX, currentY + 80);
+                this.ctx.fillText(`INC (i):  ${this.activeTarget.inc.toFixed(2)}°`, textX, currentY + 60);
+                this.ctx.fillText(`LAN (Ω):  ${this.activeTarget.lan.toFixed(2)}°`, textX, currentY + 80);
             }
         }
     }
@@ -421,7 +456,7 @@ const Terminal={
                         MapEngine.start();
                         MapEngine.selectTargetByName(cmd);
                     } else {
-                        this.outputLog.innerText += "\n> " + cmd + "\nERR: TARGET NOT FOUND.";
+                        this.outputLog.innerText += "\n> " + cmd + "\nERR: TARGET DESIGNATION OUTSIDE CANONICAL SUBSETS.";
                         window.scrollTo(0,document.body.scrollHeight);
                     }
                 } else {
@@ -440,15 +475,11 @@ const Terminal={
 
         this.log("> " + cmd);
         switch(cmd) {
-            case "HELP": this.log("AVAILABLE COMMANDS:\nHELP\nLIST\nLOGOUT\n\nEXECUTABLES:\nVAB\nDSN\nCONTRACTS\nMETAR DATA\nPLANETARY CHARTS"); break;
-            case "LIST": this.log("AGENCY ASSET LIST:\n--- TIER 0 ---\n[READY] sounding_rocket_alpha\n[BUILDING] test_stand_01 (4h 12m)"); break;
+            case "HELP": this.log("AVAILABLE COMMANDS:\nHELP\nLIST\nLOGOUT\n\nEXECUTABLES:\nPLANETARY CHARTS"); break;
+            case "LIST": this.log("CANONICAL ENTITIES TRACKED:\n- OSIRIS (CENTRAL ANCHOR)\n- FURRA (HOMEWORLD)\n- HARMONY (GAP SHEPHERD)\n- KIITOS (MAJOR LUNAR)"); break;
             case "LOGOUT": location.reload(); break;
             case "PLANETARY CHARTS": this.launchApp(cmd); break;
-            case "VAB": case "DSN": case "CONTRACTS": case "METAR DATA":
-                this.currentApp = cmd;
-                this.log("EXECUTING [" + cmd + "]...\nPROCESS COMPLETE. APP RUNNING IN FOREGROUND.");
-                break;
-            default: this.log("ERR: UNKNOWN COMMAND.");
+            default: this.log("ERR: UNKNOWN SYSTEM INSTRUCTION.");
         }
     },
     
