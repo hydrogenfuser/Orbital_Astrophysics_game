@@ -10,7 +10,7 @@ body::after{content:"";position:absolute;top:0;left:0;width:100vw;height:100vh;b
 .boot-screen{justify-content:center;align-items:center;text-align:center}
 .title{font-size:3em;font-weight:bold;margin-bottom:40px;letter-spacing:10px;text-transform:uppercase}
 .boot-box{border:1px solid var(--t);padding:20px;width:300px}
-.input-container{margin-bottom:15px;text-align:left}
+.input-container"><label>USERNAME:</label><input type="text" id="user-input" autocomplete="off"></div>
 .input-container label{display:block;margin-bottom:5px}
 #output-log{white-space:pre-wrap;overflow-y:auto;margin-bottom:10px;padding-right:10px; flex-grow:1; z-index: 10;}
 .input-line{display:flex;align-items:center; z-index:10;}
@@ -44,6 +44,14 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
 </div>
 
 <script>
+// Deterministic Pseudo-Random Generator for consistent planetary data seeds
+function createNoiseGen(seed) {
+    return function(x, y) {
+        let n = Math.sin(x * 12.9898 + y * 78.233 + seed) * 43758.5453123;
+        return n - Math.floor(n);
+    };
+}
+
 const AuthSystem={
     isAuthenticated:!1,
     validUser:"DIRECTOR",
@@ -65,58 +73,83 @@ const AuthSystem={
     }
 };
 
-// --- TRUE SCALE 3D ASTROPHYSICS ENGINE ---
 const MapEngine = {
     container: document.getElementById("webgl-container"),
     uiCanvas: document.getElementById("ui-canvas"),
     ctx: null,
-    
     scene: null,
     camera: null,
     renderer: null,
     controls: null,
-    
     isRunning: false,
     startTime: Date.now(),
-    timeScale: 1, // 1:1 Real-time speed anchor
-    
+    timeScale: 1, 
     activeTarget: null,
     lastTargetPos: null,
+    UNIT_SCALE: 0.001, 
     
-    UNIT_SCALE: 0.001, // 1 Unit = 1000 KM
-    
+    // Global Terrain Storage for Encyclopedia
+    furraTerrainWidth: 128,
+    furraTerrainHeight: 64,
+    furraTerrainMap: [],
+
     system: {
         name: "OSIRIS", radius: 12.6, axialTilt: 0,
-        desc_astro: "CLASS: STELLAR BLACK HOLE\nHORIZON REGION: 72 KM (ISCO)\nDISC MESH: VOLUMETRIC TOROIDAL",
-        discs: [ 
-            { name: "ACCRETION DISC", start: 72, end: 16000000, type: "accretion" } 
-        ],
+        desc_astro: "CLASS: STELLAR BLACK HOLE\nEVENT HORIZON: 72 KM BOUNDARY\nSTRUCTURE: EXPONENTIAL VECTOR LINES\nPOLAR CONFIGURATION: ACTIVE EMISSION JETS",
+        discs: [ { name: "ACCRETION LINES", start: 72, end: 120000, type: "line_disc" } ],
         bodies: [
             {
                 name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, axialTilt: 14.32,
-                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nAXIAL TILT: 14.32°\nRINGS: SOLID FILLED WITH SHARP SEGMENT BOUNDARIES",
+                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nSURFACE CONFIG: PROCEDURAL VECTOR CONTOUR\nOCEAN LEVEL: 72.00% CRITICAL DENSITY\nMAP SYSTEM: TOPOGRAPHIC READOUT STORAGE",
                 rings: [
                     { name: "RING A", start: 5796 + 2500, end: 5796 + 3100 },
                     { name: "RING B", start: 5796 + 3200, end: 5796 + 4100 },
                     { name: "RING C", start: 5796 + 4200, end: 5796 + 5100 },
-                    // HARMONY MOON GAP CLEARING BETWEEN C AND D (Altitude 5,100km to 6,600km)
                     { name: "RING D", start: 5796 + 6600, end: 5796 + 7300 },
                     { name: "RING E", start: 5796 + 7400, end: 5796 + 7920 }
                 ],
                 bodies: [
-                    { name: "HARMONY", a: 5796 + 6000, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004,
-                      desc_astro: "CLASS: SHEPHERD MOON\nREGION: C / D RING SEGMENT GAP" },     
-                    { name: "KIITOS", a: 340000, e: 0.05, inc: 0.0, lan: 0.0, argp: 90.0, radius: 1876, period: 2171520,
-                      desc_astro: "CLASS: MAJOR LUNAR BODY\nTIDALLY LOCKED" }  
+                    { name: "HARMONY", a: 5796 + 6000, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004, desc_astro: "CLASS: SHEPHERD MOON\nREGION: C / D RING SEGMENT GAP" },     
+                    { name: "KIITOS", a: 340000, e: 0.05, inc: 0.0, lan: 0.0, argp: 90.0, radius: 1876, period: 2171520, desc_astro: "CLASS: MAJOR LUNAR BODY\nTIDALLY LOCKED" }  
                 ]
             }
         ]
     },
 
+    generateFurraTerrain: function() {
+        const rand = createNoiseGen(42);
+        this.furraTerrainMap = [];
+        for (let y = 0; y <= this.furraTerrainHeight; y++) {
+            let row = [];
+            let lat = (y / this.furraTerrainHeight) * Math.PI;
+            for (let x = 0; x <= this.furraTerrainWidth; x++) {
+                let lon = (x / this.furraTerrainWidth) * Math.PI * 2;
+                
+                let nx = Math.sin(lat) * Math.cos(lon);
+                let ny = Math.cos(lat);
+                let nz = Math.sin(lat) * Math.sin(lon);
+                
+                // Multi-frequency noise breakdown
+                let h1 = rand(nx * 2.1, ny * 2.1) * 0.6;
+                let h2 = rand(nx * 5.5, nz * 5.5) * 0.3;
+                let h3 = rand(ny * 12.0, nz * 12.0) * 0.1;
+                let height = h1 + h2 + h3;
+                
+                // 72% Ocean Floor Clamping Math
+                if (height < 0.44) {
+                    height = 0.30; 
+                }
+                row.push(height);
+            }
+            this.furraTerrainMap.push(row);
+        }
+    },
+
     init: function() {
         this.ctx = this.uiCanvas.getContext("2d");
-        this.scene = new THREE.Scene();
+        this.generateFurraTerrain();
         
+        this.scene = new THREE.Scene();
         const aspect = window.innerWidth / (window.innerHeight - 50);
         this.camera = new THREE.PerspectiveCamera(45, aspect, 0.0001, 1e9); 
         
@@ -135,9 +168,7 @@ const MapEngine = {
 
     solveKepler: function(M, e) {
         let E = M;
-        for (let i = 0; i < 5; i++) {
-            E = E - (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
-        }
+        for (let i = 0; i < 5; i++) E = E - (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
         return E;
     },
 
@@ -147,18 +178,53 @@ const MapEngine = {
 
     createBodyMesh: function(bodyData, parentObj, isStar = false) {
         const scaledRadius = bodyData.radius * this.UNIT_SCALE;
-        const geometry = new THREE.SphereGeometry(scaledRadius, 32, 32);
-        
-        // Un-meshed clean black core sphere for Osiris / planets
-        const coreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        let geometry;
+        let coreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
         coreMat.polygonOffset = true; coreMat.polygonOffsetFactor = 1; coreMat.polygonOffsetUnits = 1;
+
+        if (bodyData.name === "FURRA") {
+            // Apply Topographic Vector Mesh Displacement
+            geometry = new THREE.SphereGeometry(scaledRadius, this.furraTerrainWidth, this.furraTerrainHeight);
+            const posAttr = geometry.attributes.position;
+            const uvAttr = geometry.attributes.uv;
+            
+            for (let i = 0; i < posAttr.count; i++) {
+                let u = uvAttr.getX(i);
+                let v = uvAttr.getY(i);
+                
+                let tx = Math.min(Math.floor(u * this.furraTerrainWidth), this.furraTerrainWidth);
+                let ty = Math.min(Math.floor((1 - v) * this.furraTerrainHeight), this.furraTerrainHeight);
+                let heightValue = this.furraTerrainMap[ty][tx];
+                
+                let vx = posAttr.getX(i);
+                let vy = posAttr.getY(i);
+                let vz = posAttr.getZ(i);
+                
+                let normal = new THREE.Vector3(vx, vy, vz).normalize();
+                let displacement = heightValue * (350 * this.UNIT_SCALE); // Peak mountain amplitude scaled
+                
+                posAttr.setXYZ(i, vx + normal.x * displacement, vy + normal.y * displacement, vz + normal.z * displacement);
+            }
+            geometry.computeVertexNormals();
+        } else {
+            geometry = new THREE.SphereGeometry(scaledRadius, 32, 32);
+        }
+        
         const coreMesh = new THREE.Mesh(geometry, coreMat);
         
-        // Add a clean terminal wireframe only for non-star entities (Furra & Moons)
         if (!isStar) {
-            const wireMat = new THREE.MeshBasicMaterial({ color: 0xffb000, wireframe: true, transparent: true, opacity: 0.5 });
+            // High-contrast topographic contour wireframe shading
+            const wireMat = new THREE.MeshBasicMaterial({ color: 0xffb000, wireframe: true, transparent: true, opacity: 0.4 });
             const wireMesh = new THREE.Mesh(geometry, wireMat);
             coreMesh.add(wireMesh);
+        } else {
+            // OSIRIS Specific Modifications: Event Horizon Orange Border Edge Ring
+            const borderGeom = new THREE.RingGeometry(scaledRadius * 1.02, scaledRadius * 1.08, 64);
+            const borderMat = new THREE.MeshBasicMaterial({ color: 0xff7700, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+            const borderMesh = new THREE.Mesh(borderGeom, borderMat);
+            borderMesh.lookAt(this.camera.position);
+            coreMesh.add(borderMesh);
+            this.osirisBorderMesh = borderMesh; // Retain pointer to update facing orientation
         }
 
         const pivot = new THREE.Group();
@@ -173,7 +239,7 @@ const MapEngine = {
             argpGroup.rotation.y = THREE.MathUtils.degToRad(bodyData.argp);
             
             const points = [];
-            const pathMaterial = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.2 });
+            const pathMaterial = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.15 });
             const segments = 256; 
             for(let i=0; i<=segments; i++) {
                 const theta = (i / segments) * Math.PI * 2;
@@ -186,51 +252,57 @@ const MapEngine = {
 
         equatorGroup.rotation.x = THREE.MathUtils.degToRad(bodyData.axialTilt || 0);
 
-        // --- VOLUMETRIC TOROID ACCRETION DISC MESH & FILLED PLANETARY RINGS ---
+        // --- LINE ACCRETION DISC SYSTEM WITH OUT-WEIGHTED WEIGHT DISTRIBUTION ---
         if (bodyData.discs) {
             bodyData.discs.forEach(disc => {
-                // Generate a continuous, flared cross-section lathe profile
-                const lathePoints = [];
-                const innerR = disc.start * this.UNIT_SCALE; 
-                const outerR = disc.end * this.UNIT_SCALE;
-                const steps = 64;
+                const totalLoops = 140;
+                const discGroup = new THREE.Group();
                 
-                // Construct the upper curve profile (exponentially flares out)
-                for (let i = 0; i <= steps; i++) {
-                    const t = i / steps;
-                    const r = innerR + Math.pow(t, 2) * (outerR - innerR);
-                    const thickness = Math.pow(t, 2) * (outerR * 0.12); 
-                    lathePoints.push(new THREE.Vector2(r, thickness));
+                for(let i=0; i<totalLoops; i++) {
+                    // Exponential spacing biases loops heavily toward the outer rim
+                    const pct = Math.pow(i / totalLoops, 1.8);
+                    const radius = (disc.start + pct * (disc.end - disc.start)) * this.UNIT_SCALE;
+                    
+                    const linePoints = [];
+                    const lineSegments = 128;
+                    for (let j = 0; j <= lineSegments; j++) {
+                        const theta = (j / lineSegments) * Math.PI * 2;
+                        linePoints.push(new THREE.Vector3(Math.cos(theta) * radius, 0, Math.sin(theta) * radius));
+                    }
+                    const lineGeom = new THREE.BufferGeometry().setFromPoints(linePoints);
+                    // Outer loops fade and scale slightly to provide volumetric visual thickness bounds
+                    const lineMat = new THREE.LineBasicMaterial({ 
+                        color: 0xffb000, 
+                        transparent: true, 
+                        opacity: 0.05 + (pct * 0.22) 
+                    });
+                    discGroup.add(new THREE.LineLoop(lineGeom, lineMat));
                 }
-                // Return along the bottom curve profile to close the solid mass
-                for (let i = steps; i >= 0; i--) {
-                    const t = i / steps;
-                    const r = innerR + Math.pow(t, 2) * (outerR - innerR);
-                    const thickness = Math.pow(t, 2) * (outerR * 0.12);
-                    lathePoints.push(new THREE.Vector2(r, -thickness));
+                equatorGroup.add(discGroup);
+
+                // --- HIGH VELOCITY POLAR REJECTION JETS ---
+                const jetLinesCount = 36;
+                const jetLength = 80000 * this.UNIT_SCALE;
+                const jetGeom = new THREE.BufferGeometry();
+                const jetVertices = [];
+                
+                for(let j=0; j<jetLinesCount; j++) {
+                    let angle = (j / jetLinesCount) * Math.PI * 2;
+                    let jetRadius = scaledRadius * 0.4;
+                    let sX = Math.cos(angle) * jetRadius;
+                    let sZ = Math.sin(angle) * jetRadius;
+                    
+                    // North Vector Column
+                    jetVertices.push(sX, scaledRadius, sZ);
+                    jetVertices.push(sX * 3, jetLength, sZ * 3);
+                    // South Vector Column
+                    jetVertices.push(sX, -scaledRadius, sZ);
+                    jetVertices.push(sX * 3, -jetLength, sZ * 3);
                 }
-                
-                const discGeom = new THREE.LatheGeometry(lathePoints, 128);
-                // Translucent material allows looking into the mass cross section without blinding the singularity
-                const discMat = new THREE.MeshBasicMaterial({
-                    color: 0xffb000,
-                    transparent: true,
-                    opacity: 0.22,
-                    side: THREE.DoubleSide
-                });
-                const discMesh = new THREE.Mesh(discGeom, discMat);
-                
-                // Add low-opacity structural contour loops to accentuate the curved cross-section
-                const contourMat = new THREE.MeshBasicMaterial({
-                    color: 0xffb000,
-                    transparent: true,
-                    opacity: 0.04,
-                    wireframe: true
-                });
-                const contourMesh = new THREE.Mesh(discGeom, contourMat);
-                discMesh.add(contourMesh);
-                
-                equatorGroup.add(discMesh);
+                jetGeom.setAttribute('position', new THREE.Float32BufferAttribute(jetVertices, 3));
+                const jetMat = new THREE.LineSegmentsMaterial ? new THREE.LineBasicMaterial({color: 0xffb000, transparent:true, opacity:0.35}) : new THREE.LineBasicMaterial({color:0xffb000, transparent:true, opacity:0.25});
+                const jetMesh = new THREE.LineSegments(jetGeom, jetMat);
+                equatorGroup.add(jetMesh);
             });
         }
 
@@ -239,19 +311,12 @@ const MapEngine = {
                 const innerR = ring.start * this.UNIT_SCALE;
                 const outerR = ring.end * this.UNIT_SCALE;
                 
-                // Create a solid plane fill for the ring segment area
                 const ringGeom = new THREE.RingGeometry(innerR, outerR, 128);
-                const ringMat = new THREE.MeshBasicMaterial({
-                    color: 0xffb000,
-                    transparent: true,
-                    opacity: 0.18,
-                    side: THREE.DoubleSide
-                });
+                const ringMat = new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.14, side: THREE.DoubleSide });
                 const ringMesh = new THREE.Mesh(ringGeom, ringMat);
-                ringMesh.rotation.x = Math.PI / 2; // Flat on orbital floor
+                ringMesh.rotation.x = Math.PI / 2;
                 equatorGroup.add(ringMesh);
                 
-                // Draw standalone sharp boundary loop vectors ONLY at start and end metrics
                 const drawBoundary = (radius) => {
                     const linePoints = [];
                     const lineSegments = 256;
@@ -263,7 +328,6 @@ const MapEngine = {
                     const lineMat = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.6 });
                     return new THREE.LineLoop(lineGeom, lineMat);
                 };
-                
                 equatorGroup.add(drawBoundary(innerR));
                 equatorGroup.add(drawBoundary(outerR));
             });
@@ -360,6 +424,11 @@ const MapEngine = {
     update: function() {
         const elapsedSeconds = ((Date.now() - this.startTime) / 1000) * this.timeScale;
         
+        // Dynamic alignment of Event Horizon border ring to viewport vector
+        if (this.osirisBorderMesh && this.camera) {
+            this.osirisBorderMesh.lookAt(this.camera.position);
+        }
+
         const processOrbitalMechanics = (body) => {
             if (!body.period) return;
             const M = ((2 * Math.PI) / body.period) * elapsedSeconds;
@@ -393,19 +462,23 @@ const MapEngine = {
     drawUI: function() {
         this.ctx.clearRect(0, 0, this.uiCanvas.width, this.uiCanvas.height);
         this.ctx.fillStyle = "#ffb000"; this.ctx.font = "14px 'Courier New'";
-        this.ctx.fillText(`CHRONO ENGINE: 1:1 REAL TIME ACCELERATION`, 10, 20);
-        this.ctx.fillText(`OSIRIS MASS MODEL: CONTINUOUS SOLID TOROID PROFILE`, 10, 40);
+        this.ctx.fillText(`CHRONO ENGINE: 1:1 REAL TIME ANCHOR`, 10, 20);
+        this.ctx.fillText(`SYSTEM RECOVERY MODE: RADAR INTERFACE`, 10, 40);
 
         if (this.activeTarget) {
             let isAnchor = this.activeTarget.name === "OSIRIS";
-            let boxWidth = 340;
+            let boxWidth = 360;
             let startX = this.uiCanvas.width - (boxWidth + 10); let textX = startX + 10;
             let astroLines = this.activeTarget.desc_astro.split('\n');
-            let buttonY = 100 + (astroLines.length * 20);
-            if (!isAnchor) buttonY += 130; 
-            let boxHeight = buttonY + 20;
             
-            this.ctx.fillStyle = "rgba(10, 5, 0, 0.9)"; this.ctx.fillRect(startX, 10, boxWidth, boxHeight);
+            let baseElementY = 100 + (astroLines.length * 20);
+            if (!isAnchor) baseElementY += 100;
+            
+            // Dynamic padding addition for the Topographic Render box if Target is Furra
+            let isFurra = this.activeTarget.name === "FURRA";
+            let boxHeight = baseElementY + (isFurra ? 190 : 20);
+            
+            this.ctx.fillStyle = "rgba(10, 5, 0, 0.95)"; this.ctx.fillRect(startX, 10, boxWidth, boxHeight);
             this.ctx.strokeStyle = "#ffb000"; this.ctx.strokeRect(startX, 10, boxWidth, boxHeight);
             
             this.ctx.fillStyle = "#ffb000"; this.ctx.font = "bold 16px 'Courier New'";
@@ -419,13 +492,55 @@ const MapEngine = {
             for(let i=0; i<astroLines.length; i++) this.ctx.fillText(astroLines[i], textX, 100 + (i*20));
 
             if (!isAnchor) {
-                let currentY = buttonY - 130;
+                let currentY = 100 + (astroLines.length * 20) + 10;
                 this.ctx.font = "bold 12px 'Courier New'"; this.ctx.fillText(`[ TELEMETRY ]`, textX, currentY);
                 this.ctx.font = "12px 'Courier New'";
                 this.ctx.fillText(`SMA (a):  ${this.activeTarget.a.toLocaleString()} KM`, textX, currentY + 20);
                 this.ctx.fillText(`ECC (e):  ${this.activeTarget.e}`, textX, currentY + 40);
                 this.ctx.fillText(`INC (i):  ${this.activeTarget.inc.toFixed(2)}°`, textX, currentY + 60);
-                this.ctx.fillText(`LAN (Ω):  ${this.activeTarget.lan.toFixed(2)}°`, textX, currentY + 80);
+            }
+
+            // ENCYCLOPEDIA TOPOGRAPHIC GRID MODULE RENDERING
+            if (isFurra) {
+                let mapBoxY = baseElementY - 10;
+                this.ctx.font = "bold 12px 'Courier New'"; this.ctx.fillText(`[ ENCYCLOPEDIA TOPOGRAPHIC SCAN ]`, textX, mapBoxY);
+                
+                let renderX = textX;
+                let renderY = mapBoxY + 10;
+                let mapW = boxWidth - 30;
+                let mapH = 140;
+                
+                // Draw surrounding radar window
+                this.ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
+                this.ctx.strokeRect(renderX, renderY, mapW, mapH);
+                
+                // Loop through global terrain buffer array to construct Mercator readout pixel-by-pixel
+                let stepX = mapW / this.furraTerrainWidth;
+                let stepY = mapH / this.furraTerrainHeight;
+                
+                for(let ty=0; ty<this.furraTerrainHeight; ty++) {
+                    for(let tx=0; tx<this.furraTerrainWidth; tx++) {
+                        let hVal = this.furraTerrainMap[ty][tx];
+                        
+                        if (hVal === 0.30) {
+                            // Ocean floor coloring protocol
+                            this.ctx.fillStyle = "rgba(255, 176, 0, 0.06)";
+                        } else {
+                            // Dynamic topographic line grouping based on continuous height layers
+                            let lineIndex = Math.floor(hVal * 25);
+                            if (lineIndex % 2 === 0) {
+                                this.ctx.fillStyle = "rgba(255, 176, 0, 0.75)";
+                            } else {
+                                this.ctx.fillStyle = "rgba(255, 176, 0, 0.25)";
+                            }
+                        }
+                        this.ctx.fillRect(renderX + (tx * stepX), renderY + (ty * stepY), Math.ceil(stepX), Math.ceil(stepY));
+                    }
+                }
+                
+                this.ctx.fillStyle = "#ffb000";
+                this.ctx.font = "10px 'Courier New'";
+                this.ctx.fillText(`MERCATOR PROJECTION MAP VECTOR // DETERMINISTIC SEED`, renderX, renderY + mapH + 15);
             }
         }
     }
@@ -457,14 +572,13 @@ const Terminal={
             let pct = Math.floor((currentTick / ticks) * 100);
             let pBar = "["; for(let i=0; i<20; i++) pBar += (i < pct/5) ? "█" : "░"; pBar += "] " + pct + "%";
             
-            this.outputLog.innerText = "PARSING COMPONENT MASSEs...\n" + pBar;
+            this.outputLog.innerText = "PARSING CONTINUOUS CELESTIAL METRICS...\n" + pBar;
             
             if (currentTick >= ticks) {
                 clearInterval(loader);
                 this.currentApp = appName;
                 this.inputField.disabled = false;
                 this.inputWrapper.classList.add('app-mode');
-                
                 this.outputLog.innerText = appName + " ONLINE.\nENTER TARGET DESIGNATION OR TYPE 'TERMINATE'.";
                 this.inputField.focus();
             }
@@ -487,30 +601,30 @@ const Terminal={
                         MapEngine.start();
                         MapEngine.selectTargetByName(cmd);
                     } else {
-                        this.outputLog.innerText += "\n> " + cmd + "\nERR: REQUEST DENIED. SECTOR SELECTION EXCEEDS CANON DOCUMENTATION.";
+                        this.outputLog.innerText += "\n> " + cmd + "\nERR: REQUEST DENIED. TARGET NOT CONCORDANT WITH LOG DATA.";
                         window.scrollTo(0,document.body.scrollHeight);
                     }
                 } else {
                     let found = MapEngine.selectTargetByName(cmd);
                     if (!found) {
                         this.inputField.value = "";
-                        this.inputField.placeholder = "ERR: OBJECT DETACHED OR RESTRICTED";
+                        this.inputField.placeholder = "ERR: TRANSCEIVER ERROR OR TARGET OUT OF RANGE";
                         setTimeout(() => this.inputField.placeholder = "", 2000);
                     }
                 }
             } else {
-                this.log("> " + cmd + "\nERR: APPLICATION LOCK ACTIVE. TYPE 'TERMINATE' TO BREAK CONNECTION.");
+                this.log("> " + cmd + "\nERR: LINK ACTIVE. ENTER 'TERMINATE' TO CLEAR PORT.");
             }
             return;
         }
 
         this.log("> " + cmd);
         switch(cmd) {
-            case "HELP": this.log("COMMAND MENU:\nHELP\nLIST\nLOGOUT\n\nSYSTEM MODULES:\nPLANETARY CHARTS"); break;
-            case "LIST": this.log("CANON BALANCES INSTALLED:\n- OSIRIS (UNMESHED CORE ANCHOR)\n- FURRA (TERRESTRIAL MOUNT)\n- HARMONY (GAP COMPONENT)\n- KIITOS (OUTER SYSTEM LUNAR)"); break;
+            case "HELP": this.log("COMMAND REGISTER:\nHELP\nLIST\nLOGOUT\n\nSYSTEM DRIVERS:\nPLANETARY CHARTS"); break;
+            case "LIST": this.log("SYSTEM MASS DIRECTORY:\n- OSIRIS (CENTRAL EVENT HORIZON BOUND)\n- FURRA (TERRESTRIAL TOPO BLUEPRINT)\n- HARMONY (RESONANT GAP SATELLITE)\n- KIITOS (MAJOR MOON COMPONENT)"); break;
             case "LOGOUT": location.reload(); break;
             case "PLANETARY CHARTS": this.launchApp(cmd); break;
-            default: this.log("ERR: SYSTEM INSTRUCTION FAULT.");
+            default: this.log("ERR: UNRECOGNIZED INSTRUCTION MATRIX.");
         }
     },
     
