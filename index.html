@@ -27,7 +27,7 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
 </style>
 </head><body>
 
-<div id="boot-screen" class="boot-screen">
+<div id="boot-screen" class="boot-screen" style="display:none;">
     <div class="title">ORBITAL</div>
     <div class="boot-box">
         <div class="input-container"><label>USERNAME:</label><input type="text" id="user-input" autocomplete="off"></div>
@@ -36,7 +36,7 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
     </div>
 </div>
 
-<div id="terminal-screen" class="terminal-screen" style="display:none;">
+<div id="terminal-screen" class="terminal-screen" style="display:flex;">
     <div id="webgl-container"></div>
     <canvas id="ui-canvas"></canvas>
     <div id="output-log">OSIRIS KERNEL BOOT (AMBER)... OK.</div>
@@ -45,23 +45,14 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
 
 <script>
 const AuthSystem={
-    isAuthenticated:!1,
+    isAuthenticated:true, // Pre-authorized for seamless initialization
     validUser:"DIRECTOR",
     validPass:"TIER0",
     attemptLogin:function(){
-        const e=document.getElementById("user-input").value.toUpperCase().trim(),
-              t=document.getElementById("pass-input").value.toUpperCase().trim();
-        e===this.validUser&&t===this.validPass?(
-            this.isAuthenticated=!0,
-            document.getElementById("boot-screen").style.display="none",
-            document.getElementById("terminal-screen").style.display="flex",
-            Terminal.log("\n[AUTH SUCCESS] WELCOME TO ORBITAL.\nType 'HELP' for commands."),
-            Terminal.inputField.focus()
-        ):(
-            Terminal.clearInputs(),
-            document.getElementById("user-input").placeholder="ERR: INVALID CREDENTIALS",
-            setTimeout(()=>document.getElementById("user-input").placeholder="", 2000)
-        )
+        this.isAuthenticated=true;
+        document.getElementById("boot-screen").style.display="none";
+        document.getElementById("terminal-screen").style.display="flex";
+        Terminal.inputField.focus();
     }
 };
 
@@ -78,12 +69,12 @@ const MapEngine = {
     
     isRunning: false,
     startTime: Date.now(),
-    timeScale: 1, // 1:1 Real-time speed anchor
+    timeScale: 1, 
     
     activeTarget: null,
     lastTargetPos: null,
     
-    UNIT_SCALE: 0.001, // 1 Unit = 1000 KM
+    UNIT_SCALE: 0.001, 
     
     system: {
         name: "OSIRIS", radius: 12.6, axialTilt: 0,
@@ -99,7 +90,6 @@ const MapEngine = {
                     { name: "RING A", start: 5796 + 2500, end: 5796 + 3100 },
                     { name: "RING B", start: 5796 + 3200, end: 5796 + 4100 },
                     { name: "RING C", start: 5796 + 4200, end: 5796 + 5100 },
-                    // HARMONY MOON GAP CLEARING BETWEEN C AND D (Altitude 5,100km to 6,600km)
                     { name: "RING D", start: 5796 + 6600, end: 5796 + 7300 },
                     { name: "RING E", start: 5796 + 7400, end: 5796 + 7920 }
                 ],
@@ -149,12 +139,10 @@ const MapEngine = {
         const scaledRadius = bodyData.radius * this.UNIT_SCALE;
         const geometry = new THREE.SphereGeometry(scaledRadius, 32, 32);
         
-        // Un-meshed clean black core sphere for Osiris / planets
         const coreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
         coreMat.polygonOffset = true; coreMat.polygonOffsetFactor = 1; coreMat.polygonOffsetUnits = 1;
         const coreMesh = new THREE.Mesh(geometry, coreMat);
         
-        // Add a clean terminal wireframe only for non-star entities (Furra & Moons)
         if (!isStar) {
             const wireMat = new THREE.MeshBasicMaterial({ color: 0xffb000, wireframe: true, transparent: true, opacity: 0.5 });
             const wireMesh = new THREE.Mesh(geometry, wireMat);
@@ -189,21 +177,20 @@ const MapEngine = {
         // --- VOLUMETRIC TOROID ACCRETION DISC MESH & FILLED PLANETARY RINGS ---
         if (bodyData.discs) {
             bodyData.discs.forEach(disc => {
-                // Generate a continuous, flared cross-section lathe profile
                 const lathePoints = [];
                 const innerR = disc.start * this.UNIT_SCALE; 
                 const outerR = disc.end * this.UNIT_SCALE;
                 const steps = 64;
                 
-                // Construct the upper curve profile (exponentially flares out)
+                // Construct upper flare geometry curve
                 for (let i = 0; i <= steps; i++) {
                     const t = i / steps;
                     const r = innerR + Math.pow(t, 2) * (outerR - innerR);
                     const thickness = Math.pow(t, 2) * (outerR * 0.12); 
                     lathePoints.push(new THREE.Vector2(r, thickness));
                 }
-                // Return along the bottom curve profile to close the solid mass
-                for (let i = steps; i >= 0; i--) {
+                // Construct lower curve vector loop (Skips duplicate edges to fix standard Three.js normal generation tracking)
+                for (let i = steps - 1; i > 0; i--) {
                     const t = i / steps;
                     const r = innerR + Math.pow(t, 2) * (outerR - innerR);
                     const thickness = Math.pow(t, 2) * (outerR * 0.12);
@@ -211,7 +198,6 @@ const MapEngine = {
                 }
                 
                 const discGeom = new THREE.LatheGeometry(lathePoints, 128);
-                // Translucent material allows looking into the mass cross section without blinding the singularity
                 const discMat = new THREE.MeshBasicMaterial({
                     color: 0xffb000,
                     transparent: true,
@@ -220,7 +206,6 @@ const MapEngine = {
                 });
                 const discMesh = new THREE.Mesh(discGeom, discMat);
                 
-                // Add low-opacity structural contour loops to accentuate the curved cross-section
                 const contourMat = new THREE.MeshBasicMaterial({
                     color: 0xffb000,
                     transparent: true,
@@ -239,7 +224,6 @@ const MapEngine = {
                 const innerR = ring.start * this.UNIT_SCALE;
                 const outerR = ring.end * this.UNIT_SCALE;
                 
-                // Create a solid plane fill for the ring segment area
                 const ringGeom = new THREE.RingGeometry(innerR, outerR, 128);
                 const ringMat = new THREE.MeshBasicMaterial({
                     color: 0xffb000,
@@ -248,10 +232,9 @@ const MapEngine = {
                     side: THREE.DoubleSide
                 });
                 const ringMesh = new THREE.Mesh(ringGeom, ringMat);
-                ringMesh.rotation.x = Math.PI / 2; // Flat on orbital floor
+                ringMesh.rotation.x = Math.PI / 2; 
                 equatorGroup.add(ringMesh);
                 
-                // Draw standalone sharp boundary loop vectors ONLY at start and end metrics
                 const drawBoundary = (radius) => {
                     const linePoints = [];
                     const lineSegments = 256;
@@ -439,36 +422,28 @@ const Terminal={
     currentApp: null,
     
     init:function(){
+        // Maintain event hooks for application controls
         this.userInput.addEventListener("keydown",e=>{"Enter"===e.key&&this.userInput.value.trim()!=""&&document.getElementById("pass-input").focus()});
         document.getElementById("pass-input").addEventListener("keydown",e=>{"Enter"===e.key&&AuthSystem.attemptLogin()});
         this.inputField.addEventListener("keydown",e=>{"Enter"===e.key&&(e=this.inputField.value,""!==e.trim()&&this.processInput(e),this.inputField.value="")});
         document.getElementById("submit-btn").addEventListener("click",()=>AuthSystem.attemptLogin());
-        this.userInput.focus();
+        
+        // --- INSTANT AUTOMATED BOOT RUNTIME CONFIGURATION ---
         MapEngine.init(); 
+        this.currentApp = "PLANETARY CHARTS";
+        this.inputWrapper.classList.add('app-mode');
+        MapEngine.start();
+        MapEngine.selectTargetByName("FURRA");
+        this.inputField.focus();
     },
 
     launchApp:function(appName){
-        this.currentApp = "LOADING"; 
-        this.inputField.disabled = true; this.inputField.value = "";
-        
-        const ticks = 10; let currentTick = 0;
-        const loader = setInterval(() => {
-            currentTick++;
-            let pct = Math.floor((currentTick / ticks) * 100);
-            let pBar = "["; for(let i=0; i<20; i++) pBar += (i < pct/5) ? "█" : "░"; pBar += "] " + pct + "%";
-            
-            this.outputLog.innerText = "PARSING COMPONENT MASSEs...\n" + pBar;
-            
-            if (currentTick >= ticks) {
-                clearInterval(loader);
-                this.currentApp = appName;
-                this.inputField.disabled = false;
-                this.inputWrapper.classList.add('app-mode');
-                
-                this.outputLog.innerText = appName + " ONLINE.\nENTER TARGET DESIGNATION OR TYPE 'TERMINATE'.";
-                this.inputField.focus();
-            }
-        }, 50);
+        this.currentApp = appName;
+        this.inputField.disabled = false;
+        this.inputWrapper.classList.add('app-mode');
+        MapEngine.start();
+        MapEngine.selectTargetByName("FURRA");
+        this.inputField.focus();
     },
     
     processInput:function(input){
