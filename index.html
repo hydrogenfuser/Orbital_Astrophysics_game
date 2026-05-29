@@ -1,4 +1,7 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>ORBITAL OS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
 <style>
 /* UNIVERSAL UI - AMBER & CRT */
 :root{--t:#ffb000;--b:#0a0500;--f:'Courier New',Courier,monospace}
@@ -10,7 +13,7 @@ body::after{content:"";position:absolute;top:0;left:0;width:100vw;height:100vh;b
 .boot-box{border:1px solid var(--t);padding:20px;width:300px}
 .input-container{margin-bottom:15px;text-align:left}
 .input-container label{display:block;margin-bottom:5px}
-#output-log{white-space:pre-wrap;overflow-y:auto;margin-bottom:10px;padding-right:10px; flex-grow:1;}
+#output-log{white-space:pre-wrap;overflow-y:auto;margin-bottom:10px;padding-right:10px; flex-grow:1; z-index: 10;}
 .input-line{display:flex;align-items:center; z-index:10;}
 .prompt{margin-right:10px;font-weight:bold}
 input[type=text],input[type=password]{background:transparent;border:1px solid rgba(255,176,0,0.3);color:var(--t);font-family:var(--f);font-size:16px;outline:none;text-shadow:0 0 5px var(--t);padding:5px;width:280px}
@@ -20,15 +23,25 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
 #submit-btn:hover{background:var(--t);color:var(--b);text-shadow:none}
 .input-line.app-mode {border-top: 1px solid var(--t); padding-top: 10px; margin-top: 10px;}
 
-/* MAP CANVAS */
-#map-canvas {
+/* 3D & 2D OVERLAY CONTAINERS */
+#webgl-container {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: calc(100% - 50px);
     display: none;
-    cursor: crosshair;
+    z-index: 1;
+}
+#ui-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: calc(100% - 50px);
+    display: none;
+    pointer-events: none; /* Let clicks pass through to 3D controls */
+    z-index: 2;
 }
 </style>
 </head><body>
@@ -43,7 +56,8 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
 </div>
 
 <div id="terminal-screen" class="terminal-screen" style="display:none;">
-    <canvas id="map-canvas"></canvas>
+    <div id="webgl-container"></div>
+    <canvas id="ui-canvas"></canvas>
     <div id="output-log">OSIRIS KERNEL BOOT (AMBER)... OK.</div>
     <div id="input-wrapper" class="input-line"><span class="prompt">></span><input type="text" id="terminal-input" autocomplete="off"></div>
 </div>
@@ -70,48 +84,39 @@ const AuthSystem={
     }
 };
 
-// --- HIERARCHICAL ASTROPHYSICS ENGINE ---
+// --- 3D ASTROPHYSICS ENGINE (THREE.JS) ---
 const MapEngine = {
-    canvas: document.getElementById("map-canvas"),
+    container: document.getElementById("webgl-container"),
+    uiCanvas: document.getElementById("ui-canvas"),
     ctx: null,
+    
+    scene: null,
+    camera: null,
+    renderer: null,
+    controls: null,
+    
     isRunning: false,
-    
-    camera: { x: 0, y: 0, zoom: 0.0000015 }, 
-    isDragging: false,
-    dragStart: { x: 0, y: 0 },
-    mouseMoved: false,
-    isTracking: false, 
-    
     startTime: Date.now(),
-    timeScale: 1, // TRUE TIME SCALING
+    timeScale: 1000, // Sped up for visual testing
     
-    activeTarget: null, 
-    encyclopediaHovered: false,
-    btnBounds: null,
+    activeTarget: null,
+    lastTargetPos: null, // Used for Relative Tracking
+    
+    // Scales to convert massive distances into manageable 3D space coordinates
+    D_SCALE: 1e-5, // Distance Scale
+    R_SCALE: 5e-3, // Radius Visual Exaggeration
     
     system: {
-        name: "OSIRIS", radius: 12.6, currentX: 0, currentY: 0,
-        discs: [
-            { start: 12.6, end: 8000000, color: "rgba(255, 176, 0, 0.4)" },
-            { start: 8000000, end: 16000000, color: "rgba(255, 176, 0, 0.2)" },
-            { start: 16000000, end: 24000000, color: "rgba(255, 176, 0, 0.08)" }
-        ],
+        name: "OSIRIS", radius: 12.6, 
         desc_astro: "CLASS: STELLAR BLACK HOLE\nMASS:  2.542 SOLAR MASSES\nAGE:   ~200 MILLION YEARS",
         bodies: [
             {
-                name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, currentX: 0, currentY: 0, currentR: 0,
+                name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000,
                 desc_astro: "CLASS: HABITABLE TERRESTRIAL\nGRAVITY: 1.0G (STANDARD)\nDAY:   32 HOURS",
-                rings: [
-                    { name: "A", start: 8296, end: 9596, color: "rgba(255, 176, 0, 0.15)" },
-                    { name: "B", start: 9596, end: 11296, color: "rgba(255, 176, 0, 0.30)" },
-                    { name: "C", start: 11296, end: 11646, color: "rgba(255, 176, 0, 0.20)" },
-                    { name: "D", start: 11946, end: 12596, color: "rgba(255, 176, 0, 0.25)" },
-                    { name: "E", start: 12596, end: 13086, color: "rgba(255, 176, 0, 0.10)" }
-                ],
                 bodies: [
-                    { name: "HARMONY", a: 11796, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004, currentX: 0, currentY: 0, currentR: 0,
+                    { name: "HARMONY", a: 11796, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004,
                       desc_astro: "CLASS: SHEPHERD MOON\nGRAVITY: MICROGRAVITY\nLOCKED:  YES" },     
-                    { name: "KIITOS", a: 340000, e: 0.05, inc: 2.1, lan: 45.0, argp: 90.0, radius: 1876, period: 2171520, currentX: 0, currentY: 0, currentR: 0,
+                    { name: "KIITOS", a: 340000, e: 0.05, inc: 2.1, lan: 45.0, argp: 90.0, radius: 1876, period: 2171520,
                       desc_astro: "CLASS: MAJOR LUNAR BODY\nGRAVITY: ~0.16G (1/6 FURRA)\nLOCKED:  YES" }  
                 ]
             }
@@ -119,352 +124,215 @@ const MapEngine = {
     },
 
     init: function() {
-        this.ctx = this.canvas.getContext("2d");
-        this.resize();
+        this.ctx = this.uiCanvas.getContext("2d");
+        
+        // 1. Setup Three.js Scene
+        this.scene = new THREE.Scene();
+        this.scene.background = null; // Let the black CRT background show
+        
+        const aspect = window.innerWidth / (window.innerHeight - 50);
+        this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 100000);
+        
+        this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight - 50);
+        this.container.appendChild(this.renderer.domElement);
+        
+        // 2. Setup Orbit Controls (Draggable 3D Map)
+        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.05;
+        this.controls.maxDistance = 50000;
+        
+        this.buildSystem();
+        
         window.addEventListener("resize", () => this.resize());
         
-        this.canvas.addEventListener("mousedown", (e) => {
-            this.isDragging = true;
-            this.isTracking = false; 
-            this.mouseMoved = false;
-            this.dragStart = { x: e.clientX - this.camera.x, y: e.clientY - this.camera.y };
-        });
-        
-        window.addEventListener("mousemove", (e) => {
-            const rect = this.canvas.getBoundingClientRect();
-            const mX = e.clientX - rect.left;
-            const mY = e.clientY - rect.top;
-
-            let overButton = false;
-            if (this.btnBounds && mX >= this.btnBounds.x1 && mX <= this.btnBounds.x2 && mY >= this.btnBounds.y1 && mY <= this.btnBounds.y2) {
-                overButton = true;
-            }
-
-            if (overButton) {
-                if (!this.encyclopediaHovered) this.encyclopediaHovered = true;
-                this.canvas.style.cursor = "pointer";
-            } else {
-                if (this.encyclopediaHovered) this.encyclopediaHovered = false;
-                this.canvas.style.cursor = "crosshair";
-            }
-
-            if (!this.isDragging) return;
-            this.mouseMoved = true;
-            this.camera.x = e.clientX - this.dragStart.x;
-            this.camera.y = e.clientY - this.dragStart.y;
-        });
-
-        window.addEventListener("mouseup", (e) => {
-            this.isDragging = false;
-            if (!this.mouseMoved) {
-                const rect = this.canvas.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
-                
-                // Intercept Encyclopedia click
-                if (this.btnBounds && mouseX >= this.btnBounds.x1 && mouseX <= this.btnBounds.x2 && mouseY >= this.btnBounds.y1 && mouseY <= this.btnBounds.y2) {
-                    return; // Placeholder for future functional systems
-                }
-                
-                this.checkClickSelection(mouseX, mouseY);
-            }
-        });
-        
-        this.canvas.addEventListener("wheel", (e) => {
-            const zoomAmount = e.deltaY > 0 ? 0.8 : 1.25; 
-            const rect = this.canvas.getBoundingClientRect();
+        // Handle UI clicks through the WebGL canvas
+        this.renderer.domElement.addEventListener("click", (e) => {
+            const rect = this.renderer.domElement.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
-
-            const worldX = (mouseX - this.camera.x - this.canvas.width/2) / this.camera.zoom;
-            const worldY = (mouseY - this.camera.y - this.canvas.height/2) / this.camera.zoom;
-
-            let newZoom = this.camera.zoom * zoomAmount;
             
-            if (newZoom < 0.00000005) newZoom = 0.00000005; 
-            if (newZoom > 10.0) newZoom = 10.0; 
-
-            this.camera.zoom = newZoom;
-            
-            if(!this.isTracking) {
-                this.camera.x = mouseX - (worldX * this.camera.zoom) - this.canvas.width/2;
-                this.camera.y = mouseY - (worldY * this.camera.zoom) - this.canvas.height/2;
-            }
-
-            // Contextual Auto-Tracking 
-            let visibleMajorBodies = [];
-            let bodiesToCheck = [this.system, ...this.system.bodies]; 
-            const cx = this.canvas.width / 2 + this.camera.x;
-            const cy = this.canvas.height / 2 + this.camera.y;
-
-            bodiesToCheck.forEach(b => {
-                const sx = cx + (b.currentX * this.camera.zoom);
-                const sy = cy + (b.currentY * this.camera.zoom);
-                if (sx >= 0 && sx <= this.canvas.width && sy >= 0 && sy <= this.canvas.height) {
-                    visibleMajorBodies.push(b);
-                }
-            });
-
-            if (e.deltaY < 0) {
-                if (visibleMajorBodies.length === 1 && !this.isTracking) {
-                    this.activeTarget = visibleMajorBodies[0];
-                    this.isTracking = true;
-                }
-            } else {
-                if (this.isTracking && visibleMajorBodies.length > 1) {
-                    this.isTracking = false;
-                }
+            // Basic UI Button interception
+            if (this.btnBounds && mouseX >= this.btnBounds.x1 && mouseX <= this.btnBounds.x2 && mouseY >= this.btnBounds.y1 && mouseY <= this.btnBounds.y2) {
+                Terminal.log("ENCYCLOPEDIA MODULE NOT YET INSTALLED.");
+                return;
             }
         });
     },
 
-    checkClickSelection: function(mouseX, mouseY) {
-        const cx = this.canvas.width / 2 + this.camera.x;
-        const cy = this.canvas.height / 2 + this.camera.y;
+    createBodyMesh: function(bodyData, parentObj, isStar = false) {
+        // Material: Amber Wireframe
+        const material = new THREE.MeshBasicMaterial({ 
+            color: 0xffb000, 
+            wireframe: true,
+            transparent: true,
+            opacity: isStar ? 1.0 : 0.6
+        });
         
-        let oVisRad = this.system.radius * this.camera.zoom;
-        if (oVisRad < 15) oVisRad = 15; 
-
-        if (Math.hypot(mouseX - cx, mouseY - cy) < oVisRad) {
-            this.activeTarget = this.system;
-            this.isTracking = true;
-            return;
-        }
-
-        for (let planet of this.system.bodies) {
-            const px = cx + (planet.currentX * this.camera.zoom);
-            const py = cy + (planet.currentY * this.camera.zoom);
-            let pVisRad = planet.radius * this.camera.zoom;
-            if (pVisRad < 15) pVisRad = 15;
-
-            if (Math.hypot(mouseX - px, mouseY - py) < pVisRad) {
-                this.activeTarget = planet;
-                this.isTracking = true;
-                return;
-            }
+        let visRadius = bodyData.radius * this.R_SCALE;
+        if (visRadius < 0.5) visRadius = 0.5; // Minimum visible size
+        
+        const geometry = new THREE.SphereGeometry(visRadius, 16, 16);
+        const mesh = new THREE.Mesh(geometry, material);
+        
+        // Setup Orbital Pivot for Inclination/LAN
+        const pivot = new THREE.Group();
+        if (!isStar) {
+            pivot.rotation.y = THREE.MathUtils.degToRad(bodyData.lan);
+            pivot.rotation.x = THREE.MathUtils.degToRad(bodyData.inc);
             
-            for (let moon of planet.bodies) {
-                const mx = cx + (moon.currentX * this.camera.zoom);
-                const my = cy + (moon.currentY * this.camera.zoom);
-                let mVisRad = moon.radius * this.camera.zoom;
-                if (mVisRad < 10) mVisRad = 10;
-
-                if (Math.hypot(mouseX - mx, mouseY - my) < mVisRad) {
-                    this.activeTarget = moon;
-                    this.isTracking = true;
-                    return;
-                }
+            // Draw Orbit Path
+            const points = [];
+            const pathMaterial = new THREE.LineDashedMaterial({
+                color: 0xffb000, dashSize: 5, gapSize: 5, transparent: true, opacity: 0.3
+            });
+            const segments = 64;
+            for(let i=0; i<=segments; i++) {
+                const theta = (i / segments) * Math.PI * 2;
+                // Simplified circular orbit for visual path
+                const r = bodyData.a * this.D_SCALE;
+                points.push(new THREE.Vector3(Math.cos(theta)*r, 0, Math.sin(theta)*r));
             }
+            const pathGeom = new THREE.BufferGeometry().setFromPoints(points);
+            const orbitLine = new THREE.Line(pathGeom, pathMaterial);
+            orbitLine.computeLineDistances();
+            pivot.add(orbitLine);
         }
-        this.activeTarget = null; 
-        this.isTracking = false;
+        
+        pivot.add(mesh);
+        parentObj.add(pivot);
+        
+        // Store references in our data
+        bodyData.mesh = mesh;
+        bodyData.pivot = pivot;
+    },
+
+    buildSystem: function() {
+        // Build Osiris
+        this.system.group = new THREE.Group();
+        this.scene.add(this.system.group);
+        this.createBodyMesh(this.system, this.system.group, true);
+        
+        // Build Planets & Moons
+        this.system.bodies.forEach(planet => {
+            this.createBodyMesh(planet, this.system.group);
+            
+            planet.bodies.forEach(moon => {
+                this.createBodyMesh(moon, planet.mesh); // Moons pivot around their planet's mesh
+            });
+        });
     },
 
     selectTargetByName: function(name) {
         if (name === "OSIRIS") {
             this.activeTarget = this.system;
-            this.isTracking = true;
+            this.lastTargetPos = new THREE.Vector3();
+            this.system.mesh.getWorldPosition(this.lastTargetPos);
+            this.camera.position.set(0, 50, 150);
             return true;
         }
         for (let planet of this.system.bodies) {
             if (planet.name === name) {
                 this.activeTarget = planet;
-                this.isTracking = true;
+                this.lastTargetPos = new THREE.Vector3();
+                planet.mesh.getWorldPosition(this.lastTargetPos);
+                this.camera.position.copy(this.lastTargetPos).add(new THREE.Vector3(0, 10, 30));
                 return true;
-            }
-            for (let moon of planet.bodies) {
-                if (moon.name === name) {
-                    this.activeTarget = moon;
-                    this.isTracking = true;
-                    return true;
-                }
             }
         }
         return false;
     },
 
     resize: function() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight - 50; 
+        const w = window.innerWidth;
+        const h = window.innerHeight - 50;
+        this.uiCanvas.width = w;
+        this.uiCanvas.height = h;
+        if(this.camera) {
+            this.camera.aspect = w / h;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(w, h);
+        }
     },
 
     start: function() {
         this.isRunning = true;
-        this.canvas.style.display = "block";
+        this.container.style.display = "block";
+        this.uiCanvas.style.display = "block";
         document.getElementById("output-log").style.display = "none";
+        this.resize();
         this.loop();
     },
 
     stop: function() {
         this.isRunning = false;
         this.activeTarget = null;
-        this.isTracking = false;
-        this.canvas.style.display = "none";
+        this.container.style.display = "none";
+        this.uiCanvas.style.display = "none";
         document.getElementById("output-log").style.display = "block";
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     },
 
     loop: function() {
         if (!this.isRunning) return;
         this.update();
-        this.render();
+        this.renderer.render(this.scene, this.camera);
+        this.drawUI();
         requestAnimationFrame(() => this.loop());
     },
 
     update: function() {
         const elapsedSeconds = ((Date.now() - this.startTime) / 1000) * this.timeScale;
         
+        // Update Orbital Positions
         this.system.bodies.forEach(planet => {
             const tP = ((2 * Math.PI) / planet.period) * elapsedSeconds;
             const rP = (planet.a * (1 - Math.pow(planet.e, 2))) / (1 + planet.e * Math.cos(tP));
-            planet.currentR = rP; 
-            planet.currentX = rP * Math.cos(tP);
-            planet.currentY = rP * Math.sin(tP);
+            planet.mesh.position.x = rP * Math.cos(tP) * this.D_SCALE;
+            planet.mesh.position.z = rP * Math.sin(tP) * this.D_SCALE;
             
             planet.bodies.forEach(moon => {
                 const tM = ((2 * Math.PI) / moon.period) * elapsedSeconds;
                 const rM = (moon.a * (1 - Math.pow(moon.e, 2))) / (1 + moon.e * Math.cos(tM));
-                moon.currentR = rM;
-                moon.currentX = planet.currentX + (rM * Math.cos(tM));
-                moon.currentY = planet.currentY + (rM * Math.sin(tM));
+                moon.mesh.position.x = rM * Math.cos(tM) * this.D_SCALE;
+                moon.mesh.position.z = rM * Math.sin(tM) * this.D_SCALE;
             });
         });
 
-        if (this.activeTarget && this.isTracking) {
-            this.camera.x = -(this.activeTarget.currentX * this.camera.zoom);
-            this.camera.y = -(this.activeTarget.currentY * this.camera.zoom);
+        // Relative Tracking Logic: Move Camera & Target strictly by the delta of the planet's movement
+        if (this.activeTarget && this.activeTarget.mesh) {
+            const currentPos = new THREE.Vector3();
+            this.activeTarget.mesh.getWorldPosition(currentPos);
+            
+            if (this.lastTargetPos) {
+                const delta = currentPos.clone().sub(this.lastTargetPos);
+                this.camera.position.add(delta);
+                this.controls.target.add(delta);
+            }
+            this.lastTargetPos = currentPos.clone();
         }
+
+        this.controls.update();
     },
 
-    render: function() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-        const cx = this.canvas.width / 2 + this.camera.x;
-        const cy = this.canvas.height / 2 + this.camera.y;
-
-        // 1. Render Osiris Solid Accretion Discs
-        if (this.camera.zoom > 0.0000001) {
-            this.system.discs.forEach(disc => {
-                const discRadius = (disc.start + disc.end) / 2;
-                const discWidth = disc.end - disc.start;
-                if (discRadius * this.camera.zoom > 0.5) {
-                    this.ctx.beginPath();
-                    this.ctx.arc(cx, cy, discRadius * this.camera.zoom, 0, 2 * Math.PI);
-                    this.ctx.lineWidth = discWidth * this.camera.zoom;
-                    this.ctx.strokeStyle = disc.color;
-                    this.ctx.stroke();
-                }
-            });
-            this.ctx.lineWidth = 1; 
-        }
-
-        // 2. Draw Osiris Event Horizon
-        let oVisRad = this.system.radius * this.camera.zoom;
-        if (oVisRad < 1.5) oVisRad = 1.5; 
-        this.ctx.beginPath();
-        this.ctx.arc(cx, cy, oVisRad, 0, 2 * Math.PI);
-        this.ctx.fillStyle = "#0a0500"; 
-        this.ctx.fill();
-        this.ctx.strokeStyle = "#ffb000";
-        this.ctx.stroke();
-
-        if (this.activeTarget === this.system) {
-            this.ctx.beginPath(); this.ctx.arc(cx, cy, oVisRad + 5, 0, 2 * Math.PI); this.ctx.stroke();
-        }
-
-        this.system.bodies.forEach(planet => {
-            const px = cx + (planet.currentX * this.camera.zoom);
-            const py = cy + (planet.currentY * this.camera.zoom);
-
-            // 3. Draw Planet Orbit Path
-            this.ctx.beginPath();
-            this.ctx.setLineDash([5, 5]);
-            this.ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
-            const pOffset = planet.a * planet.e * this.camera.zoom;
-            this.ctx.arc(cx - pOffset, cy, planet.a * this.camera.zoom, 0, 2 * Math.PI);
-            this.ctx.stroke();
-            this.ctx.setLineDash([]);
-
-            // 4. Draw Rings
-            if (this.camera.zoom > 0.000005) {
-                planet.rings.forEach(ring => {
-                    const ringRadius = (ring.start + ring.end) / 2;
-                    const ringWidth = ring.end - ring.start;
-                    this.ctx.beginPath();
-                    this.ctx.arc(px, py, ringRadius * this.camera.zoom, 0, 2 * Math.PI);
-                    this.ctx.lineWidth = ringWidth * this.camera.zoom;
-                    this.ctx.strokeStyle = ring.color;
-                    this.ctx.stroke();
-                });
-                this.ctx.lineWidth = 1; 
-            }
-
-            // 5. Draw Moon Orbit Paths
-            planet.bodies.forEach(moon => {
-                this.ctx.beginPath();
-                this.ctx.setLineDash([2, 4]);
-                this.ctx.strokeStyle = "rgba(255, 176, 0, 0.3)";
-                const mOffset = moon.a * moon.e * this.camera.zoom;
-                this.ctx.arc(px - mOffset, py, moon.a * this.camera.zoom, 0, 2 * Math.PI);
-                this.ctx.stroke();
-                this.ctx.setLineDash([]);
-            });
-
-            // 6. Draw Planet Body
-            let pVisRad = planet.radius * this.camera.zoom;
-            if (pVisRad < 2) pVisRad = 2;
-            this.ctx.beginPath();
-            this.ctx.arc(px, py, pVisRad, 0, 2 * Math.PI);
-            this.ctx.fillStyle = "#0a0500"; this.ctx.fill();
-            this.ctx.strokeStyle = "#ffb000"; this.ctx.stroke();
-            if (this.activeTarget === planet) {
-                this.ctx.beginPath(); this.ctx.arc(px, py, pVisRad + 5, 0, 2 * Math.PI); this.ctx.stroke();
-            }
-
-            if (this.camera.zoom > 0.000005) {
-                this.ctx.fillStyle = "#ffb000";
-                this.ctx.font = "12px 'Courier New'";
-                this.ctx.fillText(planet.name, px + 10, py + 4);
-            }
-
-            // 7. Draw Moon Bodies
-            planet.bodies.forEach(moon => {
-                const mx = cx + (moon.currentX * this.camera.zoom);
-                const my = cy + (moon.currentY * this.camera.zoom);
-                let mVisRad = moon.radius * this.camera.zoom;
-                if (mVisRad < 1.5) mVisRad = 1.5;
-
-                this.ctx.beginPath();
-                this.ctx.arc(mx, my, mVisRad, 0, 2 * Math.PI);
-                this.ctx.fillStyle = "#0a0500"; this.ctx.fill();
-                this.ctx.strokeStyle = "#ffb000"; this.ctx.stroke();
-                
-                if (this.activeTarget === moon) {
-                    this.ctx.beginPath(); this.ctx.arc(mx, my, mVisRad + 4, 0, 2 * Math.PI); this.ctx.stroke();
-                }
-
-                if (this.camera.zoom > 0.00005) {
-                    this.ctx.fillStyle = "#ffb000";
-                    this.ctx.fillText(moon.name, mx + 8, my + 4);
-                }
-            });
-        });
+    drawUI: function() {
+        this.ctx.clearRect(0, 0, this.uiCanvas.width, this.uiCanvas.height);
         
-        // 8. Comprehensive Mainframe Telemetry Inventory Box
+        // UI Overlay Text
+        this.ctx.fillStyle = "#ffb000";
+        this.ctx.font = "14px 'Courier New'";
+        this.ctx.fillText(`TIME MULTIPLIER: ${this.timeScale}x`, 10, 20);
+        this.ctx.fillText(`[L-CLICK: ROTATE | R-CLICK: PAN | SCROLL: ZOOM]`, 10, 40);
+
         if (this.activeTarget) {
             let isAnchor = this.activeTarget.name === "OSIRIS";
-            let isPlanet = this.activeTarget.name === "FURRA";
             
             let boxWidth = 340;
-            let startX = this.canvas.width - (boxWidth + 10);
+            let startX = this.uiCanvas.width - (boxWidth + 10);
             let textX = startX + 10;
-            
-            // Derive layouts dynamically based on architecture hierarchy
             let astroLines = this.activeTarget.desc_astro.split('\n');
             let buttonY = 100 + (astroLines.length * 20);
-            if (!isAnchor) {
-                buttonY += 170; 
-            }
+            if (!isAnchor) buttonY += 170; 
             let boxHeight = buttonY + 55;
             
             this.ctx.fillStyle = "rgba(10, 5, 0, 0.85)";
@@ -474,7 +342,7 @@ const MapEngine = {
             
             this.ctx.fillStyle = "#ffb000";
             this.ctx.font = "bold 16px 'Courier New'";
-            this.ctx.fillText(`TARGET DIRECTORY: ${this.activeTarget.name}`, textX, 30);
+            this.ctx.fillText(`TARGET: ${this.activeTarget.name}`, textX, 30);
             
             this.ctx.beginPath();
             this.ctx.moveTo(startX, 40);
@@ -493,39 +361,24 @@ const MapEngine = {
                 this.ctx.fillText(`[ ORBITAL DATA ]`, textX, currentY);
                 this.ctx.font = "12px 'Courier New'";
                 
-                let parentRadius = isPlanet ? 0 : this.system.bodies[0].radius;
-                const alt = Math.round(this.activeTarget.currentR - parentRadius);
-                this.ctx.fillText(`DISTANCE: ${alt.toLocaleString()} KM`, textX, currentY + 20);
-                this.ctx.fillText(`SMA (a):  ${this.activeTarget.a.toLocaleString()} KM`, textX, currentY + 40);
-                this.ctx.fillText(`ECC (e):  ${this.activeTarget.e}`, textX, currentY + 60);
-                this.ctx.fillText(`INC (i):  ${this.activeTarget.inc.toFixed(1)}°`, textX, currentY + 80);
-                this.ctx.fillText(`LAN (Ω):  ${this.activeTarget.lan.toFixed(1)}°`, textX, currentY + 100);
-                this.ctx.fillText(`ARG (ω):  ${this.activeTarget.argp.toFixed(1)}°`, textX, currentY + 120);
-                
-                if (isPlanet) {
-                    const periodDays = (this.activeTarget.period / (3600*32)).toFixed(2);
-                    this.ctx.fillText(`PERIOD:   ${periodDays} FURRA DAYS`, textX, currentY + 140);
-                } else {
-                    const periodHours = (this.activeTarget.period / 3600).toFixed(2);
-                    this.ctx.fillText(`PERIOD:   ${periodHours} HOURS`, textX, currentY + 140);
-                }
+                this.ctx.fillText(`SMA (a):  ${this.activeTarget.a.toLocaleString()} KM`, textX, currentY + 20);
+                this.ctx.fillText(`ECC (e):  ${this.activeTarget.e}`, textX, currentY + 40);
+                this.ctx.fillText(`INC (i):  ${this.activeTarget.inc.toFixed(1)}°`, textX, currentY + 60);
+                this.ctx.fillText(`LAN (Ω):  ${this.activeTarget.lan.toFixed(1)}°`, textX, currentY + 80);
             }
 
-            // Draw Dynamic Encyclopedia Module Button
+            // Button Logic
             let btnX = startX + 10;
             let btnY = buttonY + 10;
             let btnW = boxWidth - 20;
             let btnH = 35;
             
-            let btnColor = this.encyclopediaHovered ? "#ffdf00" : "#ffb000"; // Light up brighter amber
-            let btnFill = this.encyclopediaHovered ? "rgba(255, 176, 0, 0.2)" : "rgba(255, 176, 0, 0.05)";
-            
-            this.ctx.fillStyle = btnFill;
+            this.ctx.fillStyle = "rgba(255, 176, 0, 0.05)";
             this.ctx.fillRect(btnX, btnY, btnW, btnH);
-            this.ctx.strokeStyle = btnColor;
+            this.ctx.strokeStyle = "#ffb000";
             this.ctx.strokeRect(btnX, btnY, btnW, btnH);
             
-            this.ctx.fillStyle = btnColor;
+            this.ctx.fillStyle = "#ffb000";
             this.ctx.font = "bold 13px 'Courier New'";
             this.ctx.textAlign = "center";
             this.ctx.fillText("ENCYCLOPEDIA", btnX + btnW / 2, btnY + 22);
@@ -535,13 +388,6 @@ const MapEngine = {
         } else {
             this.btnBounds = null;
         }
-        
-        // Scale / UI Overlay
-        this.ctx.fillStyle = "#ffb000";
-        this.ctx.font = "14px 'Courier New'";
-        this.ctx.fillText(`SCALE: 1px = ${(1/this.camera.zoom).toFixed(0)} km`, 10, 20);
-        this.ctx.fillText(`TIME MULTIPLIER: ${this.timeScale}x`, 10, 40);
-        if (this.isTracking) this.ctx.fillText(`[CAMERA LOCKED TO TARGET]`, 10, 60);
     }
 };
 
@@ -567,7 +413,7 @@ const Terminal={
         this.inputField.disabled = true; 
         this.inputField.value = "";
         
-        const loadTime = Math.floor(Math.random() * 5000) + 5000;
+        const loadTime = Math.floor(Math.random() * 2000) + 1000; // Sped up for testing
         const ticks = loadTime / 100;
         let currentTick = 0;
         
@@ -608,8 +454,6 @@ const Terminal={
                     if (cmd === "FURRA" || cmd === "OSIRIS") {
                         MapEngine.start();
                         MapEngine.selectTargetByName(cmd);
-                        if (cmd === "OSIRIS") MapEngine.camera.zoom = 0.0000015;
-                        if (cmd === "FURRA") MapEngine.camera.zoom = 0.001;
                     } else {
                         this.outputLog.innerText += "\n> " + cmd + "\nERR: TARGET NOT FOUND. START WITH 'FURRA' OR 'OSIRIS'.";
                         window.scrollTo(0,document.body.scrollHeight);
