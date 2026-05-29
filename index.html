@@ -83,26 +83,22 @@ const MapEngine = {
     activeTarget: null,
     lastTargetPos: null,
     
-    // MATHEMATICAL SCALE: 1 Unit = 1000 KM
-    UNIT_SCALE: 0.001,
+    UNIT_SCALE: 0.001, // 1 Unit = 1000 KM
     
     system: {
-        name: "OSIRIS", radius: 12.6, 
+        name: "OSIRIS", radius: 12.6, axialTilt: 0,
         desc_astro: "CLASS: STELLAR BLACK HOLE\nMASS:  2.542 SOLAR MASSES",
-        discs: [
-            { start: 80000, end: 16000000, color: 0xffb000 } // Accretion disc
-        ],
+        discs: [ { start: 80000, end: 16000000, color: 0xffb000 } ],
         bodies: [
             {
-                name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000,
-                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nGRAVITY: 1.0G (STANDARD)",
-                rings: [
-                    { name: "MAIN RING", start: 8296, end: 13086, color: 0xffb000 }
-                ],
+                name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, axialTilt: 14.0,
+                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nGRAVITY: 1.0G (STANDARD)\nAXIAL TILT: 14.0°",
+                rings: [ { name: "MAIN RING", start: 8296, end: 13086, color: 0xffb000 } ],
                 bodies: [
+                    // INC and LAN set to 0 to strictly follow the 14-deg equatorial plane
                     { name: "HARMONY", a: 11796, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004,
                       desc_astro: "CLASS: SHEPHERD MOON" },     
-                    { name: "KIITOS", a: 340000, e: 0.05, inc: 2.1, lan: 45.0, argp: 90.0, radius: 1876, period: 2171520,
+                    { name: "KIITOS", a: 340000, e: 0.05, inc: 0.0, lan: 0.0, argp: 90.0, radius: 1876, period: 2171520,
                       desc_astro: "CLASS: MAJOR LUNAR BODY" }  
                 ]
             }
@@ -112,7 +108,6 @@ const MapEngine = {
     init: function() {
         this.ctx = this.uiCanvas.getContext("2d");
         this.scene = new THREE.Scene();
-        this.scene.background = null; 
         
         const aspect = window.innerWidth / (window.innerHeight - 50);
         this.camera = new THREE.PerspectiveCamera(45, aspect, 0.0001, 1e9); 
@@ -130,73 +125,92 @@ const MapEngine = {
         window.addEventListener("resize", () => this.resize());
     },
 
+    // Solves Kepler's Equation (M = E - e*sin(E)) using Newton-Raphson
+    solveKepler: function(M, e) {
+        let E = M;
+        for (let i = 0; i < 5; i++) {
+            E = E - (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+        }
+        return E;
+    },
+
+    getTrueAnomaly: function(E, e) {
+        return 2 * Math.atan2(Math.sqrt(1 + e) * Math.sin(E / 2), Math.sqrt(1 - e) * Math.cos(E / 2));
+    },
+
     createBodyMesh: function(bodyData, parentObj, isStar = false) {
         const scaledRadius = bodyData.radius * this.UNIT_SCALE;
         const geometry = new THREE.SphereGeometry(scaledRadius, 32, 32);
         
-        // 1. SOLID CORE (Blocks background and back-wireframes)
-        const coreMat = new THREE.MeshBasicMaterial({ color: 0x0a0500 }); // Match CSS background var(--b)
-        // PolygonOffset prevents z-fighting between the solid core and the wireframe shell
-        coreMat.polygonOffset = true;
-        coreMat.polygonOffsetFactor = 1;
-        coreMat.polygonOffsetUnits = 1;
+        // 1. SOLID CORE
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0x0a0500 });
+        coreMat.polygonOffset = true; coreMat.polygonOffsetFactor = 1; coreMat.polygonOffsetUnits = 1;
         const coreMesh = new THREE.Mesh(geometry, coreMat);
         
         // 2. WIREFRAME SHELL
-        const wireMat = new THREE.MeshBasicMaterial({ 
-            color: 0xffb000, wireframe: true, transparent: true, opacity: isStar ? 1.0 : 0.6
-        });
+        const wireMat = new THREE.MeshBasicMaterial({ color: 0xffb000, wireframe: true, transparent: true, opacity: isStar ? 1.0 : 0.6 });
         const wireMesh = new THREE.Mesh(geometry, wireMat);
-        coreMesh.add(wireMesh); // Attach shell to core
+        coreMesh.add(wireMesh);
 
+        // HIERARCHY: pivot (LAN) -> incGroup (INC) -> argpGroup (ARGP) -> translationGroup (Orbit Path) -> equatorGroup (Axial Tilt)
         const pivot = new THREE.Group();
+        const incGroup = new THREE.Group();
+        const argpGroup = new THREE.Group();
+        const translationGroup = new THREE.Group();
+        const equatorGroup = new THREE.Group();
         
         if (!isStar) {
+            // Apply Orbital Orientation mathematically
             pivot.rotation.y = THREE.MathUtils.degToRad(bodyData.lan);
-            pivot.rotation.x = THREE.MathUtils.degToRad(bodyData.inc);
+            incGroup.rotation.x = THREE.MathUtils.degToRad(bodyData.inc);
+            argpGroup.rotation.y = THREE.MathUtils.degToRad(bodyData.argp);
             
-            // Rebuild Orbit Line with Exact Elliptical Math
+            // Generate High-Res Orbit Line based on true focus
             const points = [];
-            const pathMaterial = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.2 });
-            const segments = 128;
+            const pathMaterial = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.25 });
+            const segments = 512; // High resolution for smooth ellipses
             for(let i=0; i<=segments; i++) {
                 const theta = (i / segments) * Math.PI * 2;
-                // Calculate true radius for this angle based on eccentricity
                 const r = (bodyData.a * (1 - Math.pow(bodyData.e, 2))) / (1 + bodyData.e * Math.cos(theta));
                 points.push(new THREE.Vector3(Math.cos(theta) * r * this.UNIT_SCALE, 0, Math.sin(theta) * r * this.UNIT_SCALE));
             }
             const pathGeom = new THREE.BufferGeometry().setFromPoints(points);
-            pivot.add(new THREE.Line(pathGeom, pathMaterial));
+            argpGroup.add(new THREE.Line(pathGeom, pathMaterial));
         }
 
-        // Build Rings & Discs (Opaque)
+        // Apply Axial Tilt to the equator
+        equatorGroup.rotation.x = THREE.MathUtils.degToRad(bodyData.axialTilt || 0);
+
+        // Build Rings & Discs (Parented to the tilted equator)
         if (bodyData.rings || bodyData.discs) {
             const ringArray = bodyData.rings || bodyData.discs;
             ringArray.forEach(ring => {
-                const rGeom = new THREE.RingGeometry(ring.start * this.UNIT_SCALE, ring.end * this.UNIT_SCALE, 64);
-                
-                // Solid Ring Core
+                const rGeom = new THREE.RingGeometry(ring.start * this.UNIT_SCALE, ring.end * this.UNIT_SCALE, 128);
                 const rCoreMat = new THREE.MeshBasicMaterial({ color: 0x0a0500, side: THREE.DoubleSide });
                 rCoreMat.polygonOffset = true; rCoreMat.polygonOffsetFactor = 1; rCoreMat.polygonOffsetUnits = 1;
                 const rCoreMesh = new THREE.Mesh(rGeom, rCoreMat);
                 
-                // Wireframe Ring Shell
-                const rWireMat = new THREE.MeshBasicMaterial({ 
-                    color: ring.color, side: THREE.DoubleSide, wireframe: true, transparent: true, opacity: 0.15 
-                });
+                const rWireMat = new THREE.MeshBasicMaterial({ color: ring.color, side: THREE.DoubleSide, wireframe: true, transparent: true, opacity: 0.15 });
                 const rWireMesh = new THREE.Mesh(rGeom, rWireMat);
                 
                 rCoreMesh.add(rWireMesh);
-                rCoreMesh.rotation.x = Math.PI / 2; // Lay flat
-                coreMesh.add(rCoreMesh);
+                rCoreMesh.rotation.x = Math.PI / 2;
+                equatorGroup.add(rCoreMesh);
             });
         }
         
-        pivot.add(coreMesh);
+        // Assemble Hierarchy
+        equatorGroup.add(coreMesh);
+        translationGroup.add(equatorGroup);
+        argpGroup.add(translationGroup);
+        incGroup.add(argpGroup);
+        pivot.add(incGroup);
         parentObj.add(pivot);
         
+        // Store References for Update Loop
         bodyData.mesh = coreMesh;
-        bodyData.pivot = pivot;
+        bodyData.translationGroup = translationGroup;
+        bodyData.equatorGroup = equatorGroup;
     },
 
     buildSystem: function() {
@@ -207,7 +221,8 @@ const MapEngine = {
         this.system.bodies.forEach(planet => {
             this.createBodyMesh(planet, this.system.group);
             planet.bodies.forEach(moon => {
-                this.createBodyMesh(moon, planet.mesh); 
+                // Moons parented to Equator Group so they inherit the axial tilt!
+                this.createBodyMesh(moon, planet.equatorGroup); 
             });
         });
     },
@@ -278,18 +293,21 @@ const MapEngine = {
     update: function() {
         const elapsedSeconds = ((Date.now() - this.startTime) / 1000) * this.timeScale;
         
-        this.system.bodies.forEach(planet => {
-            const tP = ((2 * Math.PI) / planet.period) * elapsedSeconds;
-            const rP = (planet.a * (1 - Math.pow(planet.e, 2))) / (1 + planet.e * Math.cos(tP));
-            planet.mesh.position.x = rP * Math.cos(tP) * this.UNIT_SCALE;
-            planet.mesh.position.z = rP * Math.sin(tP) * this.UNIT_SCALE;
+        const processOrbitalMechanics = (body) => {
+            if (!body.period) return;
+            // Keplerian Math for accurate velocity over eccentric orbits
+            const M = ((2 * Math.PI) / body.period) * elapsedSeconds;
+            const E = this.solveKepler(M, body.e);
+            const theta = this.getTrueAnomaly(E, body.e);
+            const r = (body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta));
             
-            planet.bodies.forEach(moon => {
-                const tM = ((2 * Math.PI) / moon.period) * elapsedSeconds;
-                const rM = (moon.a * (1 - Math.pow(moon.e, 2))) / (1 + moon.e * Math.cos(tM));
-                moon.mesh.position.x = rM * Math.cos(tM) * this.UNIT_SCALE;
-                moon.mesh.position.z = rM * Math.sin(tM) * this.UNIT_SCALE;
-            });
+            body.translationGroup.position.x = r * Math.cos(theta) * this.UNIT_SCALE;
+            body.translationGroup.position.z = r * Math.sin(theta) * this.UNIT_SCALE;
+        };
+
+        this.system.bodies.forEach(planet => {
+            processOrbitalMechanics(planet);
+            if (planet.bodies) planet.bodies.forEach(moon => processOrbitalMechanics(moon));
         });
 
         if (this.activeTarget && this.activeTarget.mesh) {
@@ -310,7 +328,7 @@ const MapEngine = {
         this.ctx.clearRect(0, 0, this.uiCanvas.width, this.uiCanvas.height);
         this.ctx.fillStyle = "#ffb000"; this.ctx.font = "14px 'Courier New'";
         this.ctx.fillText(`TIME MULTIPLIER: ${this.timeScale}x (1s = 1hr)`, 10, 20);
-        this.ctx.fillText(`SCALE: TRUE 1:1 | OPAQUE MESHING: ACTIVE`, 10, 40);
+        this.ctx.fillText(`KEPLERIAN PHYSICS: ACTIVE | SOLVER: NEWTON-RAPHSON`, 10, 40);
 
         if (this.activeTarget) {
             let isAnchor = this.activeTarget.name === "OSIRIS";
