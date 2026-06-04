@@ -98,7 +98,8 @@ const MapEngine = {
         ],
         bodies: [
             {
-                name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, axialTilt: 14.32,
+                // ADDED: rotationPeriod: 115200 (32 Hours in simulated seconds)
+                name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, rotationPeriod: 115200, axialTilt: 14.32,
                 desc_astro: "CLASS: HABITABLE TERRESTRIAL\nLIGHT MATRIX: PARALLAX TERMINATOR SHADER\nLANDMASS PROFILE: CONTINUOUS FRACTAL ISLAND",
                 rings: [
                     { name: "RING A", start: 5796 + 2500, end: 5796 + 3100 },
@@ -108,9 +109,9 @@ const MapEngine = {
                     { name: "RING E", start: 5796 + 7400, end: 5796 + 7920 }
                 ],
                 bodies: [
-                    { name: "HARMONY", a: 5796 + 6000, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004,
+                    { name: "HARMONY", a: 5796 + 6000, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004, rotationPeriod: 14004,
                       desc_astro: "CLASS: SHEPHERD MOON\nREGION: C / D RING SEGMENT GAP" },     
-                    { name: "KIITOS", a: 340000, e: 0.05, inc: 0.0, lan: 0.0, argp: 90.0, radius: 1876, period: 2171520,
+                    { name: "KIITOS", a: 340000, e: 0.05, inc: 0.0, lan: 0.0, argp: 90.0, radius: 1876, period: 2171520, rotationPeriod: 2171520,
                       desc_astro: "CLASS: MAJOR LUNAR BODY\nTIDALLY LOCKED" }  
                 ]
             }
@@ -403,19 +404,16 @@ const MapEngine = {
     executeTimeWarp: function(y, d, h, m, s, speedMode = "MEDIUM") {
         const totalSeconds = (y * 31536000) + (d * 86400) + (h * 3600) + (m * 60) + s;
         
-        // Define real-world timer durations based on speed
-        let realTimeDuration = 30; // Medium default
+        let realTimeDuration = 30; 
         if (speedMode === "FAST") realTimeDuration = 15;
         if (speedMode === "SLOW") realTimeDuration = 60;
         
-        // Reject warp if the simulated time jump is shorter than the real-time constraint
         if (totalSeconds <= realTimeDuration) return false;
         
         this.elapseOriginalScale = this.timeScale;
         this.elapseRemainingSeconds = totalSeconds;
         this.elapseActive = true;
         
-        // Scale math to drain the exact simulated seconds over the chosen real-world seconds
         this.timeScale = totalSeconds / realTimeDuration;
         return true;
     },
@@ -462,11 +460,17 @@ const MapEngine = {
         this.simulatedTime += deltaSimStep;
         
         const processOrbitalMechanics = (body) => {
-            if (!body.period) return;
-            const M = ((2 * Math.PI) / body.period) * this.simulatedTime;
-            const theta = this.getTrueAnomaly(this.solveKepler(M, body.e), body.e);
-            body.translationGroup.position.x = ((body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta))) * Math.cos(theta) * this.UNIT_SCALE;
-            body.translationGroup.position.z = ((body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta))) * Math.sin(theta) * this.UNIT_SCALE;
+            // Translational Mechanics
+            if (body.period) {
+                const M = ((2 * Math.PI) / body.period) * this.simulatedTime;
+                const theta = this.getTrueAnomaly(this.solveKepler(M, body.e), body.e);
+                body.translationGroup.position.x = ((body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta))) * Math.cos(theta) * this.UNIT_SCALE;
+                body.translationGroup.position.z = ((body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta))) * Math.sin(theta) * this.UNIT_SCALE;
+            }
+            // Rotational Mechanics (Day/Night Cycles)
+            if (body.rotationPeriod && body.mesh) {
+                body.mesh.rotation.y = ((2 * Math.PI) / body.rotationPeriod) * this.simulatedTime;
+            }
         };
 
         this.system.bodies.forEach(planet => { processOrbitalMechanics(planet); if (planet.bodies) planet.bodies.forEach(moon => processOrbitalMechanics(moon)); });
@@ -610,7 +614,6 @@ const Terminal={
                     let mMatch = argsStr.match(/(\d+)\s*M/); let m = mMatch ? parseInt(mMatch[1]) : 0;
                     let sMatch = argsStr.match(/(\d+)\s*S/); let s = sMatch ? parseInt(sMatch[1]) : 0;
                     
-                    // Regex searches for the specific speed keyword
                     let speedMatch = argsStr.match(/\b(FAST|MEDIUM|SLOW)\b/);
                     let speedMode = speedMatch ? speedMatch[1] : "MEDIUM";
                     
