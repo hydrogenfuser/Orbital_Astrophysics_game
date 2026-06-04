@@ -224,7 +224,6 @@ const MapEngine = {
             
             const texture = new THREE.CanvasTexture(canvas);
             texture.anisotropy = 16;
-            // FIX 3: Disable mipmapping and force linear filtering to prevent LOD drop off and glitching
             texture.generateMipmaps = false;
             texture.minFilter = THREE.LinearFilter;
             texture.magFilter = THREE.LinearFilter;
@@ -401,15 +400,23 @@ const MapEngine = {
         return false;
     },
 
-    executeTimeWarp: function(y, d, h, m, s) {
+    executeTimeWarp: function(y, d, h, m, s, speedMode = "MEDIUM") {
         const totalSeconds = (y * 31536000) + (d * 86400) + (h * 3600) + (m * 60) + s;
-        if (totalSeconds <= 0) return false;
+        
+        // Define real-world timer durations based on speed
+        let realTimeDuration = 30; // Medium default
+        if (speedMode === "FAST") realTimeDuration = 15;
+        if (speedMode === "SLOW") realTimeDuration = 60;
+        
+        // Reject warp if the simulated time jump is shorter than the real-time constraint
+        if (totalSeconds <= realTimeDuration) return false;
         
         this.elapseOriginalScale = this.timeScale;
         this.elapseRemainingSeconds = totalSeconds;
         this.elapseActive = true;
         
-        this.timeScale = Math.max(100000, Math.min(2500000, totalSeconds / 8));
+        // Scale math to drain the exact simulated seconds over the chosen real-world seconds
+        this.timeScale = totalSeconds / realTimeDuration;
         return true;
     },
 
@@ -484,7 +491,6 @@ const MapEngine = {
             let hrs = Math.floor((totalRem % 86400) / 3600); let mins = Math.floor((totalRem % 3600) / 60);
             let secs = totalRem % 60;
             
-            // FIX 1: Padding numbers with leading zeros ensures the display string is always the exact same width
             let pYrs = String(yrs).padStart(4, '0'); let pDays = String(days).padStart(3, '0');
             let pHrs = String(hrs).padStart(2, '0'); let pMins = String(mins).padStart(2, '0'); let pSecs = String(secs).padStart(2, '0');
             
@@ -597,7 +603,6 @@ const Terminal={
             
             if (this.currentApp === "PLANETARY CHARTS") {
                 if (cmd === "ELAPSE") {
-                    // FIX 2: Regex parsing directly identifies specific letters anywhere in the command
                     let argsStr = fullCmd.substring(6);
                     let yMatch = argsStr.match(/(\d+)\s*Y/); let y = yMatch ? parseInt(yMatch[1]) : 0;
                     let dMatch = argsStr.match(/(\d+)\s*D/); let d = dMatch ? parseInt(dMatch[1]) : 0;
@@ -605,15 +610,19 @@ const Terminal={
                     let mMatch = argsStr.match(/(\d+)\s*M/); let m = mMatch ? parseInt(mMatch[1]) : 0;
                     let sMatch = argsStr.match(/(\d+)\s*S/); let s = sMatch ? parseInt(sMatch[1]) : 0;
                     
+                    // Regex searches for the specific speed keyword
+                    let speedMatch = argsStr.match(/\b(FAST|MEDIUM|SLOW)\b/);
+                    let speedMode = speedMatch ? speedMatch[1] : "MEDIUM";
+                    
                     if(!MapEngine.isRunning) {
                         this.log("ERR: PIPELINE SHUTDOWN. ENGINE UNLOADED.");
                         return;
                     }
-                    let activated = MapEngine.executeTimeWarp(y, d, h, m, s);
+                    let activated = MapEngine.executeTimeWarp(y, d, h, m, s, speedMode);
                     if (activated) {
-                        this.log(`> ELAPSE CORE MATRIX INITIATED: ${y}Y ${d}D ${h}H ${m}M ${s}S`);
+                        this.log(`> ELAPSE CORE MATRIX INITIATED: ${y}Y ${d}D ${h}H ${m}M ${s}S [${speedMode} WARP]`);
                     } else {
-                        this.log("ERR: REJECTED ENGINE SPECS. SET TIMESTEP GREATER THAN ZERO.");
+                        this.log("ERR: DURATION TOO SHORT FOR REQUESTED WARP SPEED.");
                     }
                     return;
                 }
