@@ -10,7 +10,7 @@ body::after{content:"";position:absolute;top:0;left:0;width:100vw;height:100vh;b
 .boot-screen{justify-content:center;align-items:center;text-align:center}
 .title{font-size:3em;font-weight:bold;margin-bottom:40px;letter-spacing:10px;text-transform:uppercase}
 .boot-box{border:1px solid var(--t);padding:20px;width:300px}
-.input-container{margin-bottom:15px;text-align:left}
+.input-container"><label>USERNAME:</label><input type="text" id="user-input" autocomplete="off"></div>
 .input-container label{display:block;margin-bottom:5px}
 #output-log{white-space:pre-wrap;overflow-y:auto;margin-bottom:10px;padding-right:10px; flex-grow:1; z-index: 10;}
 .input-line{display:flex;align-items:center; z-index:10;}
@@ -27,7 +27,7 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
 </style>
 </head><body>
 
-<div id="boot-screen" class="boot-screen" style="display:none;">
+<div id="boot-screen" class="boot-screen">
     <div class="title">ORBITAL</div>
     <div class="boot-box">
         <div class="input-container"><label>USERNAME:</label><input type="text" id="user-input" autocomplete="off"></div>
@@ -36,7 +36,7 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
     </div>
 </div>
 
-<div id="terminal-screen" class="terminal-screen" style="display:flex;">
+<div id="terminal-screen" class="terminal-screen" style="display:none;">
     <div id="webgl-container"></div>
     <canvas id="ui-canvas"></canvas>
     <div id="output-log">OSIRIS KERNEL BOOT (AMBER)... OK.</div>
@@ -45,14 +45,23 @@ input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
 
 <script>
 const AuthSystem={
-    isAuthenticated:true, // Pre-authorized for seamless initialization
+    isAuthenticated:!1,
     validUser:"DIRECTOR",
     validPass:"TIER0",
     attemptLogin:function(){
-        this.isAuthenticated=true;
-        document.getElementById("boot-screen").style.display="none";
-        document.getElementById("terminal-screen").style.display="flex";
-        Terminal.inputField.focus();
+        const e=document.getElementById("user-input").value.toUpperCase().trim(),
+              t=document.getElementById("pass-input").value.toUpperCase().trim();
+        e===this.validUser&&t===this.validPass?(
+            this.isAuthenticated=!0,
+            document.getElementById("boot-screen").style.display="none",
+            document.getElementById("terminal-screen").style.display="flex",
+            Terminal.log("\n[AUTH SUCCESS] WELCOME TO ORBITAL.\nType 'HELP' for commands."),
+            Terminal.inputField.focus()
+        ):(
+            Terminal.clearInputs(),
+            document.getElementById("user-input").placeholder="ERR: INVALID CREDENTIALS",
+            setTimeout(()=>document.getElementById("user-input").placeholder="", 2000)
+        )
     }
 };
 
@@ -69,12 +78,12 @@ const MapEngine = {
     
     isRunning: false,
     startTime: Date.now(),
-    timeScale: 1, 
+    timeScale: 1, // 1:1 Real-time speed anchor
     
     activeTarget: null,
     lastTargetPos: null,
     
-    UNIT_SCALE: 0.001, 
+    UNIT_SCALE: 0.001, // 1 Unit = 1000 KM
     
     system: {
         name: "OSIRIS", radius: 12.6, axialTilt: 0,
@@ -85,7 +94,7 @@ const MapEngine = {
         bodies: [
             {
                 name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, axialTilt: 14.32,
-                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nAXIAL TILT: 14.32°\nRINGS: SOLID FILLED WITH SHARP SEGMENT BOUNDARIES",
+                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nATMOSPHERE LAYER: 95 KM HAZE BOUNDARY\nSURFACE MATRIX: OCEANIC EQUATORIAL ISLAND MESH",
                 rings: [
                     { name: "RING A", start: 5796 + 2500, end: 5796 + 3100 },
                     { name: "RING B", start: 5796 + 3200, end: 5796 + 4100 },
@@ -137,13 +146,57 @@ const MapEngine = {
 
     createBodyMesh: function(bodyData, parentObj, isStar = false) {
         const scaledRadius = bodyData.radius * this.UNIT_SCALE;
-        const geometry = new THREE.SphereGeometry(scaledRadius, 32, 32);
+        const geometry = new THREE.SphereGeometry(scaledRadius, 64, 64);
         
-        const coreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
-        coreMat.polygonOffset = true; coreMat.polygonOffsetFactor = 1; coreMat.polygonOffsetUnits = 1;
+        let coreMat;
+        
+        // --- SEPARATED PROCEDURAL TEXTURING MATRIX FOR TESTING CASES ---
+        if (bodyData.name === "FURRA") {
+            const canvas = document.createElement('canvas');
+            canvas.width = 2048;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            
+            // Blank Water Layer Matrix (Translucent deep monochrome aquatic baseline)
+            ctx.fillStyle = "rgba(10, 20, 15, 0.9)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Equator Guideline Anchor (Subtle reference marker)
+            ctx.strokeStyle = "rgba(255, 176, 0, 0.05)";
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, 512); ctx.lineTo(2048, 512); ctx.stroke();
+            
+            // High-Precision 100 Square Kilometer Equatorial Island Layout
+            ctx.fillStyle = "rgba(255, 176, 0, 0.35)";  // Slight orange fill requested
+            ctx.strokeStyle = "rgba(255, 176, 0, 0.95)"; // Vector crisp coastline boundary
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            // Engineered geometric landmass leaving explicit centralized flat acreage open for a Space Center
+            ctx.moveTo(1024 - 15, 512 - 5);
+            ctx.lineTo(1024 + 5, 512 - 18);
+            ctx.lineTo(1024 + 22, 512 + 2);
+            ctx.lineTo(1024 + 8, 512 + 16);
+            ctx.lineTo(1024 - 18, 512 + 10);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            // Reserved Space Center Structural Grid Coordinates Foundation Marker
+            ctx.strokeStyle = "rgba(255, 176, 0, 0.6)";
+            ctx.strokeRect(1019, 509, 10, 6);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            coreMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+        } else {
+            coreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            coreMat.polygonOffset = true; coreMat.polygonOffsetFactor = 1; coreMat.polygonOffsetUnits = 1;
+        }
+        
         const coreMesh = new THREE.Mesh(geometry, coreMat);
         
-        if (!isStar) {
+        // Remove old wireframe style specifically on Furra, retain on regular moons
+        if (!isStar && bodyData.name !== "FURRA") {
             const wireMat = new THREE.MeshBasicMaterial({ color: 0xffb000, wireframe: true, transparent: true, opacity: 0.5 });
             const wireMesh = new THREE.Mesh(geometry, wireMat);
             coreMesh.add(wireMesh);
@@ -174,6 +227,21 @@ const MapEngine = {
 
         equatorGroup.rotation.x = THREE.MathUtils.degToRad(bodyData.axialTilt || 0);
 
+        // --- 95KM VOLUMETRIC ATMOSPHERIC HAZE SHROUD EXTENSION LAYER ---
+        if (bodyData.name === "FURRA") {
+            const atmosRadius = (bodyData.radius + 95) * this.UNIT_SCALE;
+            const atmosGeom = new THREE.SphereGeometry(atmosRadius, 64, 64);
+            const atmosMat = new THREE.MeshBasicMaterial({
+                color: 0xffb000,
+                transparent: true,
+                opacity: 0.15,
+                blending: THREE.AdditiveBlending,
+                side: THREE.BackSide
+            });
+            const atmosMesh = new THREE.Mesh(atmosGeom, atmosMat);
+            equatorGroup.add(atmosMesh);
+        }
+
         // --- VOLUMETRIC TOROID ACCRETION DISC MESH & FILLED PLANETARY RINGS ---
         if (bodyData.discs) {
             bodyData.discs.forEach(disc => {
@@ -182,15 +250,13 @@ const MapEngine = {
                 const outerR = disc.end * this.UNIT_SCALE;
                 const steps = 64;
                 
-                // Construct upper flare geometry curve
                 for (let i = 0; i <= steps; i++) {
                     const t = i / steps;
                     const r = innerR + Math.pow(t, 2) * (outerR - innerR);
                     const thickness = Math.pow(t, 2) * (outerR * 0.12); 
                     lathePoints.push(new THREE.Vector2(r, thickness));
                 }
-                // Construct lower curve vector loop (Skips duplicate edges to fix standard Three.js normal generation tracking)
-                for (let i = steps - 1; i > 0; i--) {
+                for (let i = steps; i >= 0; i--) {
                     const t = i / steps;
                     const r = innerR + Math.pow(t, 2) * (outerR - innerR);
                     const thickness = Math.pow(t, 2) * (outerR * 0.12);
@@ -232,7 +298,7 @@ const MapEngine = {
                     side: THREE.DoubleSide
                 });
                 const ringMesh = new THREE.Mesh(ringGeom, ringMat);
-                ringMesh.rotation.x = Math.PI / 2; 
+                ringMesh.rotation.x = Math.PI / 2;
                 equatorGroup.add(ringMesh);
                 
                 const drawBoundary = (radius) => {
@@ -422,28 +488,36 @@ const Terminal={
     currentApp: null,
     
     init:function(){
-        // Maintain event hooks for application controls
         this.userInput.addEventListener("keydown",e=>{"Enter"===e.key&&this.userInput.value.trim()!=""&&document.getElementById("pass-input").focus()});
         document.getElementById("pass-input").addEventListener("keydown",e=>{"Enter"===e.key&&AuthSystem.attemptLogin()});
         this.inputField.addEventListener("keydown",e=>{"Enter"===e.key&&(e=this.inputField.value,""!==e.trim()&&this.processInput(e),this.inputField.value="")});
         document.getElementById("submit-btn").addEventListener("click",()=>AuthSystem.attemptLogin());
-        
-        // --- INSTANT AUTOMATED BOOT RUNTIME CONFIGURATION ---
+        this.userInput.focus();
         MapEngine.init(); 
-        this.currentApp = "PLANETARY CHARTS";
-        this.inputWrapper.classList.add('app-mode');
-        MapEngine.start();
-        MapEngine.selectTargetByName("FURRA");
-        this.inputField.focus();
     },
 
     launchApp:function(appName){
-        this.currentApp = appName;
-        this.inputField.disabled = false;
-        this.inputWrapper.classList.add('app-mode');
-        MapEngine.start();
-        MapEngine.selectTargetByName("FURRA");
-        this.inputField.focus();
+        this.currentApp = "LOADING"; 
+        this.inputField.disabled = true; this.inputField.value = "";
+        
+        const ticks = 10; let currentTick = 0;
+        const loader = setInterval(() => {
+            currentTick++;
+            let pct = Math.floor((currentTick / ticks) * 100);
+            let pBar = "["; for(let i=0; i<20; i++) pBar += (i < pct/5) ? "█" : "░"; pBar += "] " + pct + "%";
+            
+            this.outputLog.innerText = "PARSING COMPONENT MASSEs...\n" + pBar;
+            
+            if (currentTick >= ticks) {
+                clearInterval(loader);
+                this.currentApp = appName;
+                this.inputField.disabled = false;
+                this.inputWrapper.classList.add('app-mode');
+                
+                this.outputLog.innerText = appName + " ONLINE.\nENTER TARGET DESIGNATION OR TYPE 'TERMINATE'.";
+                this.inputField.focus();
+            }
+        }, 50);
     },
     
     processInput:function(input){
