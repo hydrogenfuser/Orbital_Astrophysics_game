@@ -78,7 +78,7 @@ const MapEngine = {
     
     isRunning: false,
     startTime: Date.now(),
-    timeScale: 1, // 1:1 Real-time speed anchor
+    timeScale: 1, 
     
     activeTarget: null,
     lastTargetPos: null,
@@ -94,7 +94,7 @@ const MapEngine = {
         bodies: [
             {
                 name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, axialTilt: 14.32,
-                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nATMOSPHERE LAYER: 95 KM HAZE BOUNDARY\nSURFACE MATRIX: OCEANIC EQUATORIAL ISLAND MESH",
+                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nATMOSPHERE LAYER: 95 KM GLOW DISTORTION SHADER\nSURFACE MATRIX: HIGH-LOD FRACTAL ARCHIPELAGO",
                 rings: [
                     { name: "RING A", start: 5796 + 2500, end: 5796 + 3100 },
                     { name: "RING B", start: 5796 + 3200, end: 5796 + 4100 },
@@ -144,50 +144,126 @@ const MapEngine = {
         return 2 * Math.atan2(Math.sqrt(1 + e) * Math.sin(E / 2), Math.sqrt(1 - e) * Math.cos(E / 2));
     },
 
+    // --- HIGH-精密 GEOLOGICAL FRACTAL DESIGN LOGIC ---
+    generateFractalCoastline: function(points, iterations, roughness) {
+        let currentPoints = [...points];
+        
+        for (let i = 0; i < iterations; i++) {
+            let nextPoints = [];
+            let currentRoughness = roughness / Math.pow(1.6, i);
+            
+            for (let j = 0; j < currentPoints.length; j++) {
+                let p1 = currentPoints[j];
+                let p2 = currentPoints[(j + 1) % currentPoints.length];
+                
+                let midX = (p1.x + p2.x) / 2;
+                let midY = (p1.y + p2.y) / 2;
+                
+                let dx = p2.x - p1.x;
+                let dy = p2.y - p1.y;
+                let len = Math.sqrt(dx * dx + dy * dy);
+                
+                let nx = -dy / len;
+                let ny = dx / len;
+                
+                // Seeded pseudo-random offset computation
+                let offset = (Math.sin(midX * 0.05) * Math.cos(midY * 0.05) * Math.sin(len * 0.5)) * currentRoughness * len;
+                
+                let displacedPoint = { x: midX + nx * offset, y: midY + ny * offset };
+                
+                nextPoints.push(p1);
+                nextPoints.push(displacedPoint);
+            }
+            currentPoints = nextPoints;
+        }
+        return currentPoints;
+    },
+
     createBodyMesh: function(bodyData, parentObj, isStar = false) {
         const scaledRadius = bodyData.radius * this.UNIT_SCALE;
-        const geometry = new THREE.SphereGeometry(scaledRadius, 64, 64);
+        // High density vertices matching structural vector scaling demands
+        const geometry = new THREE.SphereGeometry(scaledRadius, 128, 128);
         
         let coreMat;
         
-        // --- SEPARATED PROCEDURAL TEXTURING MATRIX FOR TESTING CASES ---
         if (bodyData.name === "FURRA") {
+            // Enhanced 4K Canvas Texture Matrix allocation for infinite pixel precision
             const canvas = document.createElement('canvas');
-            canvas.width = 2048;
-            canvas.height = 1024;
+            canvas.width = 4096;
+            canvas.height = 2048;
             const ctx = canvas.getContext('2d');
             
-            // Blank Water Layer Matrix (Translucent deep monochrome aquatic baseline)
-            ctx.fillStyle = "rgba(10, 20, 15, 0.9)";
+            // Pristine Ocean Baseline Layer 
+            ctx.fillStyle = "rgba(4, 12, 10, 1.0)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Equator Guideline Anchor (Subtle reference marker)
-            ctx.strokeStyle = "rgba(255, 176, 0, 0.05)";
-            ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.moveTo(0, 512); ctx.lineTo(2048, 512); ctx.stroke();
+            ctx.fillStyle = "rgba(255, 176, 0, 0.28)"; 
+            ctx.strokeStyle = "rgba(255, 176, 0, 0.95)"; 
+            ctx.lineWidth = 3;
             
-            // High-Precision 100 Square Kilometer Equatorial Island Layout
-            ctx.fillStyle = "rgba(255, 176, 0, 0.35)";  // Slight orange fill requested
-            ctx.strokeStyle = "rgba(255, 176, 0, 0.95)"; // Vector crisp coastline boundary
-            ctx.lineWidth = 2;
+            // Core structural control nodes for equatorial landmass positioning
+            let originX = 2048;
+            let originY = 1024;
+            let baseRadius = 85; 
+            let basePoints = [];
+            let steps = 12;
+            
+            for(let i = 0; i < steps; i++) {
+                let angle = (i / steps) * Math.PI * 2;
+                let rVariance = baseRadius * (0.7 + Math.sin(angle * 3) * 0.25);
+                basePoints.push({
+                    x: originX + Math.cos(angle) * rVariance,
+                    y: originY + Math.sin(angle) * rVariance
+                });
+            }
+            
+            // Render highly complex fractal coastline via recursive edge displacement
+            let hyperDetailedCoast = this.generateFractalCoastline(basePoints, 6, 0.65);
             
             ctx.beginPath();
-            // Engineered geometric landmass leaving explicit centralized flat acreage open for a Space Center
-            ctx.moveTo(1024 - 15, 512 - 5);
-            ctx.lineTo(1024 + 5, 512 - 18);
-            ctx.lineTo(1024 + 22, 512 + 2);
-            ctx.lineTo(1024 + 8, 512 + 16);
-            ctx.lineTo(1024 - 18, 512 + 10);
+            ctx.moveTo(hyperDetailedCoast[0].x, hyperDetailedCoast[0].y);
+            for(let i = 1; i < hyperDetailedCoast.length; i++) {
+                ctx.lineTo(hyperDetailedCoast[i].x, hyperDetailedCoast[i].y);
+            }
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
             
-            // Reserved Space Center Structural Grid Coordinates Foundation Marker
-            ctx.strokeStyle = "rgba(255, 176, 0, 0.6)";
-            ctx.strokeRect(1019, 509, 10, 6);
+            // Secondary Micro Islet cluster injection to reinforce geographical realism
+            ctx.fillStyle = "rgba(255, 176, 0, 0.18)";
+            for(let k = 0; k < 5; k++) {
+                let sAngle = (k / 5) * Math.PI * 2;
+                let sX = originX + Math.cos(sAngle) * 160;
+                let sY = originY + Math.sin(sAngle) * 140;
+                ctx.beginPath();
+                ctx.arc(sX + Math.sin(k)*15, sY + Math.cos(k)*15, 6 + (k%3)*3, 0, Math.PI*2);
+                ctx.fill(); ctx.stroke();
+            }
+            
+            // Dedicated Flat Vector Clearance Zone for Space Center Infrastructure 
+            ctx.fillStyle = "rgba(10, 15, 12, 0.95)";
+            ctx.strokeStyle = "rgba(255, 176, 0, 0.85)";
+            ctx.lineWidth = 2;
+            
+            let centerPadX = originX - 10;
+            let centerPadY = originY - 8;
+            let padWidth = 35;
+            let padHeight = 22;
+            
+            ctx.fillRect(centerPadX, centerPadY, padWidth, padHeight);
+            ctx.strokeRect(centerPadX, centerPadY, padWidth, padHeight);
+            
+            // Crosshairs alignment array inside the Space Center footprint
+            ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(centerPadX + padWidth/2, centerPadY - 5); ctx.lineTo(centerPadX + padWidth/2, centerPadY + padHeight + 5);
+            ctx.moveTo(centerPadX - 5, centerPadY + padHeight/2); ctx.lineTo(centerPadX + padWidth + 5, centerPadY + padHeight/2);
+            ctx.stroke();
             
             const texture = new THREE.CanvasTexture(canvas);
-            coreMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+            texture.anisotropy = 16; // Ensures anti-aliasing quality preserves crisp line rendering under extreme zoom angles
+            coreMat = new THREE.MeshBasicMaterial({ map: texture });
         } else {
             coreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
             coreMat.polygonOffset = true; coreMat.polygonOffsetFactor = 1; coreMat.polygonOffsetUnits = 1;
@@ -195,7 +271,6 @@ const MapEngine = {
         
         const coreMesh = new THREE.Mesh(geometry, coreMat);
         
-        // Remove old wireframe style specifically on Furra, retain on regular moons
         if (!isStar && bodyData.name !== "FURRA") {
             const wireMat = new THREE.MeshBasicMaterial({ color: 0xffb000, wireframe: true, transparent: true, opacity: 0.5 });
             const wireMesh = new THREE.Mesh(geometry, wireMat);
@@ -227,22 +302,47 @@ const MapEngine = {
 
         equatorGroup.rotation.x = THREE.MathUtils.degToRad(bodyData.axialTilt || 0);
 
-        // --- 95KM VOLUMETRIC ATMOSPHERIC HAZE SHROUD EXTENSION LAYER ---
+        // --- GLSL REAL-TIME VOLUMETRIC ATMOSPHERE GENERATOR (95KM RIM SCATTERING) ---
         if (bodyData.name === "FURRA") {
             const atmosRadius = (bodyData.radius + 95) * this.UNIT_SCALE;
-            const atmosGeom = new THREE.SphereGeometry(atmosRadius, 64, 64);
-            const atmosMat = new THREE.MeshBasicMaterial({
-                color: 0xffb000,
-                transparent: true,
-                opacity: 0.15,
+            const atmosGeom = new THREE.SphereGeometry(atmosRadius, 128, 128);
+            
+            const atmosMat = new THREE.ShaderMaterial({
+                vertexShader: `
+                    varying vec3 vNormal;
+                    varying vec3 vViewPosition;
+                    void main() {
+                        vNormal = normalize(normalMatrix * normal);
+                        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                        vViewPosition = -mvPosition.xyz;
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vNormal;
+                    varying vec3 vViewPosition;
+                    void main() {
+                        vec3 normal = normalize(vNormal);
+                        vec3 viewDir = normalize(vViewPosition);
+                        
+                        // Computes scattering intensity exponential thickness gradient across edge parameters
+                        float intensity = pow(0.72 - dot(normal, viewDir), 2.8);
+                        
+                        // Enforces dynamic alpha rollout to simulate true 95km gas density borders
+                        float edgeFade = smoothstep(0.0, 0.45, intensity);
+                        
+                        gl_FragColor = vec4(1.0, 0.69, 0.0, edgeFade * 0.42);
+                    }
+                `,
                 blending: THREE.AdditiveBlending,
-                side: THREE.BackSide
+                side: THREE.BackSide,
+                transparent: true
             });
+            
             const atmosMesh = new THREE.Mesh(atmosGeom, atmosMat);
             equatorGroup.add(atmosMesh);
         }
 
-        // --- VOLUMETRIC TOROID ACCRETION DISC MESH & FILLED PLANETARY RINGS ---
         if (bodyData.discs) {
             bodyData.discs.forEach(disc => {
                 const lathePoints = [];
@@ -264,23 +364,10 @@ const MapEngine = {
                 }
                 
                 const discGeom = new THREE.LatheGeometry(lathePoints, 128);
-                const discMat = new THREE.MeshBasicMaterial({
-                    color: 0xffb000,
-                    transparent: true,
-                    opacity: 0.22,
-                    side: THREE.DoubleSide
-                });
+                const discMat = new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.22, side: THREE.DoubleSide });
                 const discMesh = new THREE.Mesh(discGeom, discMat);
-                
-                const contourMat = new THREE.MeshBasicMaterial({
-                    color: 0xffb000,
-                    transparent: true,
-                    opacity: 0.04,
-                    wireframe: true
-                });
-                const contourMesh = new THREE.Mesh(discGeom, contourMat);
+                const contourMesh = new THREE.Mesh(discGeom, new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.04, wireframe: true }));
                 discMesh.add(contourMesh);
-                
                 equatorGroup.add(discMesh);
             });
         }
@@ -289,30 +376,21 @@ const MapEngine = {
             bodyData.rings.forEach(ring => {
                 const innerR = ring.start * this.UNIT_SCALE;
                 const outerR = ring.end * this.UNIT_SCALE;
-                
                 const ringGeom = new THREE.RingGeometry(innerR, outerR, 128);
-                const ringMat = new THREE.MeshBasicMaterial({
-                    color: 0xffb000,
-                    transparent: true,
-                    opacity: 0.18,
-                    side: THREE.DoubleSide
-                });
+                const ringMat = new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.18, side: THREE.DoubleSide });
                 const ringMesh = new THREE.Mesh(ringGeom, ringMat);
                 ringMesh.rotation.x = Math.PI / 2;
                 equatorGroup.add(ringMesh);
                 
                 const drawBoundary = (radius) => {
                     const linePoints = [];
-                    const lineSegments = 256;
-                    for (let i = 0; i <= lineSegments; i++) {
-                        const theta = (i / lineSegments) * Math.PI * 2;
+                    for (let i = 0; i <= 256; i++) {
+                        const theta = (i / 256) * Math.PI * 2;
                         linePoints.push(new THREE.Vector3(Math.cos(theta) * radius, 0, Math.sin(theta) * radius));
                     }
                     const lineGeom = new THREE.BufferGeometry().setFromPoints(linePoints);
-                    const lineMat = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.6 });
-                    return new THREE.LineLoop(lineGeom, lineMat);
+                    return new THREE.LineLoop(lineGeom, new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.6 }));
                 };
-                
                 equatorGroup.add(drawBoundary(innerR));
                 equatorGroup.add(drawBoundary(outerR));
             });
@@ -362,9 +440,12 @@ const MapEngine = {
             const targetPos = new THREE.Vector3();
             target.mesh.getWorldPosition(targetPos);
             
-            const camOffset = (target.radius * this.UNIT_SCALE) * 5; 
-            this.camera.position.copy(targetPos).add(new THREE.Vector3(0, camOffset, camOffset * 1.5));
+            const camOffset = (target.radius * this.UNIT_SCALE) * 4; 
+            this.camera.position.copy(targetPos).add(new THREE.Vector3(0, camOffset * 0.5, camOffset * 1.2));
             this.controls.target.copy(targetPos);
+            
+            // Adjust camera limits for deep zoom profiling onto fractal mechanics
+            this.controls.minDistance = (target.radius * this.UNIT_SCALE) * 1.005;
             this.lastTargetPos = targetPos.clone();
             return true;
         }
@@ -443,11 +524,11 @@ const MapEngine = {
         this.ctx.clearRect(0, 0, this.uiCanvas.width, this.uiCanvas.height);
         this.ctx.fillStyle = "#ffb000"; this.ctx.font = "14px 'Courier New'";
         this.ctx.fillText(`CHRONO ENGINE: 1:1 REAL TIME ACCELERATION`, 10, 20);
-        this.ctx.fillText(`OSIRIS MASS MODEL: CONTINUOUS SOLID TOROID PROFILE`, 10, 40);
+        this.ctx.fillText(`OSIRIS MASS MODEL: ACTIVE ACCRETION VECTOR MATRIX`, 10, 40);
 
         if (this.activeTarget) {
             let isAnchor = this.activeTarget.name === "OSIRIS";
-            let boxWidth = 340;
+            let boxWidth = 360;
             let startX = this.uiCanvas.width - (boxWidth + 10); let textX = startX + 10;
             let astroLines = this.activeTarget.desc_astro.split('\n');
             let buttonY = 100 + (astroLines.length * 20);
