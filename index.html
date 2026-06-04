@@ -224,6 +224,10 @@ const MapEngine = {
             
             const texture = new THREE.CanvasTexture(canvas);
             texture.anisotropy = 16;
+            // FIX 3: Disable mipmapping and force linear filtering to prevent LOD drop off and glitching
+            texture.generateMipmaps = false;
+            texture.minFilter = THREE.LinearFilter;
+            texture.magFilter = THREE.LinearFilter;
             
             coreMat = new THREE.ShaderMaterial({
                 uniforms: { uSurfaceTex: { value: texture } },
@@ -480,7 +484,11 @@ const MapEngine = {
             let hrs = Math.floor((totalRem % 86400) / 3600); let mins = Math.floor((totalRem % 3600) / 60);
             let secs = totalRem % 60;
             
-            let displayStr = `WARPING TIME CORE: T-MINUS [ ${yrs}Y : ${days}D : ${hrs}H : ${mins}M : ${secs}S ]`;
+            // FIX 1: Padding numbers with leading zeros ensures the display string is always the exact same width
+            let pYrs = String(yrs).padStart(4, '0'); let pDays = String(days).padStart(3, '0');
+            let pHrs = String(hrs).padStart(2, '0'); let pMins = String(mins).padStart(2, '0'); let pSecs = String(secs).padStart(2, '0');
+            
+            let displayStr = `WARPING TIME CORE: T-MINUS [ ${pYrs}Y : ${pDays}D : ${pHrs}H : ${pMins}M : ${pSecs}S ]`;
             this.ctx.font = "bold 16px 'Courier New'";
             let strWidth = this.ctx.measureText(displayStr).width;
             let drawX = (this.uiCanvas.width - strWidth) / 2;
@@ -589,9 +597,13 @@ const Terminal={
             
             if (this.currentApp === "PLANETARY CHARTS") {
                 if (cmd === "ELAPSE") {
-                    let y = parseInt(tokens[1]) || 0; let d = parseInt(tokens[2]) || 0;
-                    let h = parseInt(tokens[3]) || 0; let m = parseInt(tokens[4]) || 0;
-                    let s = parseInt(tokens[5]) || 0;
+                    // FIX 2: Regex parsing directly identifies specific letters anywhere in the command
+                    let argsStr = fullCmd.substring(6);
+                    let yMatch = argsStr.match(/(\d+)\s*Y/); let y = yMatch ? parseInt(yMatch[1]) : 0;
+                    let dMatch = argsStr.match(/(\d+)\s*D/); let d = dMatch ? parseInt(dMatch[1]) : 0;
+                    let hMatch = argsStr.match(/(\d+)\s*H/); let h = hMatch ? parseInt(hMatch[1]) : 0;
+                    let mMatch = argsStr.match(/(\d+)\s*M/); let m = mMatch ? parseInt(mMatch[1]) : 0;
+                    let sMatch = argsStr.match(/(\d+)\s*S/); let s = sMatch ? parseInt(sMatch[1]) : 0;
                     
                     if(!MapEngine.isRunning) {
                         this.log("ERR: PIPELINE SHUTDOWN. ENGINE UNLOADED.");
