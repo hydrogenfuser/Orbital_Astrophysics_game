@@ -10,7 +10,7 @@ body::after{content:"";position:absolute;top:0;left:0;width:100vw;height:100vh;b
 .boot-screen{justify-content:center;align-items:center;text-align:center}
 .title{font-size:3em;font-weight:bold;margin-bottom:40px;letter-spacing:10px;text-transform:uppercase}
 .boot-box{border:1px solid var(--t);padding:20px;width:300px}
-.input-container"><label>USERNAME:</label><input type="text" id="user-input" autocomplete="off"></div>
+.input-container{margin-bottom:10px;text-align:left}
 .input-container label{display:block;margin-bottom:5px}
 #output-log{white-space:pre-wrap;overflow-y:auto;margin-bottom:10px;padding-right:10px; flex-grow:1; z-index: 10;}
 .input-line{display:flex;align-items:center; z-index:10;}
@@ -98,7 +98,6 @@ const MapEngine = {
         ],
         bodies: [
             {
-                // ADDED: rotationPeriod: 115200 (32 Hours in simulated seconds)
                 name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, rotationPeriod: 115200, axialTilt: 14.32,
                 desc_astro: "CLASS: HABITABLE TERRESTRIAL\nLIGHT MATRIX: PARALLAX TERMINATOR SHADER\nLANDMASS PROFILE: CONTINUOUS FRACTAL ISLAND",
                 rings: [
@@ -229,6 +228,7 @@ const MapEngine = {
             texture.minFilter = THREE.LinearFilter;
             texture.magFilter = THREE.LinearFilter;
             
+            // BUG FIX: Explicitly enforce depth writing and prevent transparency on Furra's core
             coreMat = new THREE.ShaderMaterial({
                 uniforms: { uSurfaceTex: { value: texture } },
                 vertexShader: `
@@ -257,17 +257,22 @@ const MapEngine = {
                         vec3 nightSide = texColor.rgb * 0.02;
                         gl_FragColor = vec4(mix(nightSide, texColor.rgb, terminator), 1.0);
                     }
-                `
+                `,
+                transparent: false,
+                depthWrite: true,
+                side: THREE.FrontSide
             });
         } else {
-            coreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            // BUG FIX: Solid dark-amber base to block wireframes from showing through
+            coreMat = new THREE.MeshBasicMaterial({ color: 0x0a0500, depthWrite: true });
             coreMat.polygonOffset = true; coreMat.polygonOffsetFactor = 1; coreMat.polygonOffsetUnits = 1;
         }
         
         const coreMesh = new THREE.Mesh(geometry, coreMat);
         
         if (!isStar && bodyData.name !== "FURRA") {
-            const wireMat = new THREE.MeshBasicMaterial({ color: 0xffb000, wireframe: true, transparent: true, opacity: 0.5 });
+            // BUG FIX: Wireframes no longer write to the depth buffer, preventing Z-fighting
+            const wireMat = new THREE.MeshBasicMaterial({ color: 0xffb000, wireframe: true, transparent: true, opacity: 0.5, depthWrite: false });
             const wireMesh = new THREE.Mesh(geometry, wireMat);
             coreMesh.add(wireMesh);
         }
@@ -284,7 +289,7 @@ const MapEngine = {
             argpGroup.rotation.y = THREE.MathUtils.degToRad(bodyData.argp);
             
             const points = [];
-            const pathMaterial = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.2 });
+            const pathMaterial = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.2, depthWrite: false });
             const segments = 256; 
             for(let i=0; i<=segments; i++) {
                 const theta = (i / segments) * Math.PI * 2;
@@ -301,6 +306,7 @@ const MapEngine = {
             const atmosRadius = (bodyData.radius + 95) * this.UNIT_SCALE;
             const atmosGeom = new THREE.SphereGeometry(atmosRadius, 128, 128);
             
+            // BUG FIX: Atmosphere transparent overlay must not write to depth buffer
             const atmosMat = new THREE.ShaderMaterial({
                 vertexShader: `
                     varying vec3 vNormal;
@@ -325,7 +331,8 @@ const MapEngine = {
                 `,
                 blending: THREE.AdditiveBlending,
                 side: THREE.BackSide,
-                transparent: true
+                transparent: true,
+                depthWrite: false
             });
             
             const atmosMesh = new THREE.Mesh(atmosGeom, atmosMat);
@@ -346,8 +353,9 @@ const MapEngine = {
                     lathePoints.push(new THREE.Vector2(r, -Math.pow(t, 2) * (outerR * 0.12)));
                 }
                 const discGeom = new THREE.LatheGeometry(lathePoints, 128);
-                const discMesh = new THREE.Mesh(discGeom, new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.22, side: THREE.DoubleSide }));
-                discMesh.add(new THREE.Mesh(discGeom, new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.04, wireframe: true })));
+                // BUG FIX: depthWrite: false on transparent disc parts
+                const discMesh = new THREE.Mesh(discGeom, new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }));
+                discMesh.add(new THREE.Mesh(discGeom, new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.04, wireframe: true, depthWrite: false })));
                 equatorGroup.add(discMesh);
             });
         }
@@ -355,13 +363,14 @@ const MapEngine = {
         if (bodyData.rings) {
             bodyData.rings.forEach(ring => {
                 const innerR = ring.start * this.UNIT_SCALE; const outerR = ring.end * this.UNIT_SCALE;
-                const ringMesh = new THREE.Mesh(new THREE.RingGeometry(innerR, outerR, 128), new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.18, side: THREE.DoubleSide }));
+                // BUG FIX: depthWrite: false on transparent rings
+                const ringMesh = new THREE.Mesh(new THREE.RingGeometry(innerR, outerR, 128), new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }));
                 ringMesh.rotation.x = Math.PI / 2; equatorGroup.add(ringMesh);
                 
                 const drawBoundary = (radius) => {
                     const linePoints = [];
                     for (let i = 0; i <= 256; i++) linePoints.push(new THREE.Vector3(Math.cos((i / 256) * Math.PI * 2) * radius, 0, Math.sin((i / 256) * Math.PI * 2) * radius));
-                    return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(linePoints), new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.6 }));
+                    return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(linePoints), new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.6, depthWrite: false }));
                 };
                 equatorGroup.add(drawBoundary(innerR)); equatorGroup.add(drawBoundary(outerR));
             });
@@ -460,14 +469,12 @@ const MapEngine = {
         this.simulatedTime += deltaSimStep;
         
         const processOrbitalMechanics = (body) => {
-            // Translational Mechanics
             if (body.period) {
                 const M = ((2 * Math.PI) / body.period) * this.simulatedTime;
                 const theta = this.getTrueAnomaly(this.solveKepler(M, body.e), body.e);
                 body.translationGroup.position.x = ((body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta))) * Math.cos(theta) * this.UNIT_SCALE;
                 body.translationGroup.position.z = ((body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta))) * Math.sin(theta) * this.UNIT_SCALE;
             }
-            // Rotational Mechanics (Day/Night Cycles)
             if (body.rotationPeriod && body.mesh) {
                 body.mesh.rotation.y = ((2 * Math.PI) / body.rotationPeriod) * this.simulatedTime;
             }
