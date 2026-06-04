@@ -224,11 +224,9 @@ const MapEngine = {
             
             const texture = new THREE.CanvasTexture(canvas);
             texture.anisotropy = 16;
-            texture.generateMipmaps = false;
-            texture.minFilter = THREE.LinearFilter;
-            texture.magFilter = THREE.LinearFilter;
+            // Generating mipmaps ensures proper LOD scaling so lines don't alias/sparkle at extreme distances
+            texture.generateMipmaps = true; 
             
-            // BUG FIX: Explicitly enforce depth writing and prevent transparency on Furra's core
             coreMat = new THREE.ShaderMaterial({
                 uniforms: { uSurfaceTex: { value: texture } },
                 vertexShader: `
@@ -263,15 +261,14 @@ const MapEngine = {
                 side: THREE.FrontSide
             });
         } else {
-            // BUG FIX: Solid dark-amber base to block wireframes from showing through
-            coreMat = new THREE.MeshBasicMaterial({ color: 0x0a0500, depthWrite: true });
+            // BUG FIX: Uses a distinct solid color that doesn't perfectly match the background CSS, ensuring it acts as a visual blocker
+            coreMat = new THREE.MeshBasicMaterial({ color: 0x160B00, depthWrite: true });
             coreMat.polygonOffset = true; coreMat.polygonOffsetFactor = 1; coreMat.polygonOffsetUnits = 1;
         }
         
         const coreMesh = new THREE.Mesh(geometry, coreMat);
         
         if (!isStar && bodyData.name !== "FURRA") {
-            // BUG FIX: Wireframes no longer write to the depth buffer, preventing Z-fighting
             const wireMat = new THREE.MeshBasicMaterial({ color: 0xffb000, wireframe: true, transparent: true, opacity: 0.5, depthWrite: false });
             const wireMesh = new THREE.Mesh(geometry, wireMat);
             coreMesh.add(wireMesh);
@@ -306,7 +303,6 @@ const MapEngine = {
             const atmosRadius = (bodyData.radius + 95) * this.UNIT_SCALE;
             const atmosGeom = new THREE.SphereGeometry(atmosRadius, 128, 128);
             
-            // BUG FIX: Atmosphere transparent overlay must not write to depth buffer
             const atmosMat = new THREE.ShaderMaterial({
                 vertexShader: `
                     varying vec3 vNormal;
@@ -324,7 +320,8 @@ const MapEngine = {
                     void main() {
                         vec3 normal = normalize(vNormal);
                         vec3 viewDir = normalize(vViewPosition);
-                        float intensity = pow(0.72 - dot(normal, viewDir), 2.8);
+                        // BUG FIX: max(0.0) prevents NaN errors from crashing the pixels and tearing the planet texture
+                        float intensity = pow(max(0.0, 0.72 - dot(normal, viewDir)), 2.8);
                         float edgeFade = smoothstep(0.0, 0.45, intensity);
                         gl_FragColor = vec4(1.0, 0.69, 0.0, edgeFade * 0.42);
                     }
@@ -353,7 +350,6 @@ const MapEngine = {
                     lathePoints.push(new THREE.Vector2(r, -Math.pow(t, 2) * (outerR * 0.12)));
                 }
                 const discGeom = new THREE.LatheGeometry(lathePoints, 128);
-                // BUG FIX: depthWrite: false on transparent disc parts
                 const discMesh = new THREE.Mesh(discGeom, new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }));
                 discMesh.add(new THREE.Mesh(discGeom, new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.04, wireframe: true, depthWrite: false })));
                 equatorGroup.add(discMesh);
@@ -363,7 +359,6 @@ const MapEngine = {
         if (bodyData.rings) {
             bodyData.rings.forEach(ring => {
                 const innerR = ring.start * this.UNIT_SCALE; const outerR = ring.end * this.UNIT_SCALE;
-                // BUG FIX: depthWrite: false on transparent rings
                 const ringMesh = new THREE.Mesh(new THREE.RingGeometry(innerR, outerR, 128), new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }));
                 ringMesh.rotation.x = Math.PI / 2; equatorGroup.add(ringMesh);
                 
