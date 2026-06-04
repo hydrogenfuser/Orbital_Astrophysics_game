@@ -65,7 +65,6 @@ const AuthSystem={
     }
 };
 
-// --- TRUE SCALE 3D ASTROPHYSICS ENGINE ---
 const MapEngine = {
     container: document.getElementById("webgl-container"),
     uiCanvas: document.getElementById("ui-canvas"),
@@ -124,6 +123,7 @@ const MapEngine = {
         const aspect = window.innerWidth / (window.innerHeight - 50);
         this.camera = new THREE.PerspectiveCamera(45, aspect, 0.0001, 1e9); 
         
+        // Logarithmic Depth is crucial for the massive scale, but requires explicit shader support
         this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, logarithmicDepthBuffer: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight - 50);
         this.container.appendChild(this.renderer.domElement);
@@ -194,9 +194,9 @@ const MapEngine = {
             ctx.fillStyle = "rgba(4, 10, 12, 1.0)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            ctx.fillStyle = "rgba(255, 176, 0, 0.35)"; 
-            ctx.strokeStyle = "rgba(255, 176, 0, 0.95)"; 
-            ctx.lineWidth = 4;
+            ctx.fillStyle = "rgba(255, 176, 0, 0.15)"; 
+            ctx.strokeStyle = "rgba(255, 176, 0, 0.8)"; 
+            ctx.lineWidth = 12; // Thicker lines prevent extreme aliasing when zoomed out
             
             let originX = 2048; let originY = 1024;
             let baseRadius = 140; 
@@ -224,12 +224,16 @@ const MapEngine = {
             
             const texture = new THREE.CanvasTexture(canvas);
             texture.anisotropy = 16;
-            // Generating mipmaps ensures proper LOD scaling so lines don't alias/sparkle at extreme distances
             texture.generateMipmaps = true; 
             
+            // BUG FIX: Included #include <logdepthbuf_pars_vertex> and related chunks. 
+            // This forces the custom shader to sync its depth buffer calculations with the rest of the engine,
+            // preventing the rings from rendering through the solid planet.
             coreMat = new THREE.ShaderMaterial({
                 uniforms: { uSurfaceTex: { value: texture } },
                 vertexShader: `
+                    #include <common>
+                    #include <logdepthbuf_pars_vertex>
                     varying vec3 vWorldNormal;
                     varying vec3 vWorldPosition;
                     varying vec2 vUv;
@@ -239,9 +243,12 @@ const MapEngine = {
                         vec4 worldPos = modelMatrix * vec4(position, 1.0);
                         vWorldPosition = worldPos.xyz;
                         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                        #include <logdepthbuf_vertex>
                     }
                 `,
                 fragmentShader: `
+                    #include <common>
+                    #include <logdepthbuf_pars_fragment>
                     uniform sampler2D uSurfaceTex;
                     varying vec3 vWorldNormal;
                     varying vec3 vWorldPosition;
@@ -254,6 +261,7 @@ const MapEngine = {
                         vec4 texColor = texture2D(uSurfaceTex, vUv);
                         vec3 nightSide = texColor.rgb * 0.02;
                         gl_FragColor = vec4(mix(nightSide, texColor.rgb, terminator), 1.0);
+                        #include <logdepthbuf_fragment>
                     }
                 `,
                 transparent: false,
@@ -261,7 +269,6 @@ const MapEngine = {
                 side: THREE.FrontSide
             });
         } else {
-            // BUG FIX: Uses a distinct solid color that doesn't perfectly match the background CSS, ensuring it acts as a visual blocker
             coreMat = new THREE.MeshBasicMaterial({ color: 0x160B00, depthWrite: true });
             coreMat.polygonOffset = true; coreMat.polygonOffsetFactor = 1; coreMat.polygonOffsetUnits = 1;
         }
@@ -303,8 +310,11 @@ const MapEngine = {
             const atmosRadius = (bodyData.radius + 95) * this.UNIT_SCALE;
             const atmosGeom = new THREE.SphereGeometry(atmosRadius, 128, 128);
             
+            // BUG FIX: Injecting the log depth buffer chunks into the atmosphere shader stops it from z-fighting with the planet core
             const atmosMat = new THREE.ShaderMaterial({
                 vertexShader: `
+                    #include <common>
+                    #include <logdepthbuf_pars_vertex>
                     varying vec3 vNormal;
                     varying vec3 vViewPosition;
                     void main() {
@@ -312,18 +322,21 @@ const MapEngine = {
                         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
                         vViewPosition = -mvPosition.xyz;
                         gl_Position = projectionMatrix * mvPosition;
+                        #include <logdepthbuf_vertex>
                     }
                 `,
                 fragmentShader: `
+                    #include <common>
+                    #include <logdepthbuf_pars_fragment>
                     varying vec3 vNormal;
                     varying vec3 vViewPosition;
                     void main() {
                         vec3 normal = normalize(vNormal);
                         vec3 viewDir = normalize(vViewPosition);
-                        // BUG FIX: max(0.0) prevents NaN errors from crashing the pixels and tearing the planet texture
                         float intensity = pow(max(0.0, 0.72 - dot(normal, viewDir)), 2.8);
                         float edgeFade = smoothstep(0.0, 0.45, intensity);
                         gl_FragColor = vec4(1.0, 0.69, 0.0, edgeFade * 0.42);
+                        #include <logdepthbuf_fragment>
                     }
                 `,
                 blending: THREE.AdditiveBlending,
