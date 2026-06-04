@@ -81,7 +81,6 @@ const MapEngine = {
     lastRealTime: 0,
     timeScale: 1, 
     
-    // Time Elapse State Anchors
     elapseActive: false,
     elapseRemainingSeconds: 0,
     elapseOriginalScale: 1,
@@ -89,7 +88,7 @@ const MapEngine = {
     activeTarget: null,
     lastTargetPos: null,
     
-    UNIT_SCALE: 0.001, // 1 Unit = 1000 KM
+    UNIT_SCALE: 0.001, 
     
     system: {
         name: "OSIRIS", radius: 12.6, axialTilt: 0,
@@ -192,7 +191,6 @@ const MapEngine = {
             canvas.width = 4096; canvas.height = 2048;
             const ctx = canvas.getContext('2d');
             
-            // Clean, continuous un-mesh water baseline
             ctx.fillStyle = "rgba(4, 10, 12, 1.0)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
@@ -205,7 +203,6 @@ const MapEngine = {
             let basePoints = [];
             let steps = 16;
             
-            // Generates a singular, hyper-complex massive landmass matching explicit 100sq/km parameters
             for(let i = 0; i < steps; i++) {
                 let angle = (i / steps) * Math.PI * 2;
                 let rVariance = baseRadius * (0.8 + Math.sin(angle * 4) * 0.25 + Math.cos(angle * 2) * 0.1);
@@ -228,7 +225,6 @@ const MapEngine = {
             const texture = new THREE.CanvasTexture(canvas);
             texture.anisotropy = 16;
             
-            // Custom Accretion Vector Light Terminator Shading Logic
             coreMat = new THREE.ShaderMaterial({
                 uniforms: { uSurfaceTex: { value: texture } },
                 vertexShader: `
@@ -250,17 +246,11 @@ const MapEngine = {
                     varying vec2 vUv;
                     void main() {
                         vec3 normal = normalize(vWorldNormal);
-                        // Ray path points directly back to the stellar singularity core origin (0,0,0)
                         vec3 lightDir = normalize(-vWorldPosition);
-                        
                         float dotNL = dot(normal, lightDir);
-                        
-                        // Parallax calculation creating razor execution of accretion-driven terminator profile
                         float terminator = smoothstep(-0.06, 0.06, dotNL);
-                        
                         vec4 texColor = texture2D(uSurfaceTex, vUv);
-                        vec3 nightSide = texColor.rgb * 0.02; // Pure dark unlit oceanic backdrop
-                        
+                        vec3 nightSide = texColor.rgb * 0.02;
                         gl_FragColor = vec4(mix(nightSide, texColor.rgb, terminator), 1.0);
                     }
                 `
@@ -303,7 +293,6 @@ const MapEngine = {
 
         equatorGroup.rotation.x = THREE.MathUtils.degToRad(bodyData.axialTilt || 0);
 
-        // --- GLSL ATMOSPHERE GRADIENT EXTENSION ---
         if (bodyData.name === "FURRA") {
             const atmosRadius = (bodyData.radius + 95) * this.UNIT_SCALE;
             const atmosGeom = new THREE.SphereGeometry(atmosRadius, 128, 128);
@@ -408,7 +397,6 @@ const MapEngine = {
         return false;
     },
 
-    // --- NON-DESTRUCTIVE WARP CONVERSION MODULE ---
     executeTimeWarp: function(y, d, h, m, s) {
         const totalSeconds = (y * 31536000) + (d * 86400) + (h * 3600) + (m * 60) + s;
         if (totalSeconds <= 0) return false;
@@ -417,7 +405,6 @@ const MapEngine = {
         this.elapseRemainingSeconds = totalSeconds;
         this.elapseActive = true;
         
-        // Calibrates warping factor dynamically relative to total input steps
         this.timeScale = Math.max(100000, Math.min(2500000, totalSeconds / 8));
         return true;
     },
@@ -487,7 +474,6 @@ const MapEngine = {
         this.ctx.fillText(`CHRONO ENGINE: ${this.timeScale.toLocaleString()}X SYSTEM VELOCITY`, 10, 20);
         this.ctx.fillText(`OSIRIS MASS MODEL: ACTIVE ACCRETION VECTOR MATRIX`, 10, 40);
 
-        // --- WARP INTERACTIVE OVERLAY COUNTDOWN MESH ---
         if (this.elapseActive) {
             let totalRem = Math.ceil(this.elapseRemainingSeconds);
             let yrs = Math.floor(totalRem / 31536000); let days = Math.floor((totalRem % 31536000) / 86400);
@@ -552,7 +538,6 @@ const Terminal={
         
         this.inputField.addEventListener("keydown",e=>{
             if ("Enter"===e.key) {
-                // Intercept logic for handling immediate termination tracking on time elapsing
                 if (MapEngine.elapseActive) {
                     this.inputField.value = "STOP";
                 }
@@ -582,8 +567,10 @@ const Terminal={
     },
     
     processInput:function(input){
-        const tokens = input.trim().split(/\s+/);
+        const cleanInput = input.trim();
+        const tokens = cleanInput.split(/\s+/);
         const cmd = tokens[0].toUpperCase();
+        const fullCmd = cleanInput.toUpperCase();
 
         if (this.currentApp !== null) {
             if (this.currentApp === "LOADING") return; 
@@ -623,7 +610,7 @@ const Terminal={
                     if (cmd === "FURRA" || cmd === "OSIRIS" || cmd === "KIITOS" || cmd === "HARMONY") {
                         MapEngine.start(); MapEngine.selectTargetByName(cmd);
                     } else {
-                        this.outputLog.innerText += "\n> " + cmd + "\nERR: REQUEST DENIED. DESIGNATION OUTSIDE RANGE.";
+                        this.outputLog.innerText += "\n> " + cleanInput + "\nERR: REQUEST DENIED. DESIGNATION OUTSIDE RANGE.";
                         window.scrollTo(0,document.body.scrollHeight);
                     }
                 } else {
@@ -634,17 +621,22 @@ const Terminal={
                     }
                 }
             } else {
-                this.log("> " + cmd + "\nERR: APPLICATION UNSTABLE. FINISH OPERATION OR 'TERMINATE'.");
+                this.log("> " + cleanInput + "\nERR: APPLICATION UNSTABLE. FINISH OPERATION OR 'TERMINATE'.");
             }
             return;
         }
 
-        this.log("> " + cmd);
+        this.log("> " + cleanInput);
+
+        if (fullCmd === "PLANETARY CHARTS") {
+            this.launchApp("PLANETARY CHARTS");
+            return;
+        }
+
         switch(cmd) {
             case "HELP": this.log("COMMAND MENU:\nHELP\nLIST\nLOGOUT\n\nSYSTEM MODULES:\nPLANETARY CHARTS"); break;
             case "LIST": this.log("CANON BALANCES INSTALLED:\n- OSIRIS (BLACK HOLE ANCHOR)\n- FURRA (TERRESTRIAL MOUNT)\n- HARMONY (GAP MOON)\n- KIITOS (OUTER LUNAR BOUNDARY)"); break;
             case "LOGOUT": location.reload(); break;
-            case "PLANETARY CHARTS": this.launchApp(cmd); break;
             default: this.log("ERR: COMMAND PARSE EXCEPTION.");
         }
     },
