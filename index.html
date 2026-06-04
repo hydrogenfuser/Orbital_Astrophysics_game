@@ -77,8 +77,14 @@ const MapEngine = {
     controls: null,
     
     isRunning: false,
-    startTime: Date.now(),
+    simulatedTime: 0,
+    lastRealTime: 0,
     timeScale: 1, 
+    
+    // Time Elapse State Anchors
+    elapseActive: false,
+    elapseRemainingSeconds: 0,
+    elapseOriginalScale: 1,
     
     activeTarget: null,
     lastTargetPos: null,
@@ -94,7 +100,7 @@ const MapEngine = {
         bodies: [
             {
                 name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, axialTilt: 14.32,
-                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nATMOSPHERE LAYER: 95 KM GLOW DISTORTION SHADER\nSURFACE MATRIX: HIGH-LOD FRACTAL ARCHIPELAGO",
+                desc_astro: "CLASS: HABITABLE TERRESTRIAL\nLIGHT MATRIX: PARALLAX TERMINATOR SHADER\nLANDMASS PROFILE: CONTINUOUS FRACTAL ISLAND",
                 rings: [
                     { name: "RING A", start: 5796 + 2500, end: 5796 + 3100 },
                     { name: "RING B", start: 5796 + 3200, end: 5796 + 4100 },
@@ -144,13 +150,11 @@ const MapEngine = {
         return 2 * Math.atan2(Math.sqrt(1 + e) * Math.sin(E / 2), Math.sqrt(1 - e) * Math.cos(E / 2));
     },
 
-    // --- HIGH-精密 GEOLOGICAL FRACTAL DESIGN LOGIC ---
     generateFractalCoastline: function(points, iterations, roughness) {
         let currentPoints = [...points];
-        
         for (let i = 0; i < iterations; i++) {
             let nextPoints = [];
-            let currentRoughness = roughness / Math.pow(1.6, i);
+            let currentRoughness = roughness / Math.pow(1.5, i);
             
             for (let j = 0; j < currentPoints.length; j++) {
                 let p1 = currentPoints[j];
@@ -166,9 +170,7 @@ const MapEngine = {
                 let nx = -dy / len;
                 let ny = dx / len;
                 
-                // Seeded pseudo-random offset computation
-                let offset = (Math.sin(midX * 0.05) * Math.cos(midY * 0.05) * Math.sin(len * 0.5)) * currentRoughness * len;
-                
+                let offset = (Math.sin(midX * 0.03) * Math.cos(midY * 0.03)) * currentRoughness * len;
                 let displacedPoint = { x: midX + nx * offset, y: midY + ny * offset };
                 
                 nextPoints.push(p1);
@@ -181,89 +183,88 @@ const MapEngine = {
 
     createBodyMesh: function(bodyData, parentObj, isStar = false) {
         const scaledRadius = bodyData.radius * this.UNIT_SCALE;
-        // High density vertices matching structural vector scaling demands
         const geometry = new THREE.SphereGeometry(scaledRadius, 128, 128);
         
         let coreMat;
         
         if (bodyData.name === "FURRA") {
-            // Enhanced 4K Canvas Texture Matrix allocation for infinite pixel precision
             const canvas = document.createElement('canvas');
-            canvas.width = 4096;
-            canvas.height = 2048;
+            canvas.width = 4096; canvas.height = 2048;
             const ctx = canvas.getContext('2d');
             
-            // Pristine Ocean Baseline Layer 
-            ctx.fillStyle = "rgba(4, 12, 10, 1.0)";
+            // Clean, continuous un-mesh water baseline
+            ctx.fillStyle = "rgba(4, 10, 12, 1.0)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            ctx.fillStyle = "rgba(255, 176, 0, 0.28)"; 
+            ctx.fillStyle = "rgba(255, 176, 0, 0.35)"; 
             ctx.strokeStyle = "rgba(255, 176, 0, 0.95)"; 
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 4;
             
-            // Core structural control nodes for equatorial landmass positioning
-            let originX = 2048;
-            let originY = 1024;
-            let baseRadius = 85; 
+            let originX = 2048; let originY = 1024;
+            let baseRadius = 140; 
             let basePoints = [];
-            let steps = 12;
+            let steps = 16;
             
+            // Generates a singular, hyper-complex massive landmass matching explicit 100sq/km parameters
             for(let i = 0; i < steps; i++) {
                 let angle = (i / steps) * Math.PI * 2;
-                let rVariance = baseRadius * (0.7 + Math.sin(angle * 3) * 0.25);
+                let rVariance = baseRadius * (0.8 + Math.sin(angle * 4) * 0.25 + Math.cos(angle * 2) * 0.1);
                 basePoints.push({
                     x: originX + Math.cos(angle) * rVariance,
                     y: originY + Math.sin(angle) * rVariance
                 });
             }
             
-            // Render highly complex fractal coastline via recursive edge displacement
-            let hyperDetailedCoast = this.generateFractalCoastline(basePoints, 6, 0.65);
+            let singularIslandCoast = this.generateFractalCoastline(basePoints, 7, 0.55);
             
             ctx.beginPath();
-            ctx.moveTo(hyperDetailedCoast[0].x, hyperDetailedCoast[0].y);
-            for(let i = 1; i < hyperDetailedCoast.length; i++) {
-                ctx.lineTo(hyperDetailedCoast[i].x, hyperDetailedCoast[i].y);
+            ctx.moveTo(singularIslandCoast[0].x, singularIslandCoast[0].y);
+            for(let i = 1; i < singularIslandCoast.length; i++) {
+                ctx.lineTo(singularIslandCoast[i].x, singularIslandCoast[i].y);
             }
             ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-            
-            // Secondary Micro Islet cluster injection to reinforce geographical realism
-            ctx.fillStyle = "rgba(255, 176, 0, 0.18)";
-            for(let k = 0; k < 5; k++) {
-                let sAngle = (k / 5) * Math.PI * 2;
-                let sX = originX + Math.cos(sAngle) * 160;
-                let sY = originY + Math.sin(sAngle) * 140;
-                ctx.beginPath();
-                ctx.arc(sX + Math.sin(k)*15, sY + Math.cos(k)*15, 6 + (k%3)*3, 0, Math.PI*2);
-                ctx.fill(); ctx.stroke();
-            }
-            
-            // Dedicated Flat Vector Clearance Zone for Space Center Infrastructure 
-            ctx.fillStyle = "rgba(10, 15, 12, 0.95)";
-            ctx.strokeStyle = "rgba(255, 176, 0, 0.85)";
-            ctx.lineWidth = 2;
-            
-            let centerPadX = originX - 10;
-            let centerPadY = originY - 8;
-            let padWidth = 35;
-            let padHeight = 22;
-            
-            ctx.fillRect(centerPadX, centerPadY, padWidth, padHeight);
-            ctx.strokeRect(centerPadX, centerPadY, padWidth, padHeight);
-            
-            // Crosshairs alignment array inside the Space Center footprint
-            ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(centerPadX + padWidth/2, centerPadY - 5); ctx.lineTo(centerPadX + padWidth/2, centerPadY + padHeight + 5);
-            ctx.moveTo(centerPadX - 5, centerPadY + padHeight/2); ctx.lineTo(centerPadX + padWidth + 5, centerPadY + padHeight/2);
-            ctx.stroke();
+            ctx.fill(); ctx.stroke();
             
             const texture = new THREE.CanvasTexture(canvas);
-            texture.anisotropy = 16; // Ensures anti-aliasing quality preserves crisp line rendering under extreme zoom angles
-            coreMat = new THREE.MeshBasicMaterial({ map: texture });
+            texture.anisotropy = 16;
+            
+            // Custom Accretion Vector Light Terminator Shading Logic
+            coreMat = new THREE.ShaderMaterial({
+                uniforms: { uSurfaceTex: { value: texture } },
+                vertexShader: `
+                    varying vec3 vWorldNormal;
+                    varying vec3 vWorldPosition;
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        vWorldNormal = normalize(vec3(modelMatrix * vec4(normal, 0.0)));
+                        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                        vWorldPosition = worldPos.xyz;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform sampler2D uSurfaceTex;
+                    varying vec3 vWorldNormal;
+                    varying vec3 vWorldPosition;
+                    varying vec2 vUv;
+                    void main() {
+                        vec3 normal = normalize(vWorldNormal);
+                        // Ray path points directly back to the stellar singularity core origin (0,0,0)
+                        vec3 lightDir = normalize(-vWorldPosition);
+                        
+                        float dotNL = dot(normal, lightDir);
+                        
+                        // Parallax calculation creating razor execution of accretion-driven terminator profile
+                        float terminator = smoothstep(-0.06, 0.06, dotNL);
+                        
+                        vec4 texColor = texture2D(uSurfaceTex, vUv);
+                        vec3 nightSide = texColor.rgb * 0.02; // Pure dark unlit oceanic backdrop
+                        
+                        gl_FragColor = vec4(mix(nightSide, texColor.rgb, terminator), 1.0);
+                    }
+                `
+            });
         } else {
             coreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
             coreMat.polygonOffset = true; coreMat.polygonOffsetFactor = 1; coreMat.polygonOffsetUnits = 1;
@@ -302,7 +303,7 @@ const MapEngine = {
 
         equatorGroup.rotation.x = THREE.MathUtils.degToRad(bodyData.axialTilt || 0);
 
-        // --- GLSL REAL-TIME VOLUMETRIC ATMOSPHERE GENERATOR (95KM RIM SCATTERING) ---
+        // --- GLSL ATMOSPHERE GRADIENT EXTENSION ---
         if (bodyData.name === "FURRA") {
             const atmosRadius = (bodyData.radius + 95) * this.UNIT_SCALE;
             const atmosGeom = new THREE.SphereGeometry(atmosRadius, 128, 128);
@@ -324,13 +325,8 @@ const MapEngine = {
                     void main() {
                         vec3 normal = normalize(vNormal);
                         vec3 viewDir = normalize(vViewPosition);
-                        
-                        // Computes scattering intensity exponential thickness gradient across edge parameters
                         float intensity = pow(0.72 - dot(normal, viewDir), 2.8);
-                        
-                        // Enforces dynamic alpha rollout to simulate true 95km gas density borders
                         float edgeFade = smoothstep(0.0, 0.45, intensity);
-                        
                         gl_FragColor = vec4(1.0, 0.69, 0.0, edgeFade * 0.42);
                     }
                 `,
@@ -346,78 +342,49 @@ const MapEngine = {
         if (bodyData.discs) {
             bodyData.discs.forEach(disc => {
                 const lathePoints = [];
-                const innerR = disc.start * this.UNIT_SCALE; 
-                const outerR = disc.end * this.UNIT_SCALE;
+                const innerR = disc.start * this.UNIT_SCALE; const outerR = disc.end * this.UNIT_SCALE;
                 const steps = 64;
-                
                 for (let i = 0; i <= steps; i++) {
-                    const t = i / steps;
-                    const r = innerR + Math.pow(t, 2) * (outerR - innerR);
-                    const thickness = Math.pow(t, 2) * (outerR * 0.12); 
-                    lathePoints.push(new THREE.Vector2(r, thickness));
+                    const t = i / steps; const r = innerR + Math.pow(t, 2) * (outerR - innerR);
+                    lathePoints.push(new THREE.Vector2(r, Math.pow(t, 2) * (outerR * 0.12)));
                 }
                 for (let i = steps; i >= 0; i--) {
-                    const t = i / steps;
-                    const r = innerR + Math.pow(t, 2) * (outerR - innerR);
-                    const thickness = Math.pow(t, 2) * (outerR * 0.12);
-                    lathePoints.push(new THREE.Vector2(r, -thickness));
+                    const t = i / steps; const r = innerR + Math.pow(t, 2) * (outerR - innerR);
+                    lathePoints.push(new THREE.Vector2(r, -Math.pow(t, 2) * (outerR * 0.12)));
                 }
-                
                 const discGeom = new THREE.LatheGeometry(lathePoints, 128);
-                const discMat = new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.22, side: THREE.DoubleSide });
-                const discMesh = new THREE.Mesh(discGeom, discMat);
-                const contourMesh = new THREE.Mesh(discGeom, new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.04, wireframe: true }));
-                discMesh.add(contourMesh);
+                const discMesh = new THREE.Mesh(discGeom, new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.22, side: THREE.DoubleSide }));
+                discMesh.add(new THREE.Mesh(discGeom, new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.04, wireframe: true })));
                 equatorGroup.add(discMesh);
             });
         }
 
         if (bodyData.rings) {
             bodyData.rings.forEach(ring => {
-                const innerR = ring.start * this.UNIT_SCALE;
-                const outerR = ring.end * this.UNIT_SCALE;
-                const ringGeom = new THREE.RingGeometry(innerR, outerR, 128);
-                const ringMat = new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.18, side: THREE.DoubleSide });
-                const ringMesh = new THREE.Mesh(ringGeom, ringMat);
-                ringMesh.rotation.x = Math.PI / 2;
-                equatorGroup.add(ringMesh);
+                const innerR = ring.start * this.UNIT_SCALE; const outerR = ring.end * this.UNIT_SCALE;
+                const ringMesh = new THREE.Mesh(new THREE.RingGeometry(innerR, outerR, 128), new THREE.MeshBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.18, side: THREE.DoubleSide }));
+                ringMesh.rotation.x = Math.PI / 2; equatorGroup.add(ringMesh);
                 
                 const drawBoundary = (radius) => {
                     const linePoints = [];
-                    for (let i = 0; i <= 256; i++) {
-                        const theta = (i / 256) * Math.PI * 2;
-                        linePoints.push(new THREE.Vector3(Math.cos(theta) * radius, 0, Math.sin(theta) * radius));
-                    }
-                    const lineGeom = new THREE.BufferGeometry().setFromPoints(linePoints);
-                    return new THREE.LineLoop(lineGeom, new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.6 }));
+                    for (let i = 0; i <= 256; i++) linePoints.push(new THREE.Vector3(Math.cos((i / 256) * Math.PI * 2) * radius, 0, Math.sin((i / 256) * Math.PI * 2) * radius));
+                    return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(linePoints), new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.6 }));
                 };
-                equatorGroup.add(drawBoundary(innerR));
-                equatorGroup.add(drawBoundary(outerR));
+                equatorGroup.add(drawBoundary(innerR)); equatorGroup.add(drawBoundary(outerR));
             });
         }
         
-        equatorGroup.add(coreMesh);
-        translationGroup.add(equatorGroup);
-        argpGroup.add(translationGroup);
-        incGroup.add(argpGroup);
-        pivot.add(incGroup);
-        parentObj.add(pivot);
+        equatorGroup.add(coreMesh); translationGroup.add(equatorGroup); argpGroup.add(translationGroup); incGroup.add(argpGroup); pivot.add(incGroup); parentObj.add(pivot);
         
-        bodyData.mesh = coreMesh;
-        bodyData.translationGroup = translationGroup;
-        bodyData.equatorGroup = equatorGroup;
+        bodyData.mesh = coreMesh; bodyData.translationGroup = translationGroup; bodyData.equatorGroup = equatorGroup;
     },
 
     buildSystem: function() {
-        this.system.group = new THREE.Group();
-        this.scene.add(this.system.group);
+        this.system.group = new THREE.Group(); this.scene.add(this.system.group);
         this.createBodyMesh(this.system, this.system.group, true);
-        
         this.system.bodies.forEach(planet => {
             this.createBodyMesh(planet, this.system.group);
-            planet.bodies.forEach(moon => {
-                this.createBodyMesh(moon, planet.equatorGroup); 
-            });
+            planet.bodies.forEach(moon => this.createBodyMesh(moon, planet.equatorGroup));
         });
     },
 
@@ -427,95 +394,89 @@ const MapEngine = {
         else {
             for (let planet of this.system.bodies) {
                 if (planet.name === name) target = planet;
-                if (planet.bodies) {
-                    for (let moon of planet.bodies) {
-                        if (moon.name === name) target = moon;
-                    }
-                }
+                if (planet.bodies) { for (let moon of planet.bodies) { if (moon.name === name) target = moon; } }
             }
         }
-        
         if (target) {
-            this.activeTarget = target;
-            const targetPos = new THREE.Vector3();
-            target.mesh.getWorldPosition(targetPos);
-            
-            const camOffset = (target.radius * this.UNIT_SCALE) * 4; 
+            this.activeTarget = target; const targetPos = new THREE.Vector3(); target.mesh.getWorldPosition(targetPos);
+            const camOffset = (target.radius * this.UNIT_SCALE) * 4;
             this.camera.position.copy(targetPos).add(new THREE.Vector3(0, camOffset * 0.5, camOffset * 1.2));
             this.controls.target.copy(targetPos);
-            
-            // Adjust camera limits for deep zoom profiling onto fractal mechanics
             this.controls.minDistance = (target.radius * this.UNIT_SCALE) * 1.005;
-            this.lastTargetPos = targetPos.clone();
-            return true;
+            this.lastTargetPos = targetPos.clone(); return true;
         }
         return false;
     },
 
+    // --- NON-DESTRUCTIVE WARP CONVERSION MODULE ---
+    executeTimeWarp: function(y, d, h, m, s) {
+        const totalSeconds = (y * 31536000) + (d * 86400) + (h * 3600) + (m * 60) + s;
+        if (totalSeconds <= 0) return false;
+        
+        this.elapseOriginalScale = this.timeScale;
+        this.elapseRemainingSeconds = totalSeconds;
+        this.elapseActive = true;
+        
+        // Calibrates warping factor dynamically relative to total input steps
+        this.timeScale = Math.max(100000, Math.min(2500000, totalSeconds / 8));
+        return true;
+    },
+
+    stopTimeWarp: function() {
+        if (!this.elapseActive) return;
+        this.elapseActive = false;
+        this.elapseRemainingSeconds = 0;
+        this.timeScale = this.elapseOriginalScale;
+    },
+
     resize: function() {
-        const w = window.innerWidth, h = window.innerHeight - 50;
-        this.uiCanvas.width = w; this.uiCanvas.height = h;
-        if(this.camera) {
-            this.camera.aspect = w / h;
-            this.camera.updateProjectionMatrix();
-            this.renderer.setSize(w, h);
-        }
+        const w = window.innerWidth, h = window.innerHeight - 50; this.uiCanvas.width = w; this.uiCanvas.height = h;
+        if(this.camera) { this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.renderer.setSize(w, h); }
     },
 
     start: function() {
-        this.isRunning = true;
-        this.container.style.display = "block";
-        this.uiCanvas.style.display = "block";
-        document.getElementById("output-log").style.display = "none";
-        this.resize();
-        this.loop();
+        this.isRunning = true; this.lastRealTime = Date.now();
+        this.container.style.display = "block"; this.uiCanvas.style.display = "block";
+        document.getElementById("output-log").style.display = "none"; this.resize(); this.loop();
     },
 
-    stop: function() {
-        this.isRunning = false;
-        this.activeTarget = null;
-        this.container.style.display = "none";
-        this.uiCanvas.style.display = "none";
-        document.getElementById("output-log").style.display = "block";
-    },
-
-    loop: function() {
-        if (!this.isRunning) return;
-        this.update();
-        this.renderer.render(this.scene, this.camera);
-        this.drawUI();
-        requestAnimationFrame(() => this.loop());
-    },
+    stop: function() { this.isRunning = false; this.activeTarget = null; this.stopTimeWarp(); this.container.style.display = "none"; this.uiCanvas.style.display = "none"; document.getElementById("output-log").style.display = "block"; },
+    loop: function() { if (!this.isRunning) return; this.update(); this.renderer.render(this.scene, this.camera); this.drawUI(); requestAnimationFrame(() => this.loop()); },
 
     update: function() {
-        const elapsedSeconds = ((Date.now() - this.startTime) / 1000) * this.timeScale;
+        const now = Date.now();
+        if (!this.lastRealTime) this.lastRealTime = now;
+        const dt = (now - this.lastRealTime) / 1000;
+        this.lastRealTime = now;
+        
+        let deltaSimStep = dt * this.timeScale;
+        
+        if (this.elapseActive) {
+            if (this.elapseRemainingSeconds <= deltaSimStep) {
+                deltaSimStep = this.elapseRemainingSeconds;
+                this.stopTimeWarp();
+                Terminal.log("\n[CHRONO CODES COMPLETE] WARP TARGET RANGE ACHIEVED.");
+            } else {
+                this.elapseRemainingSeconds -= deltaSimStep;
+            }
+        }
+        
+        this.simulatedTime += deltaSimStep;
         
         const processOrbitalMechanics = (body) => {
             if (!body.period) return;
-            const M = ((2 * Math.PI) / body.period) * elapsedSeconds;
-            const E = this.solveKepler(M, body.e);
-            const theta = this.getTrueAnomaly(E, body.e);
-            const r = (body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta));
-            
-            body.translationGroup.position.x = r * Math.cos(theta) * this.UNIT_SCALE;
-            body.translationGroup.position.z = r * Math.sin(theta) * this.UNIT_SCALE;
+            const M = ((2 * Math.PI) / body.period) * this.simulatedTime;
+            const theta = this.getTrueAnomaly(this.solveKepler(M, body.e), body.e);
+            body.translationGroup.position.x = ((body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta))) * Math.cos(theta) * this.UNIT_SCALE;
+            body.translationGroup.position.z = ((body.a * (1 - Math.pow(body.e, 2))) / (1 + body.e * Math.cos(theta))) * Math.sin(theta) * this.UNIT_SCALE;
         };
 
-        this.system.bodies.forEach(planet => {
-            processOrbitalMechanics(planet);
-            if (planet.bodies) planet.bodies.forEach(moon => processOrbitalMechanics(moon));
-        });
+        this.system.bodies.forEach(planet => { processOrbitalMechanics(planet); if (planet.bodies) planet.bodies.forEach(moon => processOrbitalMechanics(moon)); });
 
         if (this.activeTarget && this.activeTarget.mesh) {
-            const currentPos = new THREE.Vector3();
-            this.activeTarget.mesh.getWorldPosition(currentPos);
-            
-            if (this.lastTargetPos) {
-                const delta = currentPos.clone().sub(this.lastTargetPos);
-                this.camera.position.add(delta); 
-            }
-            this.controls.target.copy(currentPos); 
-            this.lastTargetPos = currentPos.clone();
+            const currentPos = new THREE.Vector3(); this.activeTarget.mesh.getWorldPosition(currentPos);
+            if (this.lastTargetPos) this.camera.position.add(currentPos.clone().sub(this.lastTargetPos));
+            this.controls.target.copy(currentPos); this.lastTargetPos = currentPos.clone();
         }
         this.controls.update();
     },
@@ -523,29 +484,46 @@ const MapEngine = {
     drawUI: function() {
         this.ctx.clearRect(0, 0, this.uiCanvas.width, this.uiCanvas.height);
         this.ctx.fillStyle = "#ffb000"; this.ctx.font = "14px 'Courier New'";
-        this.ctx.fillText(`CHRONO ENGINE: 1:1 REAL TIME ACCELERATION`, 10, 20);
+        this.ctx.fillText(`CHRONO ENGINE: ${this.timeScale.toLocaleString()}X SYSTEM VELOCITY`, 10, 20);
         this.ctx.fillText(`OSIRIS MASS MODEL: ACTIVE ACCRETION VECTOR MATRIX`, 10, 40);
 
+        // --- WARP INTERACTIVE OVERLAY COUNTDOWN MESH ---
+        if (this.elapseActive) {
+            let totalRem = Math.ceil(this.elapseRemainingSeconds);
+            let yrs = Math.floor(totalRem / 31536000); let days = Math.floor((totalRem % 31536000) / 86400);
+            let hrs = Math.floor((totalRem % 86400) / 3600); let mins = Math.floor((totalRem % 3600) / 60);
+            let secs = totalRem % 60;
+            
+            let displayStr = `WARPING TIME CORE: T-MINUS [ ${yrs}Y : ${days}D : ${hrs}H : ${mins}M : ${secs}S ]`;
+            this.ctx.font = "bold 16px 'Courier New'";
+            let strWidth = this.ctx.measureText(displayStr).width;
+            let drawX = (this.uiCanvas.width - strWidth) / 2;
+            let drawY = this.uiCanvas.height / 2;
+            
+            this.ctx.fillStyle = "rgba(10, 5, 0, 0.85)";
+            this.ctx.fillRect(drawX - 20, drawY - 30, strWidth + 40, 50);
+            this.ctx.strokeStyle = "#ffb000";
+            this.ctx.strokeRect(drawX - 20, drawY - 30, strWidth + 40, 50);
+            
+            this.ctx.fillStyle = "#ffb000";
+            this.ctx.fillText(displayStr, drawX, drawY);
+            this.ctx.font = "10px 'Courier New'";
+            this.ctx.fillText("PRESS [ENTER] TO EMERGENCY STOP ENGINE CHRONO CONVERSION", drawX + 15, drawY + 12);
+        }
+
         if (this.activeTarget) {
-            let isAnchor = this.activeTarget.name === "OSIRIS";
-            let boxWidth = 360;
+            let isAnchor = this.activeTarget.name === "OSIRIS"; let boxWidth = 360;
             let startX = this.uiCanvas.width - (boxWidth + 10); let textX = startX + 10;
             let astroLines = this.activeTarget.desc_astro.split('\n');
-            let buttonY = 100 + (astroLines.length * 20);
-            if (!isAnchor) buttonY += 130; 
+            let buttonY = 100 + (astroLines.length * 20); if (!isAnchor) buttonY += 130;
             let boxHeight = buttonY + 20;
             
             this.ctx.fillStyle = "rgba(10, 5, 0, 0.9)"; this.ctx.fillRect(startX, 10, boxWidth, boxHeight);
             this.ctx.strokeStyle = "#ffb000"; this.ctx.strokeRect(startX, 10, boxWidth, boxHeight);
-            
-            this.ctx.fillStyle = "#ffb000"; this.ctx.font = "bold 16px 'Courier New'";
-            this.ctx.fillText(`TARGET: ${this.activeTarget.name}`, textX, 30);
-            
+            this.ctx.fillStyle = "#ffb000"; this.ctx.font = "bold 16px 'Courier New'"; this.ctx.fillText(`TARGET: ${this.activeTarget.name}`, textX, 30);
             this.ctx.beginPath(); this.ctx.moveTo(startX, 40); this.ctx.lineTo(startX + boxWidth, 40); this.ctx.stroke();
-
             this.ctx.font = "bold 12px 'Courier New'"; this.ctx.fillText(`[ VISUAL MANIFEST ]`, textX, 60);
-            this.ctx.font = "12px 'Courier New'";
-            this.ctx.fillText(`RADIUS:  ${this.activeTarget.radius.toLocaleString()} KM`, textX, 80);
+            this.ctx.font = "12px 'Courier New'"; this.ctx.fillText(`RADIUS:  ${this.activeTarget.radius.toLocaleString()} KM`, textX, 80);
             for(let i=0; i<astroLines.length; i++) this.ctx.fillText(astroLines[i], textX, 100 + (i*20));
 
             if (!isAnchor) {
@@ -571,65 +549,92 @@ const Terminal={
     init:function(){
         this.userInput.addEventListener("keydown",e=>{"Enter"===e.key&&this.userInput.value.trim()!=""&&document.getElementById("pass-input").focus()});
         document.getElementById("pass-input").addEventListener("keydown",e=>{"Enter"===e.key&&AuthSystem.attemptLogin()});
-        this.inputField.addEventListener("keydown",e=>{"Enter"===e.key&&(e=this.inputField.value,""!==e.trim()&&this.processInput(e),this.inputField.value="")});
+        
+        this.inputField.addEventListener("keydown",e=>{
+            if ("Enter"===e.key) {
+                // Intercept logic for handling immediate termination tracking on time elapsing
+                if (MapEngine.elapseActive) {
+                    this.inputField.value = "STOP";
+                }
+                let val = this.inputField.value;
+                if (""!==val.trim()) this.processInput(val);
+                this.inputField.value = "";
+            }
+        });
         document.getElementById("submit-btn").addEventListener("click",()=>AuthSystem.attemptLogin());
-        this.userInput.focus();
-        MapEngine.init(); 
+        this.userInput.focus(); MapEngine.init(); 
     },
 
     launchApp:function(appName){
-        this.currentApp = "LOADING"; 
-        this.inputField.disabled = true; this.inputField.value = "";
-        
+        this.currentApp = "LOADING"; this.inputField.disabled = true; this.inputField.value = "";
         const ticks = 10; let currentTick = 0;
         const loader = setInterval(() => {
-            currentTick++;
-            let pct = Math.floor((currentTick / ticks) * 100);
+            currentTick++; let pct = Math.floor((currentTick / ticks) * 100);
             let pBar = "["; for(let i=0; i<20; i++) pBar += (i < pct/5) ? "█" : "░"; pBar += "] " + pct + "%";
-            
-            this.outputLog.innerText = "PARSING COMPONENT MASSEs...\n" + pBar;
-            
+            this.outputLog.innerText = "PARSING COMPONENT DATA INTERFACES...\n" + pBar;
             if (currentTick >= ticks) {
-                clearInterval(loader);
-                this.currentApp = appName;
-                this.inputField.disabled = false;
+                clearInterval(loader); this.currentApp = appName; this.inputField.disabled = false;
                 this.inputWrapper.classList.add('app-mode');
-                
-                this.outputLog.innerText = appName + " ONLINE.\nENTER TARGET DESIGNATION OR TYPE 'TERMINATE'.";
+                this.outputLog.innerText = appName + " ONLINE.\nENTER TARGET DESIGNATION, ELAPSE PARAMETERS, OR 'TERMINATE'.";
                 this.inputField.focus();
             }
         }, 50);
     },
     
     processInput:function(input){
-        const cmd = input.toUpperCase().trim();
+        const tokens = input.trim().split(/\s+/);
+        const cmd = tokens[0].toUpperCase();
 
         if (this.currentApp !== null) {
             if (this.currentApp === "LOADING") return; 
+            
+            if (cmd === "STOP" && MapEngine.elapseActive) {
+                MapEngine.stopTimeWarp();
+                this.log("> STOP\n[WARN] TIMECORE WARP INJECTOR SHUT DOWN SAFELY.");
+                return;
+            }
+            
             if (cmd === "TERMINATE") {
-                this.currentApp = null;
-                this.inputWrapper.classList.remove('app-mode');
-                MapEngine.stop();
+                this.currentApp = null; this.inputWrapper.classList.remove('app-mode'); MapEngine.stop();
                 this.outputLog.innerText = "OSIRIS CORE MONITOR ACTIVE.\nREADY.";
-            } else if (this.currentApp === "PLANETARY CHARTS") {
+                return;
+            } 
+            
+            if (this.currentApp === "PLANETARY CHARTS") {
+                if (cmd === "ELAPSE") {
+                    let y = parseInt(tokens[1]) || 0; let d = parseInt(tokens[2]) || 0;
+                    let h = parseInt(tokens[3]) || 0; let m = parseInt(tokens[4]) || 0;
+                    let s = parseInt(tokens[5]) || 0;
+                    
+                    if(!MapEngine.isRunning) {
+                        this.log("ERR: PIPELINE SHUTDOWN. ENGINE UNLOADED.");
+                        return;
+                    }
+                    let activated = MapEngine.executeTimeWarp(y, d, h, m, s);
+                    if (activated) {
+                        this.log(`> ELAPSE CORE MATRIX INITIATED: ${y}Y ${d}D ${h}H ${m}M ${s}S`);
+                    } else {
+                        this.log("ERR: REJECTED ENGINE SPECS. SET TIMESTEP GREATER THAN ZERO.");
+                    }
+                    return;
+                }
+
                 if (!MapEngine.isRunning) {
                     if (cmd === "FURRA" || cmd === "OSIRIS" || cmd === "KIITOS" || cmd === "HARMONY") {
-                        MapEngine.start();
-                        MapEngine.selectTargetByName(cmd);
+                        MapEngine.start(); MapEngine.selectTargetByName(cmd);
                     } else {
-                        this.outputLog.innerText += "\n> " + cmd + "\nERR: REQUEST DENIED. SECTOR SELECTION EXCEEDS CANON DOCUMENTATION.";
+                        this.outputLog.innerText += "\n> " + cmd + "\nERR: REQUEST DENIED. DESIGNATION OUTSIDE RANGE.";
                         window.scrollTo(0,document.body.scrollHeight);
                     }
                 } else {
                     let found = MapEngine.selectTargetByName(cmd);
                     if (!found) {
-                        this.inputField.value = "";
                         this.inputField.placeholder = "ERR: OBJECT DETACHED OR RESTRICTED";
                         setTimeout(() => this.inputField.placeholder = "", 2000);
                     }
                 }
             } else {
-                this.log("> " + cmd + "\nERR: APPLICATION LOCK ACTIVE. TYPE 'TERMINATE' TO BREAK CONNECTION.");
+                this.log("> " + cmd + "\nERR: APPLICATION UNSTABLE. FINISH OPERATION OR 'TERMINATE'.");
             }
             return;
         }
@@ -637,10 +642,10 @@ const Terminal={
         this.log("> " + cmd);
         switch(cmd) {
             case "HELP": this.log("COMMAND MENU:\nHELP\nLIST\nLOGOUT\n\nSYSTEM MODULES:\nPLANETARY CHARTS"); break;
-            case "LIST": this.log("CANON BALANCES INSTALLED:\n- OSIRIS (UNMESHED CORE ANCHOR)\n- FURRA (TERRESTRIAL MOUNT)\n- HARMONY (GAP COMPONENT)\n- KIITOS (OUTER SYSTEM LUNAR)"); break;
+            case "LIST": this.log("CANON BALANCES INSTALLED:\n- OSIRIS (BLACK HOLE ANCHOR)\n- FURRA (TERRESTRIAL MOUNT)\n- HARMONY (GAP MOON)\n- KIITOS (OUTER LUNAR BOUNDARY)"); break;
             case "LOGOUT": location.reload(); break;
             case "PLANETARY CHARTS": this.launchApp(cmd); break;
-            default: this.log("ERR: SYSTEM INSTRUCTION FAULT.");
+            default: this.log("ERR: COMMAND PARSE EXCEPTION.");
         }
     },
     
