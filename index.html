@@ -109,41 +109,125 @@ const MapEngine = {
 
 // --- [ 7. TERMINAL OS ] ---
 const Terminal={
-    outputLog:document.getElementById("output-log"), inputField:document.getElementById("terminal-input"), inputWrapper:document.getElementById("input-wrapper"), userInput:document.getElementById("user-input"), currentApp:null,
+    outputLog:document.getElementById("output-log"), inputField:document.getElementById("terminal-input"), inputWrapper:document.getElementById("input-wrapper"), userInput:document.getElementById("user-input"), 
+    currentApp: null,
+    vabState: null, // Tracks directory navigation inside the VAB
+
     init:function(){
         this.userInput.addEventListener("keydown",e=>{"Enter"===e.key&&this.userInput.value.trim()!=""&&document.getElementById("pass-input").focus()});
         document.getElementById("pass-input").addEventListener("keydown",e=>{"Enter"===e.key&&AuthSystem.attemptLogin()});
         this.inputField.addEventListener("keydown",e=>{if("Enter"===e.key){if(MapEngine.elapseActive)this.inputField.value="STOP";let v=this.inputField.value;if(""!==v.trim())this.processInput(v);this.inputField.value="";}});
         document.getElementById("submit-btn").addEventListener("click",()=>AuthSystem.attemptLogin()); this.userInput.focus(); MapEngine.init(); 
     },
-    launchApp:function(aN){
-        this.currentApp="LOADING";this.inputField.disabled=!0;this.inputField.value="";let cT=0;
-        const l=setInterval(()=>{cT++;let p=Math.floor((cT/10)*100),pB="[";for(let i=0;i<20;i++)pB+=(i<p/5)?"█":"░";pB+="] "+p+"%";this.outputLog.innerText="PARSING COMPONENT DATA INTERFACES...\n"+pB;
-        if(cT>=10){clearInterval(l);this.currentApp=aN;this.inputField.disabled=!1;this.inputWrapper.classList.add('app-mode');this.outputLog.innerText=aN+" ONLINE.\nENTER TARGET DESIGNATION, ELAPSE PARAMETERS, OR 'TERMINATE'.";this.inputField.focus();}},50);
+
+    // Modified to accept dynamic load times (totalTicks * tickMs = total load time)
+    launchApp:function(appName, totalTicks = 10, tickMs = 50){
+        this.currentApp = "LOADING"; this.inputField.disabled = true; this.inputField.value = ""; let cT = 0;
+        const loader = setInterval(() => {
+            cT++; let pct = Math.floor((cT / totalTicks) * 100);
+            let pBar = "["; for(let i=0; i<20; i++) pBar += (i < pct/5) ? "█" : "░"; pBar += "] " + pct + "%";
+            
+            if (appName === "VAB") {
+                this.outputLog.innerText = "INITIALIZING VEHICLE ASSEMBLY BUILDING...\nAUTHENTICATING ENGINEERING CLEARANCE...\n" + pBar;
+            } else {
+                this.outputLog.innerText = "PARSING COMPONENT DATA INTERFACES...\n" + pBar;
+            }
+
+            if (cT >= totalTicks) {
+                clearInterval(loader); this.currentApp = appName; this.inputField.disabled = false;
+                this.inputWrapper.classList.add('app-mode');
+                
+                if (appName === "VAB") {
+                    this.vabState = "MAIN";
+                    this.outputLog.innerText = "VAB ONLINE.\n\n[ DIRECTORY TREE ]\n├─ ROCKET DESIGN\n├─ PROBE/PAYLOAD DESIGN\n└─ SIMULATORS\n\nENTER DIRECTORY OR TYPE 'TERMINATE'.";
+                } else {
+                    this.outputLog.innerText = appName + " ONLINE.\nENTER TARGET DESIGNATION, ELAPSE PARAMETERS, OR 'TERMINATE'.";
+                }
+                this.inputField.focus();
+            }
+        }, tickMs);
     },
+    
     processInput:function(inStr){
-        const cI=inStr.trim(),tk=cI.split(/\s+/),cmd=tk[0].toUpperCase(),fC=cI.toUpperCase();
-        if(this.currentApp!==null){
-            if(this.currentApp==="LOADING")return;
-            if(cmd==="STOP"&&MapEngine.elapseActive){MapEngine.stopTimeWarp();this.log("> STOP\n[WARN] TIMECORE WARP INJECTOR SHUT DOWN SAFELY.");return;}
-            if(cmd==="TERMINATE"){this.currentApp=null;this.inputWrapper.classList.remove('app-mode');MapEngine.stop();this.outputLog.innerText="OSIRIS CORE MONITOR ACTIVE.\nREADY.";return;}
-            if(this.currentApp==="PLANETARY CHARTS"){
-                if(cmd==="ELAPSE"){
+        const cI = inStr.trim(), tk = cI.split(/\s+/), cmd = tk[0].toUpperCase(), fC = cI.toUpperCase();
+
+        if (this.currentApp !== null) {
+            if (this.currentApp === "LOADING") return; 
+            
+            if (cmd === "STOP" && MapEngine.elapseActive) {
+                MapEngine.stopTimeWarp(); this.log("> STOP\n[WARN] TIMECORE WARP INJECTOR SHUT DOWN SAFELY."); return;
+            }
+            
+            if (cmd === "TERMINATE") {
+                this.currentApp = null; this.vabState = null; this.inputWrapper.classList.remove('app-mode'); MapEngine.stop();
+                this.outputLog.innerText = "OSIRIS CORE MONITOR ACTIVE.\nREADY."; return;
+            } 
+
+            // --- VAB APPLICATION ROUTING ---
+            if (this.currentApp === "VAB") {
+                if (fC === "SIMULATORS" && this.vabState === "MAIN") {
+                    this.vabState = "SIMULATORS";
+                    this.log("> " + fC + "\n\n[ SIMULATORS TREE ]\n├─ ROVER SIM\n├─ WIND TUNNEL\n├─ DOCKING SIM\n└─ LANDING SIM\n\nENTER SELECTION OR TYPE 'BACK'.");
+                    return;
+                }
+                if (fC === "BACK" && this.vabState === "SIMULATORS") {
+                    this.vabState = "MAIN";
+                    this.log("> BACK\n\n[ DIRECTORY TREE ]\n├─ ROCKET DESIGN\n├─ PROBE/PAYLOAD DESIGN\n└─ SIMULATORS\n\nENTER DIRECTORY OR TYPE 'TERMINATE'.");
+                    return;
+                }
+                
+                // Catch-all for unbuilt directories
+                if (["ROCKET DESIGN", "PROBE/PAYLOAD DESIGN", "ROVER SIM", "WIND TUNNEL", "DOCKING SIM", "LANDING SIM"].includes(fC)) {
+                    this.log("> " + fC + "\nERR: MODULE OFFLINE OR PENDING CONSTRUCTION.");
+                    return;
+                }
+
+                this.log("> " + fC + "\nERR: UNKNOWN VAB DIRECTORY.");
+                return;
+            }
+            
+            // --- PLANETARY CHARTS ROUTING ---
+            if (this.currentApp === "PLANETARY CHARTS") {
+                if (cmd === "ELAPSE") {
                     let aS=fC.substring(6),yM=aS.match(/(\d+)\s*Y/),dM=aS.match(/(\d+)\s*D/),hM=aS.match(/(\d+)\s*H/),mM=aS.match(/(\d+)\s*M/),sM=aS.match(/(\d+)\s*S/),spM=aS.match(/\b(FAST|MEDIUM|SLOW)\b/);
                     let y=yM?parseInt(yM[1]):0,d=dM?parseInt(dM[1]):0,h=hM?parseInt(hM[1]):0,m=mM?parseInt(mM[1]):0,s=sM?parseInt(sM[1]):0,sp=spM?spM[1]:"MEDIUM";
                     if(!MapEngine.isRunning){this.log("ERR: PIPELINE SHUTDOWN. ENGINE UNLOADED.");return;}
                     MapEngine.executeTimeWarp(y,d,h,m,s,sp)?this.log(`> ELAPSE CORE MATRIX INITIATED: ${y}Y ${d}D ${h}H ${m}M ${s}S [${sp} WARP]`):this.log("ERR: DURATION TOO SHORT FOR REQUESTED WARP SPEED.");return;
                 }
-                if(!MapEngine.isRunning){if(["FURRA","OSIRIS","KIITOS","HARMONY"].includes(cmd)){MapEngine.start();MapEngine.selectTargetByName(cmd);}else{this.outputLog.innerText+="\n> "+cI+"\nERR: REQUEST DENIED. DESIGNATION OUTSIDE RANGE.";window.scrollTo(0,document.body.scrollHeight);}}
-                else{if(!MapEngine.selectTargetByName(cmd)){this.inputField.placeholder="ERR: OBJECT DETACHED OR RESTRICTED";setTimeout(()=>this.inputField.placeholder="",2000);}}
-            }else this.log("> "+cI+"\nERR: APPLICATION UNSTABLE. FINISH OPERATION OR 'TERMINATE'.");
+                if (!MapEngine.isRunning) {
+                    if (["FURRA","OSIRIS","KIITOS","HARMONY"].includes(cmd)) { MapEngine.start();MapEngine.selectTargetByName(cmd); } 
+                    else { this.log("\n> " + cI + "\nERR: REQUEST DENIED. DESIGNATION OUTSIDE RANGE."); }
+                } else {
+                    if (!MapEngine.selectTargetByName(cmd)) {
+                        this.inputField.placeholder = "ERR: OBJECT DETACHED OR RESTRICTED"; setTimeout(()=>this.inputField.placeholder="",2000);
+                    }
+                }
+                return;
+            }
+            
+            this.log("> " + cI + "\nERR: APPLICATION UNSTABLE. FINISH OPERATION OR 'TERMINATE'.");
             return;
         }
-        this.log("> "+cI); if(fC==="PLANETARY CHARTS"){this.launchApp("PLANETARY CHARTS");return;}
-        switch(cmd){case "HELP":this.log("COMMAND MENU:\nHELP\nLIST\nLOGOUT\n\nSYSTEM MODULES:\nPLANETARY CHARTS");break;case "LIST":this.log("CANON BALANCES INSTALLED:\n- OSIRIS (BLACK HOLE ANCHOR)\n- FURRA (TERRESTRIAL MOUNT)\n- HARMONY (GAP MOON)\n- KIITOS (OUTER LUNAR BOUNDARY)");break;case "LOGOUT":location.reload();break;default:this.log("ERR: COMMAND PARSE EXCEPTION.");}
+
+        this.log("> " + cI); 
+        
+        // --- ROOT SYSTEM COMMANDS ---
+        if (fC === "PLANETARY CHARTS") { this.launchApp("PLANETARY CHARTS", 10, 50); return; }
+        if (fC === "VAB") { 
+            // Randomizes tick speed between 50ms and 100ms. Over 100 ticks, this guarantees a 5 to 10 second load time.
+            let loadTickSpeed = Math.floor(Math.random() * 50) + 50;
+            this.launchApp("VAB", 100, loadTickSpeed); 
+            return; 
+        }
+
+        switch(cmd) {
+            case "HELP": this.log("COMMAND MENU:\nHELP\nLIST\nLOGOUT\n\nSYSTEM MODULES:\nPLANETARY CHARTS\nVAB"); break;
+            case "LIST": this.log("CANON BALANCES INSTALLED:\n- OSIRIS (BLACK HOLE ANCHOR)\n- FURRA (TERRESTRIAL MOUNT)\n- HARMONY (GAP MOON)\n- KIITOS (OUTER LUNAR BOUNDARY)"); break;
+            case "LOGOUT": location.reload(); break;
+            default: this.log("ERR: COMMAND PARSE EXCEPTION.");
+        }
     },
+    
     log:function(e){this.outputLog.innerText+="\n"+e,window.scrollTo(0,document.body.scrollHeight)},
     clearInputs:function(){document.getElementById("user-input").value="",document.getElementById("pass-input").value="",this.userInput.focus()}
 };
-window.onload=()=>Terminal.init();
-</script></body></html>
