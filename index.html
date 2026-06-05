@@ -1,119 +1,405 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>ORBITAL OS</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script><script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<style>
-:root{--t:#ffb000;--b:#0a0500;--f:'Courier New',Courier,monospace}body{background:var(--b);color:var(--t);font-family:var(--f);margin:0;padding:20px;overflow:hidden;text-shadow:0 0 5px var(--t)}.terminal-screen,.boot-screen{display:flex;flex-direction:column;height:95vh;justify-content:flex-end;position:relative}body::after{content:"";position:absolute;top:0;left:0;width:100vw;height:100vh;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.1),rgba(0,0,0,0.1) 1px,transparent 1px,transparent 2px);pointer-events:none;z-index:999}.boot-screen{justify-content:center;align-items:center;text-align:center}.title{font-size:3em;font-weight:bold;margin-bottom:40px;letter-spacing:10px;text-transform:uppercase}.boot-box{border:1px solid var(--t);padding:20px;width:300px}.input-container{margin-bottom:10px;text-align:left}.input-container label{display:block;margin-bottom:5px}#output-log{white-space:pre-wrap;overflow-y:auto;margin-bottom:10px;padding-right:10px;flex-grow:1;z-index:10}.input-line{display:flex;align-items:center;z-index:10}.prompt{margin-right:10px;font-weight:bold}input[type=text],input[type=password]{background:transparent;border:1px solid rgba(255,176,0,0.3);color:var(--t);font-family:var(--f);font-size:16px;outline:none;text-shadow:0 0 5px var(--t);padding:5px;width:280px}input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}#terminal-input{border:none;flex-grow:1;width:auto}#submit-btn{border:1px solid var(--t);padding:5px 15px;cursor:pointer;margin-top:10px;display:inline-block}#submit-btn:hover{background:var(--t);color:var(--b);text-shadow:none}.input-line.app-mode{border-top:1px solid var(--t);padding-top:10px;margin-top:10px}#webgl-container,#ui-canvas{position:absolute;top:0;left:0;width:100%;height:calc(100% - 50px);display:none}#webgl-container{z-index:1}#ui-canvas{pointer-events:none;z-index:2}
-</style></head><body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORBITAL OS</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        :root{--t:#ffb000;--b:#0a0500;--f:'Courier New',Courier,monospace}
+        body{background:var(--b);color:var(--t);font-family:var(--f);margin:0;padding:20px;overflow:hidden;text-shadow:0 0 5px var(--t)}
+        .terminal-screen,.boot-screen{display:flex;flex-direction:column;height:95vh;justify-content:flex-end;position:relative}
+        body::after{content:"";position:absolute;top:0;left:0;width:100vw;height:100vh;background:repeating-linear-gradient(0deg,rgba(0,0,0,0.1),rgba(0,0,0,0.1) 1px,transparent 1px,transparent 2px);pointer-events:none;z-index:999}
+        .boot-screen{justify-content:center;align-items:center;text-align:center}
+        .title{font-size:3em;font-weight:bold;margin-bottom:40px;letter-spacing:10px;text-transform:uppercase}
+        .boot-box{border:1px solid var(--t);padding:20px;width:300px}
+        .input-container{margin-bottom:10px;text-align:left}
+        .input-container label{display:block;margin-bottom:5px}
+        #output-log{white-space:pre-wrap;overflow-y:auto;margin-bottom:10px;padding-right:10px;flex-grow:1;z-index:10}
+        .input-line{display:flex;align-items:center;z-index:10}
+        .prompt{margin-right:10px;font-weight:bold}
+        input[type=text],input[type=password]{background:transparent;border:1px solid rgba(255,176,0,0.3);color:var(--t);font-family:var(--f);font-size:16px;outline:none;text-shadow:0 0 5px var(--t);padding:5px;width:280px}
+        input[type=text]:focus,input[type=password]:focus{border-color:var(--t)}
+        #terminal-input{border:none;flex-grow:1;width:auto}
+        #submit-btn{border:1px solid var(--t);padding:5px 15px;cursor:pointer;margin-top:10px;display:inline-block}
+        #submit-btn:hover{background:var(--t);color:var(--b);text-shadow:none}
+        .input-line.app-mode{border-top:1px solid var(--t);padding-top:10px;margin-top:10px}
+        #webgl-container,#ui-canvas{position:absolute;top:0;left:0;width:100%;height:calc(100% - 50px);display:none}
+        #webgl-container{z-index:1}
+        #ui-canvas{pointer-events:none;z-index:2}
+    </style>
+</head>
+<body>
 
-<div id="boot-screen" class="boot-screen"><div class="title">ORBITAL</div><div class="boot-box"><div class="input-container"><label>USERNAME:</label><input type="text" id="user-input" autocomplete="off"></div><div class="input-container"><label>PASSWORD:</label><input type="password" id="pass-input" autocomplete="off"></div><div id="submit-btn">[SUBMIT]</div></div></div>
-<div id="terminal-screen" class="terminal-screen" style="display:none;"><div id="webgl-container"></div><canvas id="ui-canvas"></canvas><div id="output-log">OSIRIS KERNEL BOOT (AMBER)... OK.</div><div id="input-wrapper" class="input-line"><span class="prompt">></span><input type="text" id="terminal-input" autocomplete="off"></div></div>
+<div id="boot-screen" class="boot-screen">
+    <div class="title">ORBITAL</div>
+    <div class="boot-box">
+        <div class="input-container">
+            <label>USERNAME:</label>
+            <input type="text" id="user-input" autocomplete="off">
+        </div>
+        <div class="input-container">
+            <label>PASSWORD:</label>
+            <input type="password" id="pass-input" autocomplete="off">
+        </div>
+        <div id="submit-btn">[SUBMIT]</div>
+    </div>
+</div>
+
+<div id="terminal-screen" class="terminal-screen" style="display:none;">
+    <div id="webgl-container"></div>
+    <canvas id="ui-canvas"></canvas>
+    <div id="output-log">OSIRIS KERNEL BOOT (AMBER)... OK.</div>
+    <div id="input-wrapper" class="input-line">
+        <span class="prompt">></span>
+        <input type="text" id="terminal-input" autocomplete="off">
+    </div>
+</div>
 
 <script>
 // --- [ 1. AUTHENTICATION ] ---
-const AuthSystem={isAuthenticated:!1,validUser:"DIRECTOR",validPass:"TIER0",attemptLogin:function(){const e=document.getElementById("user-input").value.toUpperCase().trim(),t=document.getElementById("pass-input").value.toUpperCase().trim();e===this.validUser&&t===this.validPass?(this.isAuthenticated=!0,document.getElementById("boot-screen").style.display="none",document.getElementById("terminal-screen").style.display="flex",Terminal.log("\n[AUTH SUCCESS] WELCOME TO ORBITAL.\nType 'HELP' for commands."),Terminal.inputField.focus()):(Terminal.clearInputs(),document.getElementById("user-input").placeholder="ERR: INVALID CREDENTIALS",setTimeout(()=>document.getElementById("user-input").placeholder="",2000))}};
+const AuthSystem = {
+    isAuthenticated: false,
+    validUser: "DIRECTOR",
+    validPass: "TIER0",
+    attemptLogin: function() {
+        const e = document.getElementById("user-input").value.toUpperCase().trim();
+        const t = document.getElementById("pass-input").value.toUpperCase().trim();
+        if (e === this.validUser && t === this.validPass) {
+            this.isAuthenticated = true;
+            document.getElementById("boot-screen").style.display = "none";
+            document.getElementById("terminal-screen").style.display = "flex";
+            Terminal.log("\n[AUTH SUCCESS] WELCOME TO ORBITAL.\nType 'HELP' for commands.");
+            Terminal.inputField.focus();
+        } else {
+            Terminal.clearInputs();
+            document.getElementById("user-input").placeholder = "ERR: INVALID CREDENTIALS";
+            setTimeout(() => document.getElementById("user-input").placeholder = "", 2000);
+        }
+    }
+};
 
 // --- [ 2. ASTROPHYSICS ENGINE (MAP) ] ---
 const MapEngine = {
-    container:document.getElementById("webgl-container"), uiCanvas:document.getElementById("ui-canvas"), ctx:null, scene:null, camera:null, renderer:null, controls:null,
-    isRunning:!1, simulatedTime:0, lastRealTime:0, timeScale:1, elapseActive:!1, elapseRemainingSeconds:0, elapseOriginalScale:1, activeTarget:null, lastTargetPos:null, UNIT_SCALE:0.001,
+    container: document.getElementById("webgl-container"), 
+    uiCanvas: document.getElementById("ui-canvas"), 
+    ctx: null, scene: null, camera: null, renderer: null, controls: null,
+    isRunning: false, simulatedTime: 0, lastRealTime: 0, timeScale: 1, elapseActive: false, elapseRemainingSeconds: 0, elapseOriginalScale: 1, activeTarget: null, lastTargetPos: null, UNIT_SCALE: 0.001,
     system: {
-        name:"OSIRIS", radius:12.6, axialTilt:0, desc_astro:"CLASS: STELLAR BLACK HOLE\nHORIZON REGION: 72 KM (ISCO)\nDISC MESH: VOLUMETRIC TOROIDAL",
-        discs:[{name:"ACCRETION DISC",start:72,end:16000000}], bodies:[{
-            name:"FURRA", a:271000000, e:0.0167, inc:0.0, lan:0.0, argp:0.0, radius:5796, period:48384000, rotationPeriod:115200, axialTilt:14.32, desc_astro:"CLASS: HABITABLE TERRESTRIAL\nLIGHT MATRIX: PARALLAX TERMINATOR SHADER\nLANDMASS PROFILE: CONTINUOUS FRACTAL ISLAND",
-            rings:[{name:"RING A",start:8296,end:8896},{name:"RING B",start:8996,end:9896},{name:"RING C",start:9996,end:10896},{name:"RING D",start:12396,end:13096},{name:"RING E",start:13196,end:13716}],
-            bodies:[{name:"HARMONY",a:11796,e:0.001,inc:0.0,lan:0.0,argp:0.0,radius:21,period:14004,rotationPeriod:14004,desc_astro:"CLASS: SHEPHERD MOON\nREGION: C / D RING SEGMENT GAP"},{name:"KIITOS",a:340000,e:0.05,inc:0.0,lan:0.0,argp:90.0,radius:1876,period:2171520,rotationPeriod:2171520,desc_astro:"CLASS: MAJOR LUNAR BODY\nTIDALLY LOCKED"}]
+        name: "OSIRIS", radius: 12.6, axialTilt: 0, desc_astro: "CLASS: STELLAR BLACK HOLE\nHORIZON REGION: 72 KM (ISCO)\nDISC MESH: VOLUMETRIC TOROIDAL",
+        discs: [{name: "ACCRETION DISC", start: 72, end: 16000000}], 
+        bodies: [{
+            name: "FURRA", a: 271000000, e: 0.0167, inc: 0.0, lan: 0.0, argp: 0.0, radius: 5796, period: 48384000, rotationPeriod: 115200, axialTilt: 14.32, desc_astro: "CLASS: HABITABLE TERRESTRIAL\nLIGHT MATRIX: PARALLAX TERMINATOR SHADER\nLANDMASS PROFILE: CONTINUOUS FRACTAL ISLAND",
+            rings: [{name: "RING A", start: 8296, end: 8896},{name: "RING B", start: 8996, end: 9896},{name: "RING C", start: 9996, end: 10896},{name: "RING D", start: 12396, end: 13096},{name: "RING E", start: 13196, end: 13716}],
+            bodies: [{name: "HARMONY", a: 11796, e: 0.001, inc: 0.0, lan: 0.0, argp: 0.0, radius: 21, period: 14004, rotationPeriod: 14004, desc_astro: "CLASS: SHEPHERD MOON\nREGION: C / D RING SEGMENT GAP"},{name: "KIITOS", a: 340000, e: 0.05, inc: 0.0, lan: 0.0, argp: 90.0, radius: 1876, period: 2171520, rotationPeriod: 2171520, desc_astro: "CLASS: MAJOR LUNAR BODY\nTIDALLY LOCKED"}]
         }]
     },
-    init: function(){
-        this.ctx=this.uiCanvas.getContext("2d"); this.scene=new THREE.Scene(); const aspect=window.innerWidth/(window.innerHeight-50);
-        this.camera=new THREE.PerspectiveCamera(45,aspect,0.0001,1e9); this.renderer=new THREE.WebGLRenderer({alpha:!0,antialias:!0,logarithmicDepthBuffer:!0});
-        this.renderer.setSize(window.innerWidth,window.innerHeight-50); this.container.appendChild(this.renderer.domElement);
-        this.controls=new THREE.OrbitControls(this.camera,this.renderer.domElement); this.controls.enableDamping=!0; this.controls.dampingFactor=0.05; this.controls.maxDistance=1e7;
-        this.buildSystem(); window.addEventListener("resize",()=>this.resize());
+    init: function() {
+        this.ctx = this.uiCanvas.getContext("2d"); 
+        this.scene = new THREE.Scene(); 
+        const aspect = window.innerWidth / (window.innerHeight - 50);
+        this.camera = new THREE.PerspectiveCamera(45, aspect, 0.0001, 1e9); 
+        this.renderer = new THREE.WebGLRenderer({alpha: true, antialias: true, logarithmicDepthBuffer: true});
+        this.renderer.setSize(window.innerWidth, window.innerHeight - 50); 
+        this.container.appendChild(this.renderer.domElement);
+        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement); 
+        this.controls.enableDamping = true; 
+        this.controls.dampingFactor = 0.05; 
+        this.controls.maxDistance = 1e7;
+        this.buildSystem(); 
+        window.addEventListener("resize", () => this.resize());
     },
-    solveKepler: function(M,e){let E=M; for(let i=0;i<5;i++) E=E-(E-e*Math.sin(E)-M)/(1-e*Math.cos(E)); return E;},
-    getTrueAnomaly: function(E,e){return 2*Math.atan2(Math.sqrt(1+e)*Math.sin(E/2),Math.sqrt(1-e)*Math.cos(E/2));},
+    solveKepler: function(M, e) { let E = M; for (let i = 0; i < 5; i++) E = E - (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E)); return E; },
+    getTrueAnomaly: function(E, e) { return 2 * Math.atan2(Math.sqrt(1 + e) * Math.sin(E / 2), Math.sqrt(1 - e) * Math.cos(E / 2)); },
 
 // --- [ 3. PROCEDURAL GENERATION & SHADERS ] ---
-    generateFractalCoastline: function(pts,it,rg){let cPts=[...pts];for(let i=0;i<it;i++){let nPts=[],cRg=rg/Math.pow(1.5,i);for(let j=0;j<cPts.length;j++){let p1=cPts[j],p2=cPts[(j+1)%cPts.length],mX=(p1.x+p2.x)/2,mY=(p1.y+p2.y)/2,dx=p2.x-p1.x,dy=p2.y-p1.y,l=Math.sqrt(dx*dx+dy*dy),nx=-dy/l,ny=dx/l,off=(Math.sin(mX*0.03)*Math.cos(mY*0.03))*cRg*l;nPts.push(p1,{x:mX+nx*off,y:mY+ny*off});}cPts=nPts;}return cPts;},
-    createBodyMesh: function(bd,par,isSt=!1){
-        const sRad=bd.radius*this.UNIT_SCALE, geom=new THREE.SphereGeometry(sRad,128,128); let cMat;
-        if(bd.name==="FURRA"){
-            const cv=document.createElement('canvas'); cv.width=4096; cv.height=2048; const cx=cv.getContext('2d');
-            cx.fillStyle="rgba(4, 10, 12, 1.0)"; cx.fillRect(0,0,cv.width,cv.height); cx.fillStyle="rgba(255, 176, 0, 0.35)"; cx.strokeStyle="rgba(255, 176, 0, 0.95)"; cx.lineWidth=12;
-            let bPts=[]; for(let i=0;i<16;i++){let a=(i/16)*Math.PI*2,rv=140*(0.8+Math.sin(a*4)*0.25+Math.cos(a*2)*0.1); bPts.push({x:2048+Math.cos(a)*rv,y:1024+Math.sin(a)*rv});}
-            let cst=this.generateFractalCoastline(bPts,7,0.55); cx.beginPath(); cx.moveTo(cst[0].x,cst[0].y); for(let i=1;i<cst.length;i++)cx.lineTo(cst[i].x,cst[i].y); cx.closePath(); cx.fill(); cx.stroke();
-            const tex=new THREE.CanvasTexture(cv); tex.anisotropy=16; tex.generateMipmaps=!0;
-            cMat=new THREE.ShaderMaterial({ uniforms:{uSurfaceTex:{value:tex}}, transparent:!1, depthWrite:!0, side:THREE.FrontSide,
-                vertexShader:`#include <common>\n#include <logdepthbuf_pars_vertex>\nvarying vec3 vWorldNormal;varying vec3 vWorldPosition;varying vec2 vUv;void main(){vUv=uv;vWorldNormal=normalize(vec3(modelMatrix*vec4(normal,0.0)));vec4 worldPos=modelMatrix*vec4(position,1.0);vWorldPosition=worldPos.xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);\n#include <logdepthbuf_vertex>\n}`,
-                fragmentShader:`#include <common>\n#include <logdepthbuf_pars_fragment>\nuniform sampler2D uSurfaceTex;varying vec3 vWorldNormal;varying vec3 vWorldPosition;varying vec2 vUv;void main(){vec3 normal=normalize(vWorldNormal);vec3 lightDir=normalize(-vWorldPosition);float dotNL=dot(normal,lightDir);float terminator=smoothstep(-0.06,0.06,dotNL);vec4 texColor=texture2D(uSurfaceTex,vUv);vec3 nightSide=texColor.rgb*0.02;gl_FragColor=vec4(mix(nightSide,texColor.rgb,terminator),1.0);\n#include <logdepthbuf_fragment>\n}`
-            });
-        }else{ cMat=new THREE.MeshBasicMaterial({color:0x160B00,depthWrite:!0}); cMat.polygonOffset=!0; cMat.polygonOffsetFactor=1; cMat.polygonOffsetUnits=1; }
-        const cMesh=new THREE.Mesh(geom,cMat); if(!isSt&&bd.name!=="FURRA") cMesh.add(new THREE.Mesh(geom,new THREE.MeshBasicMaterial({color:0xffb000,wireframe:!0,transparent:!0,opacity:0.5,depthWrite:!1})));
-        const piv=new THREE.Group(),incG=new THREE.Group(),argG=new THREE.Group(),trnG=new THREE.Group(),eqG=new THREE.Group();
-        if(!isSt){piv.rotation.y=THREE.MathUtils.degToRad(bd.lan);incG.rotation.x=THREE.MathUtils.degToRad(bd.inc);argG.rotation.y=THREE.MathUtils.degToRad(bd.argp);
-            const pts=[]; for(let i=0;i<=256;i++){let th=(i/256)*Math.PI*2,r=(bd.a*(1-Math.pow(bd.e,2)))/(1+bd.e*Math.cos(th));pts.push(new THREE.Vector3(Math.cos(th)*r*this.UNIT_SCALE,0,Math.sin(th)*r*this.UNIT_SCALE));}
-            argG.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xffb000,transparent:!0,opacity:0.2,depthWrite:!1})));
-        } eqG.rotation.x=THREE.MathUtils.degToRad(bd.axialTilt||0);
-        if(bd.name==="FURRA"){
-            const aMat=new THREE.ShaderMaterial({ blending:THREE.AdditiveBlending, side:THREE.BackSide, transparent:!0, depthWrite:!1,
-                vertexShader:`#include <common>\n#include <logdepthbuf_pars_vertex>\nvarying vec3 vNormal;varying vec3 vViewPosition;void main(){vNormal=normalize(normalMatrix*normal);vec4 mvPosition=modelViewMatrix*vec4(position,1.0);vViewPosition=-mvPosition.xyz;gl_Position=projectionMatrix*mvPosition;\n#include <logdepthbuf_vertex>\n}`,
-                fragmentShader:`#include <common>\n#include <logdepthbuf_pars_fragment>\nvarying vec3 vNormal;varying vec3 vViewPosition;void main(){vec3 normal=normalize(vNormal);vec3 viewDir=normalize(vViewPosition);float intensity=pow(max(0.0,0.72-dot(normal,viewDir)),2.8);float edgeFade=smoothstep(0.0,0.45,intensity);gl_FragColor=vec4(1.0,0.69,0.0,edgeFade*0.42);\n#include <logdepthbuf_fragment>\n}`
-            }); eqG.add(new THREE.Mesh(new THREE.SphereGeometry((bd.radius+95)*this.UNIT_SCALE,128,128),aMat));
+    generateFractalCoastline: function(pts, it, rg) {
+        let cPts = [...pts];
+        for (let i = 0; i < it; i++) {
+            let nPts = [], cRg = rg / Math.pow(1.5, i);
+            for (let j = 0; j < cPts.length; j++) {
+                let p1 = cPts[j], p2 = cPts[(j + 1) % cPts.length];
+                let mX = (p1.x + p2.x) / 2, mY = (p1.y + p2.y) / 2, dx = p2.x - p1.x, dy = p2.y - p1.y;
+                let l = Math.sqrt(dx * dx + dy * dy), nx = -dy / l, ny = dx / l;
+                let off = (Math.sin(mX * 0.03) * Math.cos(mY * 0.03)) * cRg * l;
+                nPts.push(p1, {x: mX + nx * off, y: mY + ny * off});
+            }
+            cPts = nPts;
         }
-        if(bd.discs)bd.discs.forEach(d=>{const lPts=[];let iR=d.start*this.UNIT_SCALE,oR=d.end*this.UNIT_SCALE;for(let i=0;i<=64;i++){let t=i/64,r=iR+Math.pow(t,2)*(oR-iR);lPts.push(new THREE.Vector2(r,Math.pow(t,2)*(oR*0.12)));}for(let i=64;i>=0;i--){let t=i/64,r=iR+Math.pow(t,2)*(oR-iR);lPts.push(new THREE.Vector2(r,-Math.pow(t,2)*(oR*0.12)));}const dG=new THREE.LatheGeometry(lPts,128),dM=new THREE.Mesh(dG,new THREE.MeshBasicMaterial({color:0xffb000,transparent:!0,opacity:0.22,side:THREE.DoubleSide,depthWrite:!1}));dM.add(new THREE.Mesh(dG,new THREE.MeshBasicMaterial({color:0xffb000,transparent:!0,opacity:0.04,wireframe:!0,depthWrite:!1})));eqG.add(dM);});
-        if(bd.rings)bd.rings.forEach(r=>{let iR=r.start*this.UNIT_SCALE,oR=r.end*this.UNIT_SCALE;const rM=new THREE.Mesh(new THREE.RingGeometry(iR,oR,128),new THREE.MeshBasicMaterial({color:0xffb000,transparent:!0,opacity:0.18,side:THREE.DoubleSide,depthWrite:!1}));rM.rotation.x=Math.PI/2;eqG.add(rM);const dB=(rad)=>{const pts=[];for(let i=0;i<=256;i++)pts.push(new THREE.Vector3(Math.cos((i/256)*Math.PI*2)*rad,0,Math.sin((i/256)*Math.PI*2)*rad));return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xffb000,transparent:!0,opacity:0.6,depthWrite:!1}));};eqG.add(dB(iR));eqG.add(dB(oR));});
-        eqG.add(cMesh); trnG.add(eqG); argG.add(trnG); incG.add(argG); piv.add(incG); par.add(piv); bd.mesh=cMesh; bd.translationGroup=trnG; bd.equatorGroup=eqG;
+        return cPts;
+    },
+    createBodyMesh: function(bd, par, isSt = false) {
+        const sRad = bd.radius * this.UNIT_SCALE, geom = new THREE.SphereGeometry(sRad, 128, 128); 
+        let cMat;
+        if (bd.name === "FURRA") {
+            const cv = document.createElement('canvas'); 
+            cv.width = 4096; 
+            cv.height = 2048; 
+            const cx = cv.getContext('2d');
+            cx.fillStyle = "rgba(4, 10, 12, 1.0)"; 
+            cx.fillRect(0, 0, cv.width, cv.height); 
+            cx.fillStyle = "rgba(255, 176, 0, 0.35)"; 
+            cx.strokeStyle = "rgba(255, 176, 0, 0.95)"; 
+            cx.lineWidth = 12;
+            let bPts = []; 
+            for (let i = 0; i < 16; i++) {
+                let a = (i / 16) * Math.PI * 2, rv = 140 * (0.8 + Math.sin(a * 4) * 0.25 + Math.cos(a * 2) * 0.1); 
+                bPts.push({x: 2048 + Math.cos(a) * rv, y: 1024 + Math.sin(a) * rv});
+            }
+            let cst = this.generateFractalCoastline(bPts, 7, 0.55); 
+            cx.beginPath(); 
+            cx.moveTo(cst[0].x, cst[0].y); 
+            for (let i = 1; i < cst.length; i++) cx.lineTo(cst[i].x, cst[i].y); 
+            cx.closePath(); cx.fill(); cx.stroke();
+            const tex = new THREE.CanvasTexture(cv); 
+            tex.anisotropy = 16; 
+            tex.generateMipmaps = true;
+            cMat = new THREE.ShaderMaterial({ 
+                uniforms: {uSurfaceTex: {value: tex}}, 
+                transparent: false, depthWrite: true, side: THREE.FrontSide,
+                vertexShader: `#include <common>\n#include <logdepthbuf_pars_vertex>\nvarying vec3 vWorldNormal;varying vec3 vWorldPosition;varying vec2 vUv;void main(){vUv=uv;vWorldNormal=normalize(vec3(modelMatrix*vec4(normal,0.0)));vec4 worldPos=modelMatrix*vec4(position,1.0);vWorldPosition=worldPos.xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);\n#include <logdepthbuf_vertex>\n}`,
+                fragmentShader: `#include <common>\n#include <logdepthbuf_pars_fragment>\nuniform sampler2D uSurfaceTex;varying vec3 vWorldNormal;varying vec3 vWorldPosition;varying vec2 vUv;void main(){vec3 normal=normalize(vWorldNormal);vec3 lightDir=normalize(-vWorldPosition);float dotNL=dot(normal,lightDir);float terminator=smoothstep(-0.06,0.06,dotNL);vec4 texColor=texture2D(uSurfaceTex,vUv);vec3 nightSide=texColor.rgb*0.02;gl_FragColor=vec4(mix(nightSide,texColor.rgb,terminator),1.0);\n#include <logdepthbuf_fragment>\n}`
+            });
+        } else { 
+            cMat = new THREE.MeshBasicMaterial({color: 0x160B00, depthWrite: true}); 
+            cMat.polygonOffset = true; cMat.polygonOffsetFactor = 1; cMat.polygonOffsetUnits = 1; 
+        }
+        const cMesh = new THREE.Mesh(geom, cMat); 
+        if (!isSt && bd.name !== "FURRA") cMesh.add(new THREE.Mesh(geom, new THREE.MeshBasicMaterial({color: 0xffb000, wireframe: true, transparent: true, opacity: 0.5, depthWrite: false})));
+        const piv = new THREE.Group(), incG = new THREE.Group(), argG = new THREE.Group(), trnG = new THREE.Group(), eqG = new THREE.Group();
+        if (!isSt) {
+            piv.rotation.y = THREE.MathUtils.degToRad(bd.lan);
+            incG.rotation.x = THREE.MathUtils.degToRad(bd.inc);
+            argG.rotation.y = THREE.MathUtils.degToRad(bd.argp);
+            const pts = []; 
+            for (let i = 0; i <= 256; i++) {
+                let th = (i / 256) * Math.PI * 2;
+                let r = (bd.a * (1 - Math.pow(bd.e, 2))) / (1 + bd.e * Math.cos(th));
+                pts.push(new THREE.Vector3(Math.cos(th) * r * this.UNIT_SCALE, 0, Math.sin(th) * r * this.UNIT_SCALE));
+            }
+            argG.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color: 0xffb000, transparent: true, opacity: 0.2, depthWrite: false})));
+        } 
+        eqG.rotation.x = THREE.MathUtils.degToRad(bd.axialTilt || 0);
+        if (bd.name === "FURRA") {
+            const aMat = new THREE.ShaderMaterial({ 
+                blending: THREE.AdditiveBlending, side: THREE.BackSide, transparent: true, depthWrite: false,
+                vertexShader: `#include <common>\n#include <logdepthbuf_pars_vertex>\nvarying vec3 vNormal;varying vec3 vViewPosition;void main(){vNormal=normalize(normalMatrix*normal);vec4 mvPosition=modelViewMatrix*vec4(position,1.0);vViewPosition=-mvPosition.xyz;gl_Position=projectionMatrix*mvPosition;\n#include <logdepthbuf_vertex>\n}`,
+                fragmentShader: `#include <common>\n#include <logdepthbuf_pars_fragment>\nvarying vec3 vNormal;varying vec3 vViewPosition;void main(){vec3 normal=normalize(vNormal);vec3 viewDir=normalize(vViewPosition);float intensity=pow(max(0.0,0.72-dot(normal,viewDir)),2.8);float edgeFade=smoothstep(0.0,0.45,intensity);gl_FragColor=vec4(1.0,0.69,0.0,edgeFade*0.42);\n#include <logdepthbuf_fragment>\n}`
+            }); 
+            eqG.add(new THREE.Mesh(new THREE.SphereGeometry((bd.radius + 95) * this.UNIT_SCALE, 128, 128), aMat));
+        }
+        if (bd.discs) bd.discs.forEach(d => {
+            const lPts = [];
+            let iR = d.start * this.UNIT_SCALE, oR = d.end * this.UNIT_SCALE;
+            for (let i = 0; i <= 64; i++) { let t = i / 64, r = iR + Math.pow(t, 2) * (oR - iR); lPts.push(new THREE.Vector2(r, Math.pow(t, 2) * (oR * 0.12))); }
+            for (let i = 64; i >= 0; i--) { let t = i / 64, r = iR + Math.pow(t, 2) * (oR - iR); lPts.push(new THREE.Vector2(r, -Math.pow(t, 2) * (oR * 0.12))); }
+            const dG = new THREE.LatheGeometry(lPts, 128), dM = new THREE.Mesh(dG, new THREE.MeshBasicMaterial({color: 0xffb000, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false}));
+            dM.add(new THREE.Mesh(dG, new THREE.MeshBasicMaterial({color: 0xffb000, transparent: true, opacity: 0.04, wireframe: true, depthWrite: false})));
+            eqG.add(dM);
+        });
+        if (bd.rings) bd.rings.forEach(r => {
+            let iR = r.start * this.UNIT_SCALE, oR = r.end * this.UNIT_SCALE;
+            const rM = new THREE.Mesh(new THREE.RingGeometry(iR, oR, 128), new THREE.MeshBasicMaterial({color: 0xffb000, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false}));
+            rM.rotation.x = Math.PI / 2; eqG.add(rM);
+            const dB = (rad) => {
+                const pts = []; 
+                for (let i = 0; i <= 256; i++) pts.push(new THREE.Vector3(Math.cos((i / 256) * Math.PI * 2) * rad, 0, Math.sin((i / 256) * Math.PI * 2) * rad));
+                return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color: 0xffb000, transparent: true, opacity: 0.6, depthWrite: false}));
+            };
+            eqG.add(dB(iR)); eqG.add(dB(oR));
+        });
+        eqG.add(cMesh); trnG.add(eqG); argG.add(trnG); incG.add(argG); piv.add(incG); par.add(piv); 
+        bd.mesh = cMesh; bd.translationGroup = trnG; bd.equatorGroup = eqG;
     },
 
 // --- [ 4. SYSTEM BUILDER & CAMERA ] ---
-    buildSystem: function(){this.system.group=new THREE.Group();this.scene.add(this.system.group);this.createBodyMesh(this.system,this.system.group,!0);this.system.bodies.forEach(p=>{this.createBodyMesh(p,this.system.group);p.bodies.forEach(m=>this.createBodyMesh(m,p.equatorGroup));});},
-    selectTargetByName: function(n){let tgt=null;if(n==="OSIRIS")tgt=this.system;else{for(let p of this.system.bodies){if(p.name===n)tgt=p;if(p.bodies){for(let m of p.bodies)if(m.name===n)tgt=m;}}}if(tgt){this.activeTarget=tgt;const tP=new THREE.Vector3();tgt.mesh.getWorldPosition(tP);const cO=(tgt.radius*this.UNIT_SCALE)*4;this.camera.position.copy(tP).add(new THREE.Vector3(0,cO*0.5,cO*1.2));this.controls.target.copy(tP);this.controls.minDistance=(tgt.radius*this.UNIT_SCALE)*1.005;this.lastTargetPos=tP.clone();return!0;}return!1;},
-    resize: function(){const w=window.innerWidth,h=window.innerHeight-50;this.uiCanvas.width=w;this.uiCanvas.height=h;if(this.camera){this.camera.aspect=w/h;this.camera.updateProjectionMatrix();this.renderer.setSize(w,h);}},
+    buildSystem: function() {
+        this.system.group = new THREE.Group();
+        this.scene.add(this.system.group);
+        this.createBodyMesh(this.system, this.system.group, true);
+        this.system.bodies.forEach(p => {
+            this.createBodyMesh(p, this.system.group);
+            p.bodies.forEach(m => this.createBodyMesh(m, p.equatorGroup));
+        });
+    },
+    selectTargetByName: function(n) {
+        let tgt = null;
+        if (n === "OSIRIS") tgt = this.system;
+        else {
+            for (let p of this.system.bodies) {
+                if (p.name === n) tgt = p;
+                if (p.bodies) {
+                    for (let m of p.bodies) if (m.name === n) tgt = m;
+                }
+            }
+        }
+        if (tgt) {
+            this.activeTarget = tgt;
+            const tP = new THREE.Vector3();
+            tgt.mesh.getWorldPosition(tP);
+            const cO = (tgt.radius * this.UNIT_SCALE) * 4;
+            this.camera.position.copy(tP).add(new THREE.Vector3(0, cO * 0.5, cO * 1.2));
+            this.controls.target.copy(tP);
+            this.controls.minDistance = (tgt.radius * this.UNIT_SCALE) * 1.005;
+            this.lastTargetPos = tP.clone();
+            return true;
+        }
+        return false;
+    },
+    resize: function() {
+        const w = window.innerWidth, h = window.innerHeight - 50;
+        this.uiCanvas.width = w; this.uiCanvas.height = h;
+        if (this.camera) {
+            this.camera.aspect = w / h;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(w, h);
+        }
+    },
 
 // --- [ 5. CHRONO CORE (TIME WARP) ] ---
-    executeTimeWarp: function(y,d,h,m,s,spd="MEDIUM"){const tS=(y*31536000)+(d*86400)+(h*3600)+(m*60)+s;let rTD=30;if(spd==="FAST")rTD=15;if(spd==="SLOW")rTD=60;if(tS<=rTD)return!1;this.elapseOriginalScale=this.timeScale;this.elapseRemainingSeconds=tS;this.elapseActive=!0;this.timeScale=tS/rTD;return!0;},
-    stopTimeWarp: function(){if(!this.elapseActive)return;this.elapseActive=!1;this.elapseRemainingSeconds=0;this.timeScale=this.elapseOriginalScale;},
+    executeTimeWarp: function(y, d, h, m, s, spd = "MEDIUM") {
+        const tS = (y * 31536000) + (d * 86400) + (h * 3600) + (m * 60) + s;
+        let rTD = 30;
+        if (spd === "FAST") rTD = 15;
+        if (spd === "SLOW") rTD = 60;
+        if (tS <= rTD) return false;
+        this.elapseOriginalScale = this.timeScale;
+        this.elapseRemainingSeconds = tS;
+        this.elapseActive = true;
+        this.timeScale = tS / rTD;
+        return true;
+    },
+    stopTimeWarp: function() {
+        if (!this.elapseActive) return;
+        this.elapseActive = false;
+        this.elapseRemainingSeconds = 0;
+        this.timeScale = this.elapseOriginalScale;
+    },
 
 // --- [ 6. RENDER & UPDATE LOOP ] ---
-    start: function(){this.isRunning=!0;this.lastRealTime=Date.now();this.container.style.display="block";this.uiCanvas.style.display="block";document.getElementById("output-log").style.display="none";this.resize();this.loop();},
-    stop: function(){this.isRunning=!1;this.activeTarget=null;this.stopTimeWarp();this.container.style.display="none";this.uiCanvas.style.display="none";document.getElementById("output-log").style.display="block";},
-    loop: function(){if(!this.isRunning)return;this.update();this.renderer.render(this.scene,this.camera);this.drawUI();requestAnimationFrame(()=>this.loop());},
-    update: function(){
-        const now=Date.now();if(!this.lastRealTime)this.lastRealTime=now;const dt=(now-this.lastRealTime)/1000;this.lastRealTime=now;let dS=dt*this.timeScale;
-        if(this.elapseActive){if(this.elapseRemainingSeconds<=dS){dS=this.elapseRemainingSeconds;this.stopTimeWarp();Terminal.log("\n[CHRONO CODES COMPLETE] WARP TARGET RANGE ACHIEVED.");}else this.elapseRemainingSeconds-=dS;}
-        this.simulatedTime+=dS;
-        const pOM=(bd)=>{if(bd.period){const M=((2*Math.PI)/bd.period)*this.simulatedTime,th=this.getTrueAnomaly(this.solveKepler(M,bd.e),bd.e);bd.translationGroup.position.x=((bd.a*(1-Math.pow(bd.e,2)))/(1+bd.e*Math.cos(th)))*Math.cos(th)*this.UNIT_SCALE;bd.translationGroup.position.z=((bd.a*(1-Math.pow(bd.e,2)))/(1+bd.e*Math.cos(th)))*Math.sin(th)*this.UNIT_SCALE;}if(bd.rotationPeriod&&bd.mesh)bd.mesh.rotation.y=((2*Math.PI)/bd.rotationPeriod)*this.simulatedTime;};
-        this.system.bodies.forEach(p=>{pOM(p);if(p.bodies)p.bodies.forEach(m=>pOM(m));});
-        if(this.activeTarget&&this.activeTarget.mesh){const cP=new THREE.Vector3();this.activeTarget.mesh.getWorldPosition(cP);if(this.lastTargetPos)this.camera.position.add(cP.clone().sub(this.lastTargetPos));this.controls.target.copy(cP);this.lastTargetPos=cP.clone();}
+    start: function() {
+        this.isRunning = true;
+        this.lastRealTime = Date.now();
+        this.container.style.display = "block";
+        this.uiCanvas.style.display = "block";
+        document.getElementById("output-log").style.display = "none";
+        this.resize();
+        this.loop();
+    },
+    stop: function() {
+        this.isRunning = false;
+        this.activeTarget = null;
+        this.stopTimeWarp();
+        this.container.style.display = "none";
+        this.uiCanvas.style.display = "none";
+        document.getElementById("output-log").style.display = "block";
+    },
+    loop: function() {
+        if (!this.isRunning) return;
+        this.update();
+        this.renderer.render(this.scene, this.camera);
+        this.drawUI();
+        requestAnimationFrame(() => this.loop());
+    },
+    update: function() {
+        const now = Date.now();
+        if (!this.lastRealTime) this.lastRealTime = now;
+        const dt = (now - this.lastRealTime) / 1000;
+        this.lastRealTime = now;
+        let dS = dt * this.timeScale;
+        if (this.elapseActive) {
+            if (this.elapseRemainingSeconds <= dS) {
+                dS = this.elapseRemainingSeconds;
+                this.stopTimeWarp();
+                Terminal.log("\n[CHRONO CODES COMPLETE] WARP TARGET RANGE ACHIEVED.");
+            } else this.elapseRemainingSeconds -= dS;
+        }
+        this.simulatedTime += dS;
+        const pOM = (bd) => {
+            if (bd.period) {
+                const M = ((2 * Math.PI) / bd.period) * this.simulatedTime;
+                const th = this.getTrueAnomaly(this.solveKepler(M, bd.e), bd.e);
+                bd.translationGroup.position.x = ((bd.a * (1 - Math.pow(bd.e, 2))) / (1 + bd.e * Math.cos(th))) * Math.cos(th) * this.UNIT_SCALE;
+                bd.translationGroup.position.z = ((bd.a * (1 - Math.pow(bd.e, 2))) / (1 + bd.e * Math.cos(th))) * Math.sin(th) * this.UNIT_SCALE;
+            }
+            if (bd.rotationPeriod && bd.mesh) bd.mesh.rotation.y = ((2 * Math.PI) / bd.rotationPeriod) * this.simulatedTime;
+        };
+        this.system.bodies.forEach(p => {
+            pOM(p);
+            if (p.bodies) p.bodies.forEach(m => pOM(m));
+        });
+        if (this.activeTarget && this.activeTarget.mesh) {
+            const cP = new THREE.Vector3();
+            this.activeTarget.mesh.getWorldPosition(cP);
+            if (this.lastTargetPos) this.camera.position.add(cP.clone().sub(this.lastTargetPos));
+            this.controls.target.copy(cP);
+            this.lastTargetPos = cP.clone();
+        }
         this.controls.update();
     },
-    drawUI: function(){
-        this.ctx.clearRect(0,0,this.uiCanvas.width,this.uiCanvas.height);this.ctx.fillStyle="#ffb000";this.ctx.font="14px 'Courier New'";this.ctx.fillText(`CHRONO ENGINE: ${this.timeScale.toLocaleString()}X SYSTEM VELOCITY`,10,20);this.ctx.fillText(`OSIRIS MASS MODEL: ACTIVE ACCRETION VECTOR MATRIX`,10,40);
-        if(this.elapseActive){
-            let tR=Math.ceil(this.elapseRemainingSeconds),y=Math.floor(tR/31536000),d=Math.floor((tR%31536000)/86400),h=Math.floor((tR%86400)/3600),m=Math.floor((tR%3600)/60),s=tR%60;
-            let dS=`WARPING TIME CORE: T-MINUS [ ${String(y).padStart(4,'0')}Y : ${String(d).padStart(3,'0')}D : ${String(h).padStart(2,'0')}H : ${String(m).padStart(2,'0')}M : ${String(s).padStart(2,'0')}S ]`;
-            this.ctx.font="bold 16px 'Courier New'";let sW=this.ctx.measureText(dS).width,dX=(this.uiCanvas.width-sW)/2,dY=this.uiCanvas.height/2;
-            this.ctx.fillStyle="rgba(10,5,0,0.85)";this.ctx.fillRect(dX-20,dY-30,sW+40,50);this.ctx.strokeStyle="#ffb000";this.ctx.strokeRect(dX-20,dY-30,sW+40,50);
-            this.ctx.fillStyle="#ffb000";this.ctx.fillText(dS,dX,dY);this.ctx.font="10px 'Courier New'";this.ctx.fillText("PRESS [ENTER] TO EMERGENCY STOP ENGINE CHRONO CONVERSION",dX+15,dY+12);
+    drawUI: function() {
+        this.ctx.clearRect(0, 0, this.uiCanvas.width, this.uiCanvas.height);
+        this.ctx.fillStyle = "#ffb000";
+        this.ctx.font = "14px 'Courier New'";
+        this.ctx.fillText(`CHRONO ENGINE: ${this.timeScale.toLocaleString()}X SYSTEM VELOCITY`, 10, 20);
+        this.ctx.fillText(`OSIRIS MASS MODEL: ACTIVE ACCRETION VECTOR MATRIX`, 10, 40);
+        
+        if (this.elapseActive) {
+            let tR = Math.ceil(this.elapseRemainingSeconds), y = Math.floor(tR / 31536000), d = Math.floor((tR % 31536000) / 86400), h = Math.floor((tR % 86400) / 3600), m = Math.floor((tR % 3600) / 60), s = tR % 60;
+            let dS = `WARPING TIME CORE: T-MINUS [ ${String(y).padStart(4,'0')}Y : ${String(d).padStart(3,'0')}D : ${String(h).padStart(2,'0')}H : ${String(m).padStart(2,'0')}M : ${String(s).padStart(2,'0')}S ]`;
+            this.ctx.font = "bold 16px 'Courier New'";
+            let sW = this.ctx.measureText(dS).width, dX = (this.uiCanvas.width - sW) / 2, dY = this.uiCanvas.height / 2;
+            this.ctx.fillStyle = "rgba(10,5,0,0.85)";
+            this.ctx.fillRect(dX - 20, dY - 30, sW + 40, 50);
+            this.ctx.strokeStyle = "#ffb000";
+            this.ctx.strokeRect(dX - 20, dY - 30, sW + 40, 50);
+            this.ctx.fillStyle = "#ffb000";
+            this.ctx.fillText(dS, dX, dY);
+            this.ctx.font = "10px 'Courier New'";
+            this.ctx.fillText("PRESS [ENTER] TO EMERGENCY STOP ENGINE CHRONO CONVERSION", dX + 15, dY + 12);
         }
-        if(this.activeTarget){
-            let iA=this.activeTarget.name==="OSIRIS",bW=360,sX=this.uiCanvas.width-(bW+10),tX=sX+10,aL=this.activeTarget.desc_astro.split('\n'),bY=100+(aL.length*20);if(!iA)bY+=130;let bH=bY+20;
-            this.ctx.fillStyle="rgba(10,5,0,0.9)";this.ctx.fillRect(sX,10,bW,bH);this.ctx.strokeStyle="#ffb000";this.ctx.strokeRect(sX,10,bW,bH);
-            this.ctx.fillStyle="#ffb000";this.ctx.font="bold 16px 'Courier New'";this.ctx.fillText(`TARGET: ${this.activeTarget.name}`,tX,30);this.ctx.beginPath();this.ctx.moveTo(sX,40);this.ctx.lineTo(sX+bW,40);this.ctx.stroke();
-            this.ctx.font="bold 12px 'Courier New'";this.ctx.fillText(`[ VISUAL MANIFEST ]`,tX,60);this.ctx.font="12px 'Courier New'";this.ctx.fillText(`RADIUS:  ${this.activeTarget.radius.toLocaleString()} KM`,tX,80);
-            for(let i=0;i<aL.length;i++)this.ctx.fillText(aL[i],tX,100+(i*20));
-            if(!iA){let cY=bY-130;this.ctx.font="bold 12px 'Courier New'";this.ctx.fillText(`[ TELEMETRY ]`,tX,cY);this.ctx.font="12px 'Courier New'";this.ctx.fillText(`SMA (a):  ${this.activeTarget.a.toLocaleString()} KM`,tX,cY+20);this.ctx.fillText(`ECC (e):  ${this.activeTarget.e}`,tX,cY+40);this.ctx.fillText(`INC (i):  ${this.activeTarget.inc.toFixed(2)}°`,tX,cY+60);this.ctx.fillText(`LAN (Ω):  ${this.activeTarget.lan.toFixed(2)}°`,tX,cY+80);}
+        
+        if (this.activeTarget) {
+            let iA = this.activeTarget.name === "OSIRIS", bW = 360, sX = this.uiCanvas.width - (bW + 10), tX = sX + 10, aL = this.activeTarget.desc_astro.split('\n'), bY = 100 + (aL.length * 20);
+            if (!iA) bY += 130;
+            let bH = bY + 20;
+            this.ctx.fillStyle = "rgba(10,5,0,0.9)";
+            this.ctx.fillRect(sX, 10, bW, bH);
+            this.ctx.strokeStyle = "#ffb000";
+            this.ctx.strokeRect(sX, 10, bW, bH);
+            this.ctx.fillStyle = "#ffb000";
+            this.ctx.font = "bold 16px 'Courier New'";
+            this.ctx.fillText(`TARGET: ${this.activeTarget.name}`, tX, 30);
+            this.ctx.beginPath();
+            this.ctx.moveTo(sX, 40);
+            this.ctx.lineTo(sX + bW, 40);
+            this.ctx.stroke();
+            this.ctx.font = "bold 12px 'Courier New'";
+            this.ctx.fillText(`[ VISUAL MANIFEST ]`, tX, 60);
+            this.ctx.font = "12px 'Courier New'";
+            this.ctx.fillText(`RADIUS:  ${this.activeTarget.radius.toLocaleString()} KM`, tX, 80);
+            for (let i = 0; i < aL.length; i++) this.ctx.fillText(aL[i], tX, 100 + (i * 20));
+            if (!iA) {
+                let cY = bY - 130;
+                this.ctx.font = "bold 12px 'Courier New'";
+                this.ctx.fillText(`[ TELEMETRY ]`, tX, cY);
+                this.ctx.font = "12px 'Courier New'";
+                this.ctx.fillText(`SMA (a):  ${this.activeTarget.a.toLocaleString()} KM`, tX, cY + 20);
+                this.ctx.fillText(`ECC (e):  ${this.activeTarget.e}`, tX, cY + 40);
+                this.ctx.fillText(`INC (i):  ${this.activeTarget.inc.toFixed(2)}°`, tX, cY + 60);
+                this.ctx.fillText(`LAN (Ω):  ${this.activeTarget.lan.toFixed(2)}°`, tX, cY + 80);
+            }
         }
     }
 };
 
 // --- [ 7. TERMINAL OS ] ---
-const Terminal={
+const Terminal = {
     outputLog: null, inputField: null, inputWrapper: null, userInput: null, 
     currentApp: null, vabState: null,
 
     init: function() {
-        // Explicitly bind DOM elements on load to prevent null references
         this.outputLog = document.getElementById("output-log");
         this.inputField = document.getElementById("terminal-input");
         this.inputWrapper = document.getElementById("input-wrapper");
@@ -121,7 +407,6 @@ const Terminal={
         const passInput = document.getElementById("pass-input");
         const submitBtn = document.getElementById("submit-btn");
 
-        // Username Enter key
         this.userInput.addEventListener("keydown", e => {
             if (e.key === "Enter" || e.keyCode === 13) {
                 e.preventDefault();
@@ -129,7 +414,6 @@ const Terminal={
             }
         });
         
-        // Password Enter key
         passInput.addEventListener("keydown", e => {
             if (e.key === "Enter" || e.keyCode === 13) {
                 e.preventDefault();
@@ -137,7 +421,6 @@ const Terminal={
             }
         });
         
-        // Terminal Command Enter key
         this.inputField.addEventListener("keydown", e => {
             if (e.key === "Enter" || e.keyCode === 13) {
                 e.preventDefault();
@@ -153,11 +436,17 @@ const Terminal={
         MapEngine.init(); 
     },
 
-    launchApp:function(appName, totalTicks = 10, tickMs = 50){
-        this.currentApp = "LOADING"; this.inputField.disabled = true; this.inputField.value = ""; let cT = 0;
+    launchApp: function(appName, totalTicks = 10, tickMs = 50) {
+        this.currentApp = "LOADING"; 
+        this.inputField.disabled = true; 
+        this.inputField.value = ""; 
+        let cT = 0;
         const loader = setInterval(() => {
-            cT++; let pct = Math.floor((cT / totalTicks) * 100);
-            let pBar = "["; for(let i=0; i<20; i++) pBar += (i < pct/5) ? "█" : "░"; pBar += "] " + pct + "%";
+            cT++; 
+            let pct = Math.floor((cT / totalTicks) * 100);
+            let pBar = "["; 
+            for(let i=0; i<20; i++) pBar += (i < pct/5) ? "█" : "░"; 
+            pBar += "] " + pct + "%";
             
             if (appName === "VAB") {
                 this.outputLog.innerText = "INITIALIZING VEHICLE ASSEMBLY BUILDING...\nAUTHENTICATING ENGINEERING CLEARANCE...\n" + pBar;
@@ -166,7 +455,9 @@ const Terminal={
             }
 
             if (cT >= totalTicks) {
-                clearInterval(loader); this.currentApp = appName; this.inputField.disabled = false;
+                clearInterval(loader); 
+                this.currentApp = appName; 
+                this.inputField.disabled = false;
                 this.inputWrapper.classList.add('app-mode');
                 
                 if (appName === "VAB") {
@@ -180,19 +471,25 @@ const Terminal={
         }, tickMs);
     },
     
-    processInput:function(inStr){
+    processInput: function(inStr) {
         const cI = inStr.trim(), tk = cI.split(/\s+/), cmd = tk[0].toUpperCase(), fC = cI.toUpperCase();
 
         if (this.currentApp !== null) {
             if (this.currentApp === "LOADING") return; 
             
             if (cmd === "STOP" && MapEngine.elapseActive) {
-                MapEngine.stopTimeWarp(); this.log("> STOP\n[WARN] TIMECORE WARP INJECTOR SHUT DOWN SAFELY."); return;
+                MapEngine.stopTimeWarp(); 
+                this.log("> STOP\n[WARN] TIMECORE WARP INJECTOR SHUT DOWN SAFELY."); 
+                return;
             }
             
             if (cmd === "TERMINATE") {
-                this.currentApp = null; this.vabState = null; this.inputWrapper.classList.remove('app-mode'); MapEngine.stop();
-                this.outputLog.innerText = "OSIRIS CORE MONITOR ACTIVE.\nREADY."; return;
+                this.currentApp = null; 
+                this.vabState = null; 
+                this.inputWrapper.classList.remove('app-mode'); 
+                MapEngine.stop();
+                this.outputLog.innerText = "OSIRIS CORE MONITOR ACTIVE.\nREADY."; 
+                return;
             } 
 
             // --- VAB APPLICATION ROUTING ---
@@ -258,7 +555,18 @@ const Terminal={
         }
     },
     
-    log:function(e){this.outputLog.innerText+="\n"+e,window.scrollTo(0,document.body.scrollHeight)},
-    clearInputs:function(){document.getElementById("user-input").value="",document.getElementById("pass-input").value="",this.userInput.focus()}
+    log: function(e) {
+        this.outputLog.innerText += "\n" + e;
+        window.scrollTo(0, document.body.scrollHeight);
+    },
+    clearInputs: function() {
+        document.getElementById("user-input").value = "";
+        document.getElementById("pass-input").value = "";
+        this.userInput.focus();
+    }
 };
-window.onload=()=>Terminal.init();
+
+window.onload = () => Terminal.init();
+</script>
+</body>
+</html>
