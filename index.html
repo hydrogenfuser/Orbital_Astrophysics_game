@@ -113,11 +113,34 @@ const Terminal={
     currentApp: null,
     vabState: null, // Tracks directory navigation inside the VAB
 
-    init:function(){
-        this.userInput.addEventListener("keydown",e=>{"Enter"===e.key&&this.userInput.value.trim()!=""&&document.getElementById("pass-input").focus()});
-        document.getElementById("pass-input").addEventListener("keydown",e=>{"Enter"===e.key&&AuthSystem.attemptLogin()});
-        this.inputField.addEventListener("keydown",e=>{if("Enter"===e.key){if(MapEngine.elapseActive)this.inputField.value="STOP";let v=this.inputField.value;if(""!==v.trim())this.processInput(v);this.inputField.value="";}});
-        document.getElementById("submit-btn").addEventListener("click",()=>AuthSystem.attemptLogin()); this.userInput.focus(); MapEngine.init(); 
+    init: function() {
+        // Pressing Enter on Username moves focus to Password
+        this.userInput.addEventListener("keydown", e => {
+            if (e.key === "Enter") {
+                document.getElementById("pass-input").focus();
+            }
+        });
+        
+        // Pressing Enter on Password submits login
+        document.getElementById("pass-input").addEventListener("keydown", e => {
+            if (e.key === "Enter") {
+                AuthSystem.attemptLogin();
+            }
+        });
+        
+        // Pressing Enter in the Terminal processes the command
+        this.inputField.addEventListener("keydown", e => {
+            if (e.key === "Enter") {
+                if (MapEngine.elapseActive) this.inputField.value = "STOP";
+                let v = this.inputField.value;
+                if (v.trim() !== "") this.processInput(v);
+                this.inputField.value = "";
+            }
+        });
+
+        document.getElementById("submit-btn").addEventListener("click", () => AuthSystem.attemptLogin()); 
+        this.userInput.focus(); 
+        MapEngine.init(); 
     },
 
     // Modified to accept dynamic load times (totalTicks * tickMs = total load time)
@@ -231,3 +254,4 @@ const Terminal={
     log:function(e){this.outputLog.innerText+="\n"+e,window.scrollTo(0,document.body.scrollHeight)},
     clearInputs:function(){document.getElementById("user-input").value="",document.getElementById("pass-input").value="",this.userInput.focus()}
 };
+window.onload=()=>Terminal.init();
