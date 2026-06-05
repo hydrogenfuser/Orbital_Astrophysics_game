@@ -109,28 +109,38 @@ const MapEngine = {
 
 // --- [ 7. TERMINAL OS ] ---
 const Terminal={
-    outputLog:document.getElementById("output-log"), inputField:document.getElementById("terminal-input"), inputWrapper:document.getElementById("input-wrapper"), userInput:document.getElementById("user-input"), 
-    currentApp: null,
-    vabState: null, // Tracks directory navigation inside the VAB
+    outputLog: null, inputField: null, inputWrapper: null, userInput: null, 
+    currentApp: null, vabState: null,
 
     init: function() {
-        // Pressing Enter on Username moves focus to Password
+        // Explicitly bind DOM elements on load to prevent null references
+        this.outputLog = document.getElementById("output-log");
+        this.inputField = document.getElementById("terminal-input");
+        this.inputWrapper = document.getElementById("input-wrapper");
+        this.userInput = document.getElementById("user-input");
+        const passInput = document.getElementById("pass-input");
+        const submitBtn = document.getElementById("submit-btn");
+
+        // Username Enter key
         this.userInput.addEventListener("keydown", e => {
-            if (e.key === "Enter") {
-                document.getElementById("pass-input").focus();
+            if (e.key === "Enter" || e.keyCode === 13) {
+                e.preventDefault();
+                passInput.focus();
             }
         });
         
-        // Pressing Enter on Password submits login
-        document.getElementById("pass-input").addEventListener("keydown", e => {
-            if (e.key === "Enter") {
+        // Password Enter key
+        passInput.addEventListener("keydown", e => {
+            if (e.key === "Enter" || e.keyCode === 13) {
+                e.preventDefault();
                 AuthSystem.attemptLogin();
             }
         });
         
-        // Pressing Enter in the Terminal processes the command
+        // Terminal Command Enter key
         this.inputField.addEventListener("keydown", e => {
-            if (e.key === "Enter") {
+            if (e.key === "Enter" || e.keyCode === 13) {
+                e.preventDefault();
                 if (MapEngine.elapseActive) this.inputField.value = "STOP";
                 let v = this.inputField.value;
                 if (v.trim() !== "") this.processInput(v);
@@ -138,12 +148,11 @@ const Terminal={
             }
         });
 
-        document.getElementById("submit-btn").addEventListener("click", () => AuthSystem.attemptLogin()); 
+        submitBtn.addEventListener("click", () => AuthSystem.attemptLogin()); 
         this.userInput.focus(); 
         MapEngine.init(); 
     },
 
-    // Modified to accept dynamic load times (totalTicks * tickMs = total load time)
     launchApp:function(appName, totalTicks = 10, tickMs = 50){
         this.currentApp = "LOADING"; this.inputField.disabled = true; this.inputField.value = ""; let cT = 0;
         const loader = setInterval(() => {
@@ -199,7 +208,6 @@ const Terminal={
                     return;
                 }
                 
-                // Catch-all for unbuilt directories
                 if (["ROCKET DESIGN", "PROBE/PAYLOAD DESIGN", "ROVER SIM", "WIND TUNNEL", "DOCKING SIM", "LANDING SIM"].includes(fC)) {
                     this.log("> " + fC + "\nERR: MODULE OFFLINE OR PENDING CONSTRUCTION.");
                     return;
@@ -237,7 +245,6 @@ const Terminal={
         // --- ROOT SYSTEM COMMANDS ---
         if (fC === "PLANETARY CHARTS") { this.launchApp("PLANETARY CHARTS", 10, 50); return; }
         if (fC === "VAB") { 
-            // Randomizes tick speed between 50ms and 100ms. Over 100 ticks, this guarantees a 5 to 10 second load time.
             let loadTickSpeed = Math.floor(Math.random() * 50) + 50;
             this.launchApp("VAB", 100, loadTickSpeed); 
             return; 
