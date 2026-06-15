@@ -4,13 +4,15 @@
 .slider-container{position:absolute;bottom:80px;right:20px;border:1px solid var(--t);padding:15px;background:rgba(10,5,0,0.9);display:none;z-index:100;width:250px;text-align:left;}
 .slider-container label{display:block;font-size:12px;margin-bottom:8px;font-weight:bold;}
 .slider-container input[type=range]{width:100%;background:transparent;outline:none;accent-color:var(--t);}
+.xray-btn{background:transparent;border:1px solid var(--t);color:var(--t);font-family:var(--f);padding:4px 8px;cursor:pointer;margin-top:10px;display:inline-block;text-shadow:0 0 5px var(--t);pointer-events:auto;}
+.xray-btn:hover{background:var(--t);color:var(--b);text-shadow:none;}
 </style></head><body>
 <div id="boot-screen" class="boot-screen"><div class="title">ORBITAL</div><div class="boot-box"><div class="input-container"><label>USERNAME:</label><input type="text" id="user-input" autocomplete="off"></div><div class="input-container"><label>PASSWORD:</label><input type="password" id="pass-input" autocomplete="off"></div><div id="submit-btn">[SUBMIT]</div></div></div>
 <div id="terminal-screen" class="terminal-screen" style="display:none;"><div id="webgl-container"></div><div id="vab-webgl-container"></div><canvas id="ui-canvas"></canvas>
 <div id="vab-ui" style="display:none;position:absolute;top:0;left:0;width:100%;height:calc(100% - 50px);pointer-events:none;z-index:3;">
-<div style="position:absolute;left:20px;top:20px;border:1px solid var(--t);padding:10px;background:rgba(10,5,0,0.85);"><b>[ FUSELAGE MODELER ]</b><br><br>HEIGHT (H): <span id="vab-val-h">12.0</span> m<br>TOP RAD(T): <span id="vab-val-rt">2.0</span> m<br>BOT RAD(B): <span id="vab-val-rb">2.0</span> m<br><br><i>DRAG ACTIVE DOTS TO SHAPE RADIUS<br>CLICK EXTREME PROFILE EDGES TO WAKE DOTS<br>1st CLICK = PIVOT | 2nd CLICK = HINGE<br>DRAG RAD TO 0 TO TRUNCATE UPPER STAGES<br>TYPE 'TERMINATE' TO QUIT</i></div>
+<div style="position:absolute;left:20px;top:20px;border:1px solid var(--t);padding:10px;background:rgba(10,5,0,0.85);"><b>[ FUSELAGE PROFILE GENERATOR ]</b><br><br>HEIGHT (H): <span id="vab-val-h">12.0</span> m<br>TOP RAD(T): <span id="vab-val-rt">2.0</span> m<br>BOT RAD(B): <span id="vab-val-rb">2.0</span> m<br><br><i>CLICK ORB TO CHOOSE PIVOT<br>HOLD [CTRL] + CLICK SECONDS ORB FOR HINGE<br>DRAG ORBS TO CHANGE SHAPE RADII<br>DRAG RAD TO 0 to VANISH ALL UPPER STAGES<br>PRESS 'X' TO TOGGLE X-RAY PROJECTION</i><br><button class="xray-btn" id="xray-toggle-btn">[ TOGGLE X-RAY: OFF ]</button></div>
 <div style="position:absolute;right:20px;top:20px;border:1px solid var(--t);padding:10px;background:rgba(10,5,0,0.85);text-align:right;"><b>[ TELEMETRY & SPECS ]</b><br><br>VOLUME: <span id="vab-val-vol">0</span> m³<br>FUEL CAP: <span id="vab-val-fuel">0</span> L<br>DRY MASS: <span id="vab-val-mass">0</span> kg</div></div>
-<div id="slider-panel" class="slider-container"><label id="slider-title">[ BEVEL INTERPOLATION ]</label><input type="range" id="bevel-slider" min="0" max="100" value="0"><div style="font-size:10px;margin-top:5px;text-align:right;" id="slider-val">CURVATURE: 0%</div></div>
+<div id="slider-panel" class="slider-container"><label id="slider-title">[ BEVEL INTERPOLATION (V2) ]</label><input type="range" id="bevel-slider" min="0" max="100" value="0"><div style="font-size:10px;margin-top:5px;text-align:right;" id="slider-val">CURVATURE: 0%</div></div>
 <div id="output-log">OSIRIS KERNEL BOOT (AMBER)... OK.</div><div id="input-wrapper" class="input-line"><span class="prompt">></span><input type="text" id="terminal-input" autocomplete="off"></div></div>
 
 <script>
@@ -40,29 +42,36 @@ MapEngine.upd=function(){const n=Date.now();if(!this.lT)this.lT=n;const dt=(n-th
 
 MapEngine.dUI=function(){this.cx.clearRect(0,0,this.u.width,this.u.height);this.cx.fillStyle="#ffb000";this.cx.font="14px 'Courier New'";this.cx.fillText(`CHRONO ENGINE: ${this.tS.toLocaleString()}X SYSTEM VELOCITY`,10,20);this.cx.fillText(`OSIRIS MASS MODEL: ACTIVE ACCRETION VECTOR MATRIX`,10,40);if(this.eA){let tR=Math.ceil(this.eR),y=Math.floor(tR/31536000),d=Math.floor((tR%31536000)/86400),h=Math.floor((tR%86400)/3600),m=Math.floor((tR%3600)/60),s=tR%60;let dS=`WARPING TIME CORE: T-MINUS [ ${String(y).padStart(4,'0')}Y : ${String(d).padStart(3,'0')}D : ${String(h).padStart(2,'0')}H : ${String(m).padStart(2,'0')}M : ${String(s).padStart(2,'0')}S ]`;this.cx.font="bold 16px 'Courier New'";let sW=this.cx.measureText(dS).width,dX=(this.u.width-sW)/2,dY=this.u.height/2;this.cx.fillStyle="rgba(10,5,0,0.85)";this.cx.fillRect(dX-20,dY-30,sW+40,50);this.cx.strokeStyle="#ffb000";this.cx.strokeRect(dX-20,dY-30,sW+40,50);this.cx.fillStyle="#ffb000";this.cx.fillText(dS,dX,dY);this.cx.font="10px 'Courier New'";this.cx.fillText("PRESS [ENTER] TO EMERGENCY STOP",dX+15,dY+12);}if(this.aT){let iA=this.aT.name==="OSIRIS",bW=360,sX=this.u.width-(bW+10),tX=sX+10,aL=this.aT.desc_astro.split('\n'),bY=100+(aL.length*20);if(!iA)bY+=130;let bH=bY+20;this.cx.fillStyle="rgba(10,5,0,0.9)";this.cx.fillRect(sX,10,bW,bH);this.cx.strokeStyle="#ffb000";this.cx.strokeRect(sX,10,bW,bH);this.cx.fillStyle="#ffb000";this.cx.font="bold 16px 'Courier New'";this.cx.fillText(`TARGET: ${this.aT.name}`,tX,30);this.cx.beginPath();this.cx.moveTo(sX,40);this.cx.lineTo(sX+bW,40);this.cx.stroke();this.cx.font="bold 12px 'Courier New'";this.cx.fillText(`[ VISUAL MANIFEST ]`,tX,60);this.cx.font="12px 'Courier New'";this.cx.fillText(`RADIUS:  ${this.aT.radius.toLocaleString()} KM`,tX,80);for(let i=0;i<aL.length;i++)this.cx.fillText(aL[i],tX,100+(i*20));if(!iA){let cY=bY-130;this.cx.font="bold 12px 'Courier New'";this.cx.fillText(`[ TELEMETRY ]`,tX,cY);this.cx.font="12px 'Courier New'";this.cx.fillText(`SMA (a):  ${this.aT.a.toLocaleString()} KM`,tX,cY+20);this.cx.fillText(`ECC (e):  ${this.aT.e}`,tX,cY+40);this.cx.fillText(`INC (i):  ${this.aT.inc.toFixed(2)}°`,tX,cY+60);this.cx.fillText(`LAN (Ω):  ${this.aT.lan.toFixed(2)}°`,tX,cY+80);}}};
 
-// === [ 3. ADVANCED VAB ENGINE: EXPERIMENTAL PROFILE SHAPER ] ===
-window.VabEngine={c:document.getElementById("vab-webgl-container"),u:document.getElementById("vab-ui"),sc:null,ca:null,re:null,co:null,mMesh:null,mXray:null,dotsGroup:null,run:!1,
+// === [ 3. VAB ENGINE: PROCEDURAL PROFILE ENGINE ] ===
+window.VabEngine={c:document.getElementById("vab-webgl-container"),u:document.getElementById("vab-ui"),sc:null,ca:null,re:null,co:null,mMesh:null,mXray:null,dotsGroup:null,gridHelper:null,run:!1,
 p:{h:12,rt:2,rb:2},rc:new THREE.Raycaster(),mv:new THREE.Vector2(),
-segments:24,profilePoints:[],dotsVisible:!1,pivotIdx:null,hingeIdx:null,bevelVal:0,draggedDot:null,dragPlane:new THREE.Plane(new THREE.Vector3(0,0,1),0)};
+segments:24,profilePoints:[],pivotIdx:null,hingeIdx:null,bevelVal:0,draggedDot:null,dragPlane:new THREE.Plane(new THREE.Vector3(0,0,1),0),xrayActive:!1};
 
 VabEngine.init=function(){if(this.re)return;this.sc=new THREE.Scene();this.ca=new THREE.PerspectiveCamera(45,window.innerWidth/(window.innerHeight-50),0.1,1000);this.ca.position.set(0,8,25);this.re=new THREE.WebGLRenderer({alpha:!0,antialias:!0});this.re.setSize(window.innerWidth,window.innerHeight-50);this.c.appendChild(this.re.domElement);this.co=new THREE.OrbitControls(this.ca,this.re.domElement);this.co.enableDamping=!0;this.co.dampingFactor=0.05;this.co.target.set(0,6,0);
-let g=new THREE.GridHelper(40,40,0xffb000,0xffb000);g.material.opacity=0.12;g.material.transparent=!0;this.sc.add(g);
+
+this.gridHelper=new THREE.GridHelper(40,40,0xffb000,0xffb000);this.gridHelper.material.opacity=0.12;this.gridHelper.material.transparent=!0;this.sc.add(this.gridHelper);
 
 this.profilePoints=[];for(let i=0;i<=this.segments;i++){let t=i/this.segments;this.profilePoints.push({r:2.0,h:t*this.p.h,baseR:2.0});}
 
 this.dotsGroup=new THREE.Group();this.sc.add(this.dotsGroup);this.bld();
 
-let D=this.re.domElement;
-D.addEventListener("pointerdown",e=>this.pD(e));
-D.addEventListener("pointermove",e=>this.pM(e));
-window.addEventListener("pointerup",()=>this.pU());
+let D=this.re.domElement;D.addEventListener("pointerdown",e=>this.pD(e));D.addEventListener("pointermove",e=>this.pM(e));window.addEventListener("pointerup",()=>this.pU());
 
 document.getElementById("bevel-slider").addEventListener("input",(e)=>{
     this.bevelVal=parseInt(e.target.value)/100;
     document.getElementById("slider-val").innerText=`CURVATURE: ${e.target.value}%`;
     this.processProfileGeometry();
 });
+
+document.getElementById("xray-toggle-btn").addEventListener("click",()=>this.toggleXray());
+window.addEventListener("keydown",(e)=>{if(this.run&&e.key.toLowerCase()==='x')this.toggleXray();});
 window.addEventListener("resize",()=>{if(!this.run)return;this.ca.aspect=window.innerWidth/(window.innerHeight-50);this.ca.updateProjectionMatrix();this.re.setSize(window.innerWidth,window.innerHeight-50);});};
+
+VabEngine.toggleXray=function(){
+    this.xrayActive=!this.xrayActive;let btn=document.getElementById("xray-toggle-btn");
+    if(this.xrayActive){btn.innerText="[ TOGGLE X-RAY: ON ]";Terminal.log("[VAB MONITOR] X-RAY ACTIVE. WIREFRAME AND INFRASTRUCTURE CONSTRAINED TO 2D PLANE.");}
+    else{btn.innerText="[ TOGGLE X-RAY: OFF ]";Terminal.log("[VAB MONITOR] WIREFRAME RESTORED.");}
+    this.processProfileGeometry();};
 
 VabEngine.processProfileGeometry=function(){
     let truncateIdx=null;for(let i=0;i<=this.segments;i++){if(this.profilePoints[i].baseR<=0.05){this.profilePoints[i].baseR=0;if(truncateIdx===null)truncateIdx=i;}}
@@ -75,23 +84,27 @@ VabEngine.processProfileGeometry=function(){
 VabEngine.bld=function(){if(this.mMesh)this.sc.remove(this.mMesh);if(this.mXray)this.sc.remove(this.mXray);
 let pts=[];let activeSegments=0;for(let i=0;i<=this.segments;i++){let p=this.profilePoints[i];pts.push(new THREE.Vector2(p.r,p.h));if(p.r>0||i===0)activeSegments=i;}
 if(pts.length<2)pts=[new THREE.Vector2(0,0),new THREE.Vector2(0,1)];let g=new THREE.LatheGeometry(pts,32);
-let maWire=new THREE.MeshBasicMaterial({color:0xffb000,wireframe:!0,transparent:!0,opacity:0.65});this.mMesh=new THREE.Mesh(g,maWire);this.sc.add(this.mMesh);
-let maSil=new THREE.MeshBasicMaterial({color:0xffb000,transparent:!0,opacity:0.12,side:THREE.DoubleSide});this.mXray=new THREE.Mesh(g,maSil);this.sc.add(this.mXray);
-this.syncDots(activeSegments);this.upd();};
+
+let maWire=new THREE.MeshBasicMaterial({color:0xffb000,wireframe:!0,transparent:!0,opacity:0.65});this.mMesh=new THREE.Mesh(g,maWire);
+let maSil=new THREE.MeshBasicMaterial({color:0xffb000,transparent:!0,opacity: activeSegments>0?0.25:0.05,side:THREE.DoubleSide});this.mXray=new THREE.Mesh(g,maSil);
+
+if(this.xrayActive){this.gridHelper.visible=!1;this.mMesh.visible=!1;maSil.opacity=0.85;maSil.wireframe=!1;}
+else{this.gridHelper.visible=!0;this.mMesh.visible=!0;}
+
+this.sc.add(this.mMesh);this.sc.add(this.mXray);this.syncDots(activeSegments);this.upd();};
 
 VabEngine.syncDots=function(activeMax){this.dotsGroup.clear();for(let i=0;i<=this.segments;i++){let p=this.profilePoints[i];if(i>activeMax&&p.r===0)continue;[-1,1].forEach(dir=>{
-    let dg=new THREE.Mesh(new THREE.SphereGeometry(0.14,8,8),new THREE.MeshBasicMaterial({color:0xffb000}));dg.position.set(p.r*dir,p.h,0);dg.userData={idx:i,side:dir};if(!this.dotsVisible)dg.visible=!1;
-    if(this.pivotIdx!==null&&this.hingeIdx!==null){if(i!==this.pivotIdx&&i!==this.hingeIdx)dg.visible=!1;}
-    if(this.pivotIdx===i)dg.material.color.setHex(0xffffff);this.dotsGroup.add(dg);});}};
+    let dg=new THREE.Mesh(new THREE.SphereGeometry(0.15,8,8),new THREE.MeshBasicMaterial({color:0xffb000}));dg.position.set(p.r*dir,p.h,0);dg.userData={idx:i,side:dir};
+    if(this.pivotIdx===i)dg.material.color.setHex(0xffffff);if(this.hingeIdx===i)dg.material.color.setHex(0xff5500);this.dotsGroup.add(dg);});}};
 
 VabEngine.pD=function(e){if(!this.run)return;let R=this.re.domElement.getBoundingClientRect();this.mv.x=((e.clientX-R.left)/R.width)*2-1;this.mv.y=-((e.clientY-R.top)/R.height)*2+1;this.rc.setFromCamera(this.mv,this.ca);
-if(!this.dotsVisible){let hit=this.rc.intersectObject(this.mMesh);if(hit.length>0){let p=hit[0].point;let curR=Math.sqrt(p.x*p.x+p.z*p.z);let expR=this.getProfileRadiusAtHeight(p.y);if(Math.abs(curR-expR)<0.6){this.dotsVisible=!0;this.processProfileGeometry();Terminal.log("[VAB KERNEL] EDGE MONITOR TRIPPED: EDGE PROFILE DOTS AWAKENED.");}}return;}
-let dHits=this.rc.intersectObjects(this.dotsGroup.children);if(dHits.length>0){let d=dHits[0].object;let idx=d.userData.idx;this.draggedDot=d;this.co.enabled=!1;if(this.pivotIdx===null){this.pivotIdx=idx;Terminal.log(`[VAB UI] PIVOT SECURED AT NODE [${idx}]. ROOT LINE RESOLVED.`);this.processProfileGeometry();}else if(this.hingeIdx===null&&idx!==this.pivotIdx){this.hingeIdx=idx;Terminal.log(`[VAB UI] HINGE LOCKED AT NODE [${idx}]. CURVATURE REGION ASSIGNED.`);this.processProfileGeometry();document.getElementById("slider-panel").style.display="block";this.bevelVal=0;document.getElementById("bevel-slider").value=0;document.getElementById("slider-val").innerText="CURVATURE: 0%";}else if(idx!==this.pivotIdx&&idx!==this.hingeIdx){this.pivotIdx=idx;this.hingeIdx=null;document.getElementById("slider-panel").style.display="none";Terminal.log(`[VAB UI] NEW PIVOT ASSIGNED TO NODE [${idx}].`);this.processProfileGeometry();}}};
+let dHits=this.rc.intersectObjects(this.dotsGroup.children);if(dHits.length>0){let d=dHits[0].object;let idx=d.userData.idx;this.draggedDot=d;this.co.enabled=!1;
+    if(e.ctrlKey){this.hingeIdx=idx;Terminal.log(`[VAB ENGINE] MULTISELECT MODIFIER: HINGE SELECTION ASSIGNED TO NODE [${idx}].`);document.getElementById("slider-panel").style.display="block";this.processProfileGeometry();}
+    else{this.pivotIdx=idx;this.hingeIdx=null;document.getElementById("slider-panel").style.display="none";Terminal.log(`[VAB ENGINE] PIVOT INSTANTIATED AT NODE [${idx}]. ROOT AXIS RESOLVED.`);this.processProfileGeometry();}}};
 
 VabEngine.pM=function(e){if(!this.run||!this.draggedDot)return;let R=this.re.domElement.getBoundingClientRect();this.mv.x=((e.clientX-R.left)/R.width)*2-1;this.mv.y=-((e.clientY-R.top)/R.height)*2+1;this.rc.setFromCamera(this.mv,this.ca);
 let interPt=new THREE.Vector3();this.rc.ray.intersectPlane(this.dragPlane,interPt);let idx=this.draggedDot.userData.idx;let newR=Math.max(0,Math.abs(interPt.x));this.profilePoints[idx].baseR=newR;this.processProfileGeometry();};
 VabEngine.pU=function(){this.draggedDot=null;if(this.co)this.co.enabled=!0;};
-VabEngine.getProfileRadiusAtHeight=function(y){let close=this.profilePoints[0];this.profilePoints.forEach(p=>{if(Math.abs(p.h-y)<Math.abs(close.h-y))close=p;});return close.r;};
 
 VabEngine.upd=function(){let v=0;for(let i=0;i<this.segments;i++){let p1=this.profilePoints[i],p2=this.profilePoints[i+1];let dh=p2.h-p1.h;v+=(Math.PI*dh/3)*(p1.r*p1.r+p1.r*p2.r+p2.r*p2.r);}let f=v*1000,sa=0;for(let i=0;i<this.segments;i++){let p1=this.profilePoints[i],p2=this.profilePoints[i+1];let sl=Math.sqrt(Math.pow(p1.r-p2.r,2)+Math.pow(p2.h-p1.h,2));sa+=Math.PI*(p1.r+p2.r)*sl;}let m=sa*25;document.getElementById("vab-val-h").innerText=this.p.h.toFixed(1);document.getElementById("vab-val-rt").innerText=this.profilePoints[this.segments].r.toFixed(1);document.getElementById("vab-val-rb").innerText=this.profilePoints[0].r.toFixed(1);document.getElementById("vab-val-vol").innerText=v.toFixed(1);document.getElementById("vab-val-fuel").innerText=Math.floor(f).toLocaleString();document.getElementById("vab-val-mass").innerText=Math.floor(m).toLocaleString();};
 VabEngine.start=function(){this.init();this.run=!0;this.c.style.display="block";this.u.style.display="block";document.getElementById("output-log").style.display="none";this.loop();};
