@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ORBITAL OS - Core Terminal</title>
+    <title>ORBITAL OS</title>
     <style>
         * {
             box-sizing: border-box;
@@ -12,13 +12,75 @@
         }
         body {
             background-color: #05080a;
-            color: #ffb000; /* Amber aesthetic */
+            color: #ffb000;
             font-family: "Courier New", Courier, monospace;
             display: flex;
             flex-direction: column;
             height: 100vh;
-            padding: 15px;
+            padding: 20px;
             overflow: hidden;
+        }
+
+        /* Home Screen Styling */
+        #home-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            letter-spacing: 4px;
+            text-shadow: 0 0 10px #ffb000;
+        }
+        .menu-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 300px;
+        }
+        .menu-btn {
+            background: transparent;
+            border: 1px solid #ffb000;
+            color: #ffb000;
+            padding: 12px;
+            font-family: inherit;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .menu-btn:hover {
+            background-color: #ffb000;
+            color: #05080a;
+            box-shadow: 0 0 10px #ffb000;
+        }
+
+        /* Setup / Form Screen Styling */
+        #setup-form {
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            width: 300px;
+            margin-top: 20px;
+        }
+        .setup-input {
+            background: transparent;
+            border: 1px solid #ffb000;
+            color: #ffffff;
+            padding: 10px;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+        }
+        
+        /* Terminal Styling (Hidden by default) */
+        #terminal-screen {
+            display: none;
+            flex-direction: column;
+            height: 100%;
         }
         #output {
             flex: 1;
@@ -53,38 +115,175 @@
             font-size: 1rem;
             flex: 1;
         }
+        
+        .status-msg {
+            margin-top: 15px;
+            min-height: 20px;
+        }
     </style>
 </head>
 <body>
 
-    <div id="output">=== ORBITAL OS CORE TESTBED ===
-Type 'help' for available terminal commands.
-</div>
+    <!-- HOME SCREEN -->
+    <div id="home-screen">
+        <h1>ORBITAL OS</h1>
+        
+        <div class="menu-options" id="menu-buttons">
+            <button class="menu-btn" onclick="startNewGameSetup()">NEW GAME</button>
+            <button class="menu-btn" onclick="triggerSave()">SAVE</button>
+            <button class="menu-btn" onclick="triggerLoad()">LOAD</button>
+        </div>
 
-    <div id="input-line">
-        <span id="prompt">[slot_01]> Command:</span>
-        <input type="text" id="command-input" autofocus autocomplete="off" spellcheck="false">
+        <!-- NEW GAME SETUP FORM -->
+        <div id="setup-form">
+            <label id="setup-label" for="setup-input">Name?</label>
+            <input type="text" id="setup-input" class="setup-input" autofocus autocomplete="off">
+            <button class="menu-btn" onclick="processSetupStep()">NEXT</button>
+        </div>
+
+        <div id="status-msg" class="status-msg"></div>
+    </div>
+
+    <!-- TERMINAL OS SCREEN -->
+    <div id="terminal-screen">
+        <div id="output"></div>
+        <div id="input-line">
+            <span id="prompt">[save_file]> Command:</span>
+            <input type="text" id="command-input" autocomplete="off" spellcheck="false">
+        </div>
     </div>
 
     <script>
-        // Game State Core Engine
-        const GameState = {
-            activeSlot: "slot_01",
+        // Core State Object
+        let GameState = {
+            activeSlot: "default",
             data: {
-                saveName: "slot_01",
+                user: {
+                    name: "",
+                    password: ""
+                },
+                saveName: "",
                 timestamp: null,
                 vessel: {
                     name: "Probe-Alpha",
                     mass_kg: 1200,
-                    altitude_m: 375000, // Low Furra Orbit
+                    altitude_m: 375000,
                     velocity_ms: 2450
                 }
             }
         };
 
+        let setupStep = 0; // 0 = inactive, 1 = Name, 2 = Password
+        let tempName = "";
+
+        const homeScreen = document.getElementById("home-screen");
+        const terminalScreen = document.getElementById("terminal-screen");
+        const menuButtons = document.getElementById("menu-buttons");
+        const setupForm = document.getElementById("setup-form");
+        const setupLabel = document.getElementById("setup-label");
+        const setupInput = document.getElementById("setup-input");
+        const statusMsg = document.getElementById("status-msg");
+
         const outputEl = document.getElementById("output");
         const promptEl = document.getElementById("prompt");
         const inputEl = document.getElementById("command-input");
+
+        function setStatus(text, color = "#ffb000") {
+            statusMsg.style.color = color;
+            statusMsg.textContent = text;
+        }
+
+        // New Game Creation Flow
+        function startNewGameSetup() {
+            menuButtons.style.display = "none";
+            setupForm.style.display = "flex";
+            setupStep = 1;
+            setupLabel.textContent = "Name?";
+            setupInput.type = "text";
+            setupInput.value = "";
+            setupInput.focus();
+            setStatus("");
+        }
+
+        function processSetupStep() {
+            const val = setupInput.value.trim();
+            if (!val) return;
+
+            if (setupStep === 1) {
+                tempName = val;
+                setupStep = 2;
+                setupLabel.textContent = "Password?";
+                setupInput.type = "password";
+                setupInput.value = "";
+                setupInput.focus();
+            } else if (setupStep === 2) {
+                const password = val;
+                initNewGame(tempName, password);
+            }
+        }
+
+        // Allow pressing Enter key during setup form
+        setupInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") processSetupStep();
+        });
+
+        function initNewGame(name, password) {
+            const slotName = name.toLowerCase().replace(/\s+/g, '_');
+            GameState.activeSlot = slotName;
+            GameState.data.saveName = slotName;
+            GameState.data.user.name = name;
+            GameState.data.user.password = password;
+            GameState.data.timestamp = new Date().toISOString();
+
+            // Save state immediately
+            localStorage.setItem(`orbital_save_${slotName}`, JSON.stringify(GameState.data));
+
+            launchTerminal();
+            print(`[SYS] User profile '${name}' initialized.`, "sys");
+            print(`[SYS] System booted under access ID: ${slotName}`, "sys");
+        }
+
+        function triggerSave() {
+            if (!GameState.data.user.name) {
+                setStatus("No active session to save. Create a New Game or Load a file first.", "#ff4500");
+                return;
+            }
+            GameState.data.timestamp = new Date().toISOString();
+            localStorage.setItem(`orbital_save_${GameState.activeSlot}`, JSON.stringify(GameState.data));
+            setStatus(`Session saved successfully to slot '${GameState.activeSlot}'.`, "#00bfff");
+        }
+
+        function triggerLoad() {
+            const saves = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith("orbital_save_")) {
+                    saves.push(key.replace("orbital_save_", ""));
+                }
+            }
+
+            if (saves.length === 0) {
+                setStatus("No saved files found.", "#ff4500");
+                return;
+            }
+
+            const targetSlot = saves[0]; // Loads the most accessible file for now
+            const rawData = localStorage.getItem(`orbital_save_${targetSlot}`);
+            
+            if (rawData) {
+                GameState.data = JSON.parse(rawData);
+                GameState.activeSlot = targetSlot;
+                launchTerminal();
+                print(`[SYS] Session loaded for profile '${GameState.data.user.name}'.`, "sys");
+            }
+        }
+
+        function launchTerminal() {
+            homeScreen.style.display = "none";
+            terminalScreen.style.display = "flex";
+            updatePrompt();
+            inputEl.focus();
+        }
 
         function print(text, type = "info") {
             const div = document.createElement("div");
@@ -98,49 +297,7 @@ Type 'help' for available terminal commands.
             promptEl.textContent = `[${GameState.activeSlot}]> Command:`;
         }
 
-        // Save Engine
-        function saveGame(slotName) {
-            const targetSlot = slotName || GameState.activeSlot;
-            GameState.activeSlot = targetSlot;
-            GameState.data.saveName = targetSlot;
-            GameState.data.timestamp = new Date().toISOString();
-            
-            localStorage.setItem(`orbital_save_${targetSlot}`, JSON.stringify(GameState.data));
-            updatePrompt();
-            print(`[SYS] Telemetry saved to slot '${targetSlot}'.`, "sys");
-        }
-
-        function loadGame(slotName) {
-            const targetSlot = slotName || GameState.activeSlot;
-            const rawData = localStorage.getItem(`orbital_save_${targetSlot}`);
-            
-            if (!rawData) {
-                print(`[ERR] Save slot '${targetSlot}' not found.`, "err");
-                return;
-            }
-
-            GameState.data = JSON.parse(rawData);
-            GameState.activeSlot = targetSlot;
-            updatePrompt();
-            print(`[SYS] Telemetry loaded from slot '${targetSlot}'.`, "sys");
-            print(`[DATA] Vessel: ${GameState.data.vessel.name} | Mass: ${GameState.data.vessel.mass_kg}kg | Alt: ${GameState.data.vessel.altitude_m}m`, "info");
-        }
-
-        function listSaves() {
-            print("[SYS] Searching local state memory...", "sys");
-            let found = 0;
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.startsWith("orbital_save_")) {
-                    const slot = key.replace("orbital_save_", "");
-                    print(`  - Slot: ${slot}`, "info");
-                    found++;
-                }
-            }
-            if (found === 0) print("  No saves found.", "err");
-        }
-
-        // Command Parser
+        // Terminal Command Processing
         inputEl.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
                 const input = inputEl.value.trim();
@@ -151,35 +308,29 @@ Type 'help' for available terminal commands.
 
                 const parts = input.split(" ");
                 const cmd = parts[0].toLowerCase();
-                const arg = parts[1];
 
                 switch (cmd) {
                     case "help":
                         print("Available commands:");
-                        print("  status            - Output current vessel state");
-                        print("  save [slot_name]  - Save current state");
-                        print("  load [slot_name]  - Load state from slot");
-                        print("  saves             - List all existing save files");
-                        print("  clear             - Clear terminal screen");
+                        print("  status   - Displays active vessel state & user info");
+                        print("  menu     - Return to Main Menu");
+                        print("  clear    - Clear screen");
                         break;
 
                     case "status":
+                        print(`User: ${GameState.data.user.name}`, "info");
                         print(`Vessel: ${GameState.data.vessel.name}`, "info");
                         print(`Mass: ${GameState.data.vessel.mass_kg} kg`, "info");
                         print(`Altitude: ${GameState.data.vessel.altitude_m} m`, "info");
-                        print(`Velocity: ${GameState.data.vessel.velocity_ms} m/s`, "info");
                         break;
 
-                    case "save":
-                        saveGame(arg);
-                        break;
-
-                    case "load":
-                        loadGame(arg);
-                        break;
-
-                    case "saves":
-                        listSaves();
+                    case "menu":
+                        terminalScreen.style.display = "none";
+                        homeScreen.style.display = "flex";
+                        menuButtons.style.display = "flex";
+                        setupForm.style.display = "none";
+                        setupStep = 0;
+                        setStatus("");
                         break;
 
                     case "clear":
@@ -192,8 +343,6 @@ Type 'help' for available terminal commands.
                 }
             }
         });
-
-        updatePrompt();
     </script>
 </body>
 </html>
