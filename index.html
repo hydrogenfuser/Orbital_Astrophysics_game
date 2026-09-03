@@ -139,24 +139,22 @@
         let inRDModule = false;
         let tempName = "";
         let pendingLoadSlot = "";
-        let pendingDeleteSlot = "";
 
-        // Detailed Categorized Tech Matrix (Tiers on Columns, Subsystems on Rows)
         const techMatrix = [
             {
                 tier: 0,
                 tierName: "TIER 0: FOUNDATION TECH",
                 unlocked: true,
                 categories: [
-                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny volume (0.5 - 2 IVU). Used for sub-orbital vertical hops to test instruments in vacuum for a few minutes." },
-                    { cat: "Computers", name: "Mechanical / Manual Relays", desc: "Computers are mechanical and slow, only able to execute commands based on radio control from ground based computers." },
-                    { cat: "Lifting Bodies", name: "Unpressurized Sounding Rockets", desc: "Solid/liquid fueled rockets for basic sub-orbital flights and potential energy experiments." },
-                    { cat: "Fuels", name: "Kerosene & Solid Propellants", desc: "Low-grade, volatile mixtures with high failure rates and poor efficiency." },
-                    { cat: "RCS", name: "Cold Gas Thrusters", desc: "Compressed Nitrogen tanks providing basic attitude control until pressure depletes." },
-                    { cat: "Power", name: "Primary Silver-Zinc Batteries", desc: "Non-rechargeable, heavy energy storage that drains permanently." },
-                    { cat: "Heat", name: "Passive Conduction Fins", desc: "Fixed conduction fins and thermal paint to radiate excess structural heat." },
-                    { cat: "Comms", name: "Omnidirectional Whips", desc: "360-degree radio wave emissions with high power draw and low transmission rates." },
-                    { cat: "Science", name: "Basic Sounding Suite", desc: "Includes basic Thermometer, Barometer, and Geiger Counter." }
+                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny volume (0.5 - 2 IVU). Used for sub-orbital vertical hops to test instruments in vacuum." },
+                    { cat: "Computers", name: "Mechanical / Manual Relays", desc: "Computers are mechanical and slow, operating purely via radio command execution." },
+                    { cat: "Lifting Bodies", name: "Unpressurized Sounding Rockets", desc: "Solid/liquid rockets for potential energy testing." },
+                    { cat: "Fuels", name: "Kerosene & Solid Propellants", desc: "Volatile mixtures with higher failure risks." },
+                    { cat: "RCS", name: "Cold Gas Thrusters", desc: "Pressurized Nitrogen systems for simple attitude holds." },
+                    { cat: "Power", name: "Primary Silver-Zinc Batteries", desc: "Non-rechargeable energy cells." },
+                    { cat: "Heat", name: "Passive Conduction Fins", desc: "Basic structural cooling surfaces." },
+                    { cat: "Comms", name: "Omnidirectional Whips", desc: "360-degree broad-spectrum radio emissions." },
+                    { cat: "Science", name: "Basic Sounding Suite", desc: "Thermometers, Barometers, and Geiger counters." }
                 ]
             },
             {
@@ -165,14 +163,14 @@
                 unlocked: false,
                 categories: [
                     { cat: "Probes", name: "Impactors & Early Satellites", desc: "Short-lived orbital probes and lunar impact capsules." },
-                    { cat: "Computers", name: "Analog Guidance Computers", desc: "Basic analog math execution with AP/PE calculations manually requested from ground telemetry." },
-                    { cat: "Lifting Bodies", name: "ICBM-derived Launchers", desc: "Unpressurized early ballistic rocket modifications." },
-                    { cat: "Fuels", name: "Refined RP-1 / LOX", desc: "Decreased engine failure rates and increased combustion efficiency." },
-                    { cat: "RCS", name: "Hydrogen Peroxide Monopropellant", desc: "Catalytic grid thrusters for stable exo-atmospheric alignment." },
-                    { cat: "Power", name: "Basic Solar Panels", desc: "Fragile solar arrays capable of generating power under direct sunlight." },
-                    { cat: "Heat", name: "Multi-Layer Insulation (MLI)", desc: "Gold (Kapton) and Silver Mylar skin wraps for radiation and temp control." },
-                    { cat: "Comms", name: "Yagi-Uda Directional Antennas", desc: "Requires orienting craft toward Earth to achieve higher signal gain." },
-                    { cat: "Science", name: "Deployable Boom Magnetometers", desc: "Extends sensors away from hull EMI to measure planetary magnetic fields." }
+                    { cat: "Computers", name: "Analog Guidance Computers", desc: "Basic analog calculation relays." },
+                    { cat: "Lifting Bodies", name: "ICBM-derived Launchers", desc: "Unpressurized ballistic launch systems." },
+                    { cat: "Fuels", name: "Refined RP-1 / LOX", desc: "Higher efficiency, safer mixtures." },
+                    { cat: "RCS", name: "Hydrogen Peroxide Monopropellant", desc: "Catalytic thrust for directional control." },
+                    { cat: "Power", name: "Basic Solar Panels", desc: "Photovoltaic power generation." },
+                    { cat: "Heat", name: "Multi-Layer Insulation (MLI)", desc: "Gold/Silver skin wraps for radiation shield." },
+                    { cat: "Comms", name: "Yagi-Uda Directional Antennas", desc: "Point-to-point radio dishes." },
+                    { cat: "Science", name: "Deployable Boom Magnetometers", desc: "Extended sensors for cleaner data capture." }
                 ]
             }
         ];
@@ -194,11 +192,11 @@
 
         function updatePrompt() {
             if (isMoveMode) {
-                promptEl.textContent = "[TREE NAV: WASD=Navigate Categories | E=Inspect Tech | Q=Exit Nav]> ";
+                promptEl.textContent = `[TREE NAV // TIER ${selectedTierIndex}: WASD=Move | E=Inspect | Q=Exit]> `;
                 return;
             }
             if (inRDModule) {
-                promptEl.textContent = "[R&D EXEC]> Command (move / terminate):";
+                promptEl.textContent = `[R&D EXEC // VIEWING: TIER ${selectedTierIndex}]> Command:`;
                 return;
             }
             switch (currentMode) {
@@ -214,12 +212,6 @@
                     break;
                 case "LOAD_SELECT":
                     promptEl.textContent = "Select Save File:";
-                    break;
-                case "DELETE_SELECT":
-                    promptEl.textContent = "Delete Save File:";
-                    break;
-                case "DELETE_CONFIRM":
-                    promptEl.textContent = "Are you sure? (Y/N):";
                     break;
                 default:
                     promptEl.textContent = "Command:";
@@ -253,7 +245,6 @@
             print("System offline. Available commands:");
             print("  new             - Create a new profile and start game");
             print("  load            - View save files and login");
-            print("  delete          - Delete a save file");
             print("  saves           - List available save files");
             print("  clear           - Clear terminal buffer");
         }
@@ -296,15 +287,14 @@
 
             const bootLogs = [
                 "[SYS] INITIALIZING EXECUTABLE: R&D.PMCS...",
-                "[SYS] ALLOCATING MEMORY SECTORS 0x00FF - 0x048A...",
-                "[SYS] MOUNTING ARCHIVE: /sys/rd/tech_tree.db... OK",
-                "[SYS] SCHEMATIC ENGINE READY...",
+                "[SYS] ALLOCATING MEMORY SECTORS...",
+                "[SYS] RENDERING ASCII TECH TREE CANVAS...",
                 "[SYS] EXECUTION OK."
             ];
 
             for (const log of bootLogs) {
                 print(log);
-                await new Promise(r => setTimeout(r, Math.floor(Math.random() * 20) + 10));
+                await new Promise(r => setTimeout(r, 20));
             }
             print("");
 
@@ -320,26 +310,14 @@
 
             print("LOADING TECH MATRIX:");
             let progress = 0;
-            const stallPoint = Math.floor(Math.random() * 60) + 20;
-            const willStall = Math.random() < 0.25;
-            let hasStalled = false;
-
             const progressDiv = document.createElement("div");
             progressDiv.className = "line-amber";
             outputEl.appendChild(progressDiv);
 
             while (progress < 100) {
-                progress += 5;
-                if (progress > 100) progress = 100;
-
-                if (willStall && !hasStalled && progress >= stallPoint) {
-                    hasStalled = true;
-                    progressDiv.textContent = `PROGRESS: [${"█".repeat(Math.floor(progress / 5))}${"-".repeat(20 - Math.floor(progress / 5))}] ${Math.floor(progress)}% [BUSY...]`;
-                    await new Promise(r => setTimeout(r, 2000));
-                }
-
-                progressDiv.textContent = `PROGRESS: [${"█".repeat(Math.floor(progress / 5))}${"-".repeat(20 - Math.floor(progress / 5))}] ${Math.floor(progress)}%`;
-                await new Promise(r => setTimeout(r, 100));
+                progress += 10;
+                progressDiv.textContent = `PROGRESS: [${"█".repeat(progress / 5)}${"-".repeat(20 - progress / 5)}] ${progress}%`;
+                await new Promise(r => setTimeout(r, 80));
             }
 
             isExecutingProgram = false;
@@ -348,13 +326,40 @@
             inputEl.disabled = false;
             inputEl.focus();
             
+            renderMainRDView();
+        }
+
+        // RENDER NON-MOVE MAIN VIEW WITH DYNAMIC ASCII TREE
+        function renderMainRDView() {
             outputEl.innerHTML = "";
             print("================================================================================", "title");
-            print("                 R&D EXECUTABLE LOADED // SYSTEM READY                          ", "title");
+            print("                   RESEARCH & DEVELOPMENT // MAIN TERMINAL                      ", "title");
             print("================================================================================", "title");
-            print("Type 'move' to activate WASD matrix navigation.");
-            print("Type 'terminate' to exit the R&D module.");
             print("");
+            print("                     • • •  • • •                 ");
+            print("                   • • • • • • • • •              [ TIER 1: FIRST STEPS ]");
+            print("                  • • • • • • • • • •             (LOCKED BRANCH)");
+            print("                   • • • • • • • • •              / ");
+            print("                     \\  • • • •  /               /  ");
+            print("                      \\    ||   /               /   ");
+            print("                       \\   ||  /               /    ");
+            print("                        \\  || /               /     ");
+            print("                         \\ ||/               /      ");
+            print("      • • • • •           \\||               /       ");
+            print("    • • • • • • •          ||              /        ");
+            print("   • • • • • • • • • ══════╬══════════════╝         ");
+            print("    • • • • • • •          ||                       ");
+            print("      • • • • •            ||                       ");
+            print("                           ||                       ");
+            print("                 [ Tier 0: Foundation ]             ");
+            print("                   (UNLOCKED STUMP)                 ");
+            print("");
+            print("================================================================================", "title");
+            print("  STATUS: Viewing Tier 0 Root Branch");
+            print("  COMMANDS:");
+            print("    move      - Enter WASD matrix mode to scroll categories and specs");
+            print("    terminate - Exit R&D module and unmount process");
+            print("================================================================================", "title");
             updatePrompt();
         }
 
@@ -367,7 +372,7 @@
             print("================================================================================", "title");
             print(`                     R&D TECH TREE MATRIX // ${activeTier.tierName}`, "title");
             print("================================================================================", "title");
-            print("  CONTROLS: [W/S] Move Category  |  [A/D] Change Tier  |  [E] Detailed Specs  |  [Q] Exit Nav");
+            print("  CONTROLS: [W/S] Move Category  |  [A/D] Switch Tier  |  [E] Spec Sheet  |  [Q] Exit Nav");
             print("--------------------------------------------------------------------------------");
 
             for (let i = 0; i < activeTier.categories.length; i++) {
@@ -385,6 +390,7 @@
             print(`HIGHLIGHTED SPECIFICATION: [${activeCategory.cat.toUpperCase()}] -> ${activeCategory.name}`, "title");
             print(`DESCRIPTION: ${activeCategory.desc}`);
             print("================================================================================", "title");
+            updatePrompt();
         }
 
         function showCategoryInspection(item) {
@@ -399,7 +405,7 @@
             print(`  ${item.desc}`);
             print("");
             print("--------------------------------------------------------------------------------");
-            print("Press [W/A/S/D] to resume navigation or [Q] to exit navigation mode.");
+            print("Press [W/A/S/D] to return to category list, or [Q] to exit navigation mode.");
             print("--------------------------------------------------------------------------------");
         }
 
@@ -460,7 +466,6 @@
                 const rawData = localStorage.getItem(`orbital_save_${targetSlot}`);
                 if (!rawData) {
                     print(`[ERR] Save file '${input}' not found.`);
-                    print("Enter valid save file name or type 'cancel':");
                     return;
                 }
 
@@ -486,7 +491,7 @@
                     outputEl.innerHTML = "";
                     updatePrompt();
                     
-                    print(`[SYS] Access granted. Session loaded for profile '${GameState.data.user.name}'.`);
+                    print(`[SYS] Access granted for profile '${GameState.data.user.name}'.`);
                     print("");
                     printProgramTree();
                     printLoggedInHelp();
@@ -509,7 +514,6 @@
                     isMoveMode = true;
                     inputEl.disabled = true;
                     renderStaticTechTree();
-                    updatePrompt();
                     return;
                 }
                 if (cmd === "terminate") {
@@ -522,7 +526,7 @@
                     updatePrompt();
                     return;
                 }
-                print(`[ERR] Program active. Commands available: 'move', 'terminate'.`);
+                print(`[ERR] Program active. Valid commands: 'move', 'terminate'.`);
                 return;
             }
 
@@ -546,8 +550,6 @@
                         print(`User: ${GameState.data.user.name}`);
                         print(`Vessel: ${GameState.data.vessel.name}`);
                         print(`Mass: ${GameState.data.vessel.mass_kg} kg`);
-                        print(`Altitude: ${GameState.data.vessel.altitude_m} m`);
-                        print(`Velocity: ${GameState.data.vessel.velocity_ms} m/s`);
                         break;
 
                     case "save":
@@ -557,7 +559,6 @@
                         break;
 
                     case "logout":
-                        print(`[SYS] Logging out user '${GameState.data.user.name}'...`);
                         GameState.activeSlot = null;
                         bootTerminal();
                         break;
@@ -585,7 +586,7 @@
                         break;
 
                     case "saves":
-                        print("[SYS] Scanning local state memory...");
+                        print("[SYS] Scanning local memory...");
                         const saveFiles = getSaveList();
                         if (saveFiles.length === 0) {
                             print("  No save files found.");
@@ -597,11 +598,11 @@
                     case "load":
                         const loadSaves = getSaveList();
                         if (loadSaves.length === 0) {
-                            print("[ERR] No save files present in system memory.");
+                            print("[ERR] No save files present in memory.");
                             return;
                         }
 
-                        print("[SYS] Open Save Files Available:");
+                        print("[SYS] Open Save Files:");
                         loadSaves.forEach(slot => print(`  - ${slot}`));
                         print("");
                         currentMode = "LOAD_SELECT";
@@ -613,7 +614,7 @@
                         break;
 
                     default:
-                        print(`Unknown command: '${cmd}'. Type 'help' for options.`);
+                        print(`Unknown command: '${cmd}'.`);
                         break;
                 }
             }
@@ -641,14 +642,12 @@
                     const item = techMatrix[selectedTierIndex].categories[selectedCategoryIndex];
                     showCategoryInspection(item);
                 } else if (key === "Q") {
+                    e.preventDefault(); // Prevent 'q' character from printing
                     isMoveMode = false;
                     inputEl.disabled = false;
                     inputEl.focus();
-                    outputEl.innerHTML = "";
-                    print("[SYS] Exited Navigation Mode. Returned to R&D Executable command prompt.");
-                    print("Type 'move' to re-enter navigation, or 'terminate' to exit R&D.");
-                    print("");
-                    updatePrompt();
+                    inputEl.value = ""; // Clear buffer
+                    renderMainRDView();
                 }
                 return;
             }
