@@ -15,14 +15,14 @@
         html, body {
             width: 100vw;
             height: 100vh;
-            background-color: #0d0900;
+            background-color: #080500;
             color: #ffb000;
             font-family: "Courier New", Courier, monospace;
             overflow: hidden;
             position: relative;
         }
 
-        /* Tightened High-Density CRT Scanlines (2px Pitch) */
+        /* Tightened High-Density CRT Scanlines (2px Pitch, Low Bloom) */
         body::after {
             content: " ";
             display: block;
@@ -30,12 +30,12 @@
             top: 0; left: 0; bottom: 0; right: 0;
             background: linear-gradient(
                 rgba(0, 0, 0, 0) 50%, 
-                rgba(0, 0, 0, 0.75) 50%
+                rgba(0, 0, 0, 0.65) 50%
             );
-            background-size: 100% 2px; /* Tighter spacing */
+            background-size: 100% 2px;
             pointer-events: none;
             z-index: 9;
-            opacity: 0.95;
+            opacity: 0.85;
         }
 
         /* Full Window Terminal Container */
@@ -55,32 +55,30 @@
             white-space: pre-wrap;
             margin-bottom: 10px;
             padding-right: 5px;
-            line-height: 1.25; /* Compact line height */
+            line-height: 1.25;
         }
 
-        /* Base Phosphor Text Style */
+        /* Subdued Phosphor Text Style */
         .line-amber, .line-title, #prompt, #command-input {
             color: #ffb000;
-            text-shadow: 0 0 3px rgba(255, 176, 0, 0.85), 0 0 6px rgba(255, 176, 0, 0.35);
+            text-shadow: 0 0 1.5px rgba(255, 176, 0, 0.4);
         }
 
-        /* Scan Effect Triggered EXCLUSIVELY on Newly Generated Text Lines */
+        /* Soft Line Generation Scan Animation */
         .line-amber, .line-title {
-            animation: generate-scan 0.09s ease-out forwards;
+            animation: generate-scan 0.08s ease-out forwards;
         }
 
         @keyframes generate-scan {
             0% {
-                background-color: rgba(255, 176, 0, 0.4);
-                box-shadow: 0 0 10px rgba(255, 176, 0, 0.7);
-                color: #fff2b3;
-                text-shadow: 0 0 12px rgba(255, 200, 80, 1);
+                background-color: rgba(255, 176, 0, 0.12);
+                color: #ffca42;
+                text-shadow: 0 0 3px rgba(255, 176, 0, 0.6);
             }
             100% {
                 background-color: transparent;
-                box-shadow: none;
                 color: #ffb000;
-                text-shadow: 0 0 3px rgba(255, 176, 0, 0.85), 0 0 6px rgba(255, 176, 0, 0.35);
+                text-shadow: 0 0 1.5px rgba(255, 176, 0, 0.4);
             }
         }
 
@@ -91,8 +89,7 @@
         #input-line {
             display: flex;
             align-items: center;
-            border-top: 1px solid rgba(255, 176, 0, 0.6);
-            box-shadow: 0 -1px 4px rgba(255, 176, 0, 0.2);
+            border-top: 1px solid rgba(255, 176, 0, 0.4);
             padding-top: 8px;
         }
         #prompt {
@@ -113,11 +110,10 @@
             width: 6px;
         }
         #output::-webkit-scrollbar-thumb {
-            background: #ffb000;
-            box-shadow: 0 0 4px #ffb000;
+            background: rgba(255, 176, 0, 0.6);
         }
         #output::-webkit-scrollbar-track {
-            background: #0d0900;
+            background: #080500;
         }
     </style>
 </head>
@@ -152,7 +148,6 @@
         const promptEl = document.getElementById("prompt");
         const inputEl = document.getElementById("command-input");
 
-        // Print function triggers the line-level scan burst on output
         function print(text, type = "amber") {
             const div = document.createElement("div");
             div.className = `line-${type}`;
@@ -196,6 +191,20 @@
             print("");
         }
 
+        function printProgramTree() {
+            print("ORBITAL OS // SYSTEM DIRECTORY", "title");
+            print("└── System Programs");
+            print("    ├── VAB");
+            print("    ├── Hangars");
+            print("    ├── R&D");
+            print("    ├── Astronaut Complex");
+            print("    ├── Contractors");
+            print("    ├── Flight");
+            print("    ├── DSN");
+            print("    └── Planetary Charts");
+            print("");
+        }
+
         function printMainMenuHelp() {
             print("System offline. Available commands:");
             print("  new      - Create a new profile and start game");
@@ -207,6 +216,7 @@
 
         function printLoggedInHelp() {
             print("Session Active. Available commands:");
+            print("  programs - Display system program tree");
             print("  status   - Display vessel parameters and telemetry");
             print("  save     - Save current progress");
             print("  logout   - Exit current session and lock terminal");
@@ -262,11 +272,14 @@
 
                 localStorage.setItem(`orbital_save_${slotName}`, JSON.stringify(GameState.data));
 
+                // Auto-clear terminal on initial creation
+                outputEl.innerHTML = "";
                 currentMode = "LOGGED_IN";
                 updatePrompt();
                 print(`[SYS] User profile '${tempName}' initialized.`);
                 print(`[SYS] Access ID locked: [${slotName}]`);
                 print("");
+                printProgramTree();
                 printLoggedInHelp();
                 return;
             }
@@ -307,9 +320,14 @@
                     GameState.activeSlot = pendingLoadSlot;
                     pendingLoadSlot = "";
                     currentMode = "LOGGED_IN";
+                    
+                    // Auto-clear screen on successful load
+                    outputEl.innerHTML = "";
                     updatePrompt();
+                    
                     print(`[SYS] Access granted. Session loaded for profile '${GameState.data.user.name}'.`);
                     print("");
+                    printProgramTree();
                     printLoggedInHelp();
                 } else {
                     print("[ERR] Access denied. Incorrect password.");
@@ -374,6 +392,24 @@
                         printLoggedInHelp();
                         break;
 
+                    case "programs":
+                    case "dir":
+                        printProgramTree();
+                        break;
+
+                    case "vab":
+                    case "hangars":
+                    case "r&d":
+                    case "rnd":
+                    case "astronaut":
+                    case "contractors":
+                    case "flight":
+                    case "dsn":
+                    case "charts":
+                    case "planetary":
+                        print(`[SYS] Program '${cmd.toUpperCase()}' is currently offline / under construction.`);
+                        break;
+
                     case "status":
                         print(`User: ${GameState.data.user.name}`);
                         print(`Vessel: ${GameState.data.vessel.name}`);
@@ -401,7 +437,7 @@
                         break;
 
                     default:
-                        print(`Unknown command: '${cmd}'. Type 'help' for options.`);
+                        print(`Unknown command: '${cmd}'. Type 'help' or 'programs' for options.`);
                         break;
                 }
                 return;
