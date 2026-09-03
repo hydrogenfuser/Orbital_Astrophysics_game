@@ -52,7 +52,8 @@
             white-space: pre-wrap;
             margin-bottom: 10px;
             padding-right: 5px;
-            line-height: 1.2;
+            line-height: 1.15;
+            font-size: 0.95rem;
         }
 
         .line-amber, .line-title, #prompt, #command-input {
@@ -146,15 +147,15 @@
                 tierName: "TIER 0: FOUNDATION TECH",
                 unlocked: true,
                 categories: [
-                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny volume (0.5 - 2 IVU). Used for sub-orbital vertical hops to test instruments in vacuum." },
-                    { cat: "Computers", name: "Mechanical / Manual Relays", desc: "Computers are mechanical and slow, operating purely via radio command execution." },
-                    { cat: "Lifting Bodies", name: "Unpressurized Sounding Rockets", desc: "Solid/liquid rockets for potential energy testing." },
-                    { cat: "Fuels", name: "Kerosene & Solid Propellants", desc: "Volatile mixtures with higher failure risks." },
-                    { cat: "RCS", name: "Cold Gas Thrusters", desc: "Pressurized Nitrogen systems for simple attitude holds." },
-                    { cat: "Power", name: "Primary Silver-Zinc Batteries", desc: "Non-rechargeable energy cells." },
-                    { cat: "Heat", name: "Passive Conduction Fins", desc: "Basic structural cooling surfaces." },
-                    { cat: "Comms", name: "Omnidirectional Whips", desc: "360-degree broad-spectrum radio emissions." },
-                    { cat: "Science", name: "Basic Sounding Suite", desc: "Thermometers, Barometers, and Geiger counters." }
+                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny volume (0.5 - 2 IVU). Used for sub-orbital vertical hops to test instruments in vacuum.", unlocked: true },
+                    { cat: "Computers", name: "Mechanical / Manual Relays", desc: "Computers are mechanical and slow, operating purely via radio command execution.", unlocked: true },
+                    { cat: "Lifting Bodies", name: "Unpressurized Sounding Rockets", desc: "Solid/liquid rockets for potential energy testing.", unlocked: true },
+                    { cat: "Fuels", name: "Kerosene & Solid Propellants", desc: "Volatile mixtures with higher failure risks.", unlocked: true },
+                    { cat: "RCS", name: "Cold Gas Thrusters", desc: "Pressurized Nitrogen systems for simple attitude holds.", unlocked: true },
+                    { cat: "Power", name: "Primary Silver-Zinc Batteries", desc: "Non-rechargeable energy cells.", unlocked: true },
+                    { cat: "Heat", name: "Passive Conduction Fins", desc: "Basic structural cooling surfaces.", unlocked: true },
+                    { cat: "Comms", name: "Omnidirectional Whips", desc: "360-degree broad-spectrum radio emissions.", unlocked: true },
+                    { cat: "Science", name: "Basic Sounding Suite", desc: "Thermometers, Barometers, and Geiger counters.", unlocked: true }
                 ]
             },
             {
@@ -162,15 +163,15 @@
                 tierName: "TIER 1: FIRST STEPS",
                 unlocked: false,
                 categories: [
-                    { cat: "Probes", name: "Impactors & Early Satellites", desc: "Short-lived orbital probes and lunar impact capsules." },
-                    { cat: "Computers", name: "Analog Guidance Computers", desc: "Basic analog calculation relays." },
-                    { cat: "Lifting Bodies", name: "ICBM-derived Launchers", desc: "Unpressurized ballistic launch systems." },
-                    { cat: "Fuels", name: "Refined RP-1 / LOX", desc: "Higher efficiency, safer mixtures." },
-                    { cat: "RCS", name: "Hydrogen Peroxide Monopropellant", desc: "Catalytic thrust for directional control." },
-                    { cat: "Power", name: "Basic Solar Panels", desc: "Photovoltaic power generation." },
-                    { cat: "Heat", name: "Multi-Layer Insulation (MLI)", desc: "Gold/Silver skin wraps for radiation shield." },
-                    { cat: "Comms", name: "Yagi-Uda Directional Antennas", desc: "Point-to-point radio dishes." },
-                    { cat: "Science", name: "Deployable Boom Magnetometers", desc: "Extended sensors for cleaner data capture." }
+                    { cat: "Probes", name: "Impactors & Early Satellites", desc: "Short-lived orbital probes and lunar impact capsules.", unlocked: false },
+                    { cat: "Computers", name: "Analog Guidance Computers", desc: "Basic analog calculation relays.", unlocked: false },
+                    { cat: "Lifting Bodies", name: "ICBM-derived Launchers", desc: "Unpressurized ballistic launch systems.", unlocked: false },
+                    { cat: "Fuels", name: "Refined RP-1 / LOX", desc: "Higher efficiency, safer mixtures.", unlocked: false },
+                    { cat: "RCS", name: "Hydrogen Peroxide Monopropellant", desc: "Catalytic thrust for directional control.", unlocked: false },
+                    { cat: "Power", name: "Basic Solar Panels", desc: "Photovoltaic power generation.", unlocked: false },
+                    { cat: "Heat", name: "Multi-Layer Insulation (MLI)", desc: "Gold/Silver skin wraps for radiation shield.", unlocked: false },
+                    { cat: "Comms", name: "Yagi-Uda Directional Antennas", desc: "Point-to-point radio dishes.", unlocked: false },
+                    { cat: "Science", name: "Deployable Boom Magnetometers", desc: "Extended sensors for cleaner data capture.", unlocked: false }
                 ]
             }
         ];
@@ -280,6 +281,58 @@
             return saves;
         }
 
+        // CALCULATE CANOPY DENSITY BASED ON UNLOCKED TECHS
+        function getUnlockRatio() {
+            let total = 0;
+            let unlocked = 0;
+            techMatrix.forEach(tier => {
+                tier.categories.forEach(c => {
+                    total++;
+                    if (c.unlocked) unlocked++;
+                });
+            });
+            return total > 0 ? unlocked / total : 0;
+        }
+
+        // DYNAMIC TREE GENERATOR BASED ON REFERENCE IMAGE
+        function buildTreeAscii() {
+            const ratio = getUnlockRatio();
+
+            // Tier/Leaf Density layers based on progression
+            const L1 = ratio > 0.2 ? "   ░░▒▓▓██████████████████████▓▓▒░░   " : "        ░░▒▓████████████▓▒░░          ";
+            const L2 = ratio > 0.3 ? " ░▒▓██████████████████████████████▓▒░ " : "     ░▒▓████████████████████▓▒░       ";
+            const L3 = ratio > 0.4 ? "░▒▓██████████████████████████████████▓▒" : "   ░▒▓████████████████████████▓▒░     ";
+            const L4 = ratio > 0.5 ? "░▒▓██████████████████████████████████▓▒" : "  ░▒▓██████████████████████████▓▒░    ";
+            const L5 = ratio > 0.6 ? " ░▒▓████████████████████████████████▓▒ " : "   ░▒▓████████████████████████▓▒░     ";
+            const L6 = ratio > 0.7 ? "  ░▒▓██████████████████████████████▓▒  " : "    ░▒▓██████████████████████▓▒░      ";
+            const L7 = ratio > 0.8 ? "    ░▒▓██████████████████████████▓▒░   " : "      ░▒▓██████████████████▓▒░        ";
+            const L8 = ratio > 0.9 ? "      ░▒▓██████/  ██  \\██████▓▒░       " : "        ░▒▓████/  ██  \\██▓▒░          ";
+
+            const treeLines = [
+                `                 ${L1}`,
+                `               ${L2}`,
+                `              ${L3}`,
+                `              ${L4}`,
+                `               ${L5}`,
+                `                ${L6}`,
+                `                 ${L7}`,
+                `                  ${L8}`,
+                "                        ░▒▓██/   ██   \\██▓▒░",
+                "                       ░▒▓██/    ██    \\██▓▒░",
+                "                      ░▒▓█/      ██      \\█▓▒░",
+                "                                ▄██▄",
+                "                                ████",
+                "                                ████",
+                "                               ▄████▄",
+                "                              ████████",
+                "                             ▄████████▄",
+                "                            ████████████",
+                "                           [ Tier 0: Root Trunk ]"
+            ];
+
+            return treeLines;
+        }
+
         async function runRDProgram() {
             isExecutingProgram = true;
             inputEl.disabled = true;
@@ -288,7 +341,8 @@
             const bootLogs = [
                 "[SYS] INITIALIZING EXECUTABLE: R&D.PMCS...",
                 "[SYS] ALLOCATING MEMORY SECTORS...",
-                "[SYS] RENDERING HIGH-DENSITY BLOCK CANVAS...",
+                "[SYS] PROCESSING REFERENCE IMAGE VECTOR DATA...",
+                "[SYS] SYNTHESIZING DENSE CANOPY MATRICES...",
                 "[SYS] EXECUTION OK."
             ];
 
@@ -329,34 +383,20 @@
             renderMainRDView();
         }
 
-        // DETAILED HIGH-DENSITY ASCII BLOCK TREE VIEW
+        // RENDER NON-MOVE MAIN VIEW WITH REFERENCE-BASED ASCII TREE
         function renderMainRDView() {
             outputEl.innerHTML = "";
             print("================================================================================", "title");
             print("                 RESEARCH & DEVELOPMENT // SCHEMATIC TECH TREE                  ", "title");
             print("================================================================================", "title");
             print("");
-            print("                     ░▒▓▓████▓▓▒░                    ");
-            print("                   ░▒▓████████████▓▒░                [ TIER 1: FIRST STEPS ]");
-            print("                  ░▒▓██████████████▓▒░               (BRANCH LOCKED)");
-            print("                   ░▒▓▓██████████▓▓▒░               / ");
-            print("                     ░▒▓▓██████▓▓▒░                /  ");
-            print("                        ▄▄  ██  ▄▄                /   ");
-            print("                          ▀████▀                 /    ");
-            print("                           ████                 /     ");
-            print("                          ▄████▄               /      ");
-            print("        ░▒▓▓▓▒░          ████████             /       ");
-            print("      ░▒▓█████▓▒░       ████  ████           /        ");
-            print("     ░▒▓███████▓▒░ ═════████══████══════════╝         ");
-            print("      ░▒▓█████▓▒░       ████  ████                    ");
-            print("        ░▒▓▓▓▒░        ▄████▄▄████▄                   ");
-            print("                      ██████████████                  ");
-            print("                     ████████████████                 ");
-            print("                 [ Tier 0: Foundation ]               ");
-            print("                   (UNLOCKED STUMP)                   ");
+
+            const treeAscii = buildTreeAscii();
+            treeAscii.forEach(line => print(line));
+
             print("");
             print("================================================================================", "title");
-            print("  STATUS: Root Trunk Loaded [Tier 0 Active]");
+            print(`  CANOPY DENSITY: ${Math.round(getUnlockRatio() * 100)}% Coverage | Active Tier: 0`);
             print("  COMMANDS:");
             print("    move      - Enter WASD matrix view to scroll categories and specs");
             print("    terminate - Exit R&D module and unmount process");
@@ -401,6 +441,7 @@
             print("================================================================================", "title");
             print(`NAME: ${item.name}`);
             print(`SUBSYSTEM CLASSIFICATION: ${item.cat}`);
+            print(`STATUS: ${item.unlocked ? "UNLOCKED & ONLINE" : "LOCKED / RESEARCH REQUIRED"}`);
             print("");
             print("TECHNICAL OVERVIEW:", "title");
             print(`  ${item.desc}`);
