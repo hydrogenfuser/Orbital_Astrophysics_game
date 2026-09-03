@@ -52,7 +52,7 @@
             white-space: pre-wrap;
             margin-bottom: 10px;
             padding-right: 5px;
-            line-height: 1.25;
+            line-height: 1.2;
         }
 
         .line-amber, .line-title, #prompt, #command-input {
@@ -288,7 +288,7 @@
             const bootLogs = [
                 "[SYS] INITIALIZING EXECUTABLE: R&D.PMCS...",
                 "[SYS] ALLOCATING MEMORY SECTORS...",
-                "[SYS] RENDERING ASCII TECH TREE CANVAS...",
+                "[SYS] RENDERING HIGH-DENSITY BLOCK CANVAS...",
                 "[SYS] EXECUTION OK."
             ];
 
@@ -329,35 +329,36 @@
             renderMainRDView();
         }
 
-        // RENDER NON-MOVE MAIN VIEW WITH DYNAMIC ASCII TREE
+        // DETAILED HIGH-DENSITY ASCII BLOCK TREE VIEW
         function renderMainRDView() {
             outputEl.innerHTML = "";
             print("================================================================================", "title");
-            print("                   RESEARCH & DEVELOPMENT // MAIN TERMINAL                      ", "title");
+            print("                 RESEARCH & DEVELOPMENT // SCHEMATIC TECH TREE                  ", "title");
             print("================================================================================", "title");
             print("");
-            print("                     • • •  • • •                 ");
-            print("                   • • • • • • • • •              [ TIER 1: FIRST STEPS ]");
-            print("                  • • • • • • • • • •             (LOCKED BRANCH)");
-            print("                   • • • • • • • • •              / ");
-            print("                     \\  • • • •  /               /  ");
-            print("                      \\    ||   /               /   ");
-            print("                       \\   ||  /               /    ");
-            print("                        \\  || /               /     ");
-            print("                         \\ ||/               /      ");
-            print("      • • • • •           \\||               /       ");
-            print("    • • • • • • •          ||              /        ");
-            print("   • • • • • • • • • ══════╬══════════════╝         ");
-            print("    • • • • • • •          ||                       ");
-            print("      • • • • •            ||                       ");
-            print("                           ||                       ");
-            print("                 [ Tier 0: Foundation ]             ");
-            print("                   (UNLOCKED STUMP)                 ");
+            print("                     ░▒▓▓████▓▓▒░                    ");
+            print("                   ░▒▓████████████▓▒░                [ TIER 1: FIRST STEPS ]");
+            print("                  ░▒▓██████████████▓▒░               (BRANCH LOCKED)");
+            print("                   ░▒▓▓██████████▓▓▒░               / ");
+            print("                     ░▒▓▓██████▓▓▒░                /  ");
+            print("                        ▄▄  ██  ▄▄                /   ");
+            print("                          ▀████▀                 /    ");
+            print("                           ████                 /     ");
+            print("                          ▄████▄               /      ");
+            print("        ░▒▓▓▓▒░          ████████             /       ");
+            print("      ░▒▓█████▓▒░       ████  ████           /        ");
+            print("     ░▒▓███████▓▒░ ═════████══████══════════╝         ");
+            print("      ░▒▓█████▓▒░       ████  ████                    ");
+            print("        ░▒▓▓▓▒░        ▄████▄▄████▄                   ");
+            print("                      ██████████████                  ");
+            print("                     ████████████████                 ");
+            print("                 [ Tier 0: Foundation ]               ");
+            print("                   (UNLOCKED STUMP)                   ");
             print("");
             print("================================================================================", "title");
-            print("  STATUS: Viewing Tier 0 Root Branch");
+            print("  STATUS: Root Trunk Loaded [Tier 0 Active]");
             print("  COMMANDS:");
-            print("    move      - Enter WASD matrix mode to scroll categories and specs");
+            print("    move      - Enter WASD matrix view to scroll categories and specs");
             print("    terminate - Exit R&D module and unmount process");
             print("================================================================================", "title");
             updatePrompt();
@@ -642,11 +643,11 @@
                     const item = techMatrix[selectedTierIndex].categories[selectedCategoryIndex];
                     showCategoryInspection(item);
                 } else if (key === "Q") {
-                    e.preventDefault(); // Prevent 'q' character from printing
+                    e.preventDefault();
                     isMoveMode = false;
                     inputEl.disabled = false;
                     inputEl.focus();
-                    inputEl.value = ""; // Clear buffer
+                    inputEl.value = "";
                     renderMainRDView();
                 }
                 return;
