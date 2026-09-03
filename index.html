@@ -136,56 +136,49 @@
         let currentMode = "MAIN_MENU"; 
         let isExecutingProgram = false;
         let isMoveMode = false;
+        let inRDModule = false;
         let tempName = "";
         let pendingLoadSlot = "";
         let pendingDeleteSlot = "";
 
-        // Tech Tree Matrix Definition
-        const techTree = [
-            [
-                { 
-                    id: "T0_FOUNDATION", 
-                    name: "Tier 0: Foundation Tech", 
-                    tier: 0, 
-                    unlocked: true,
-                    desc: "Baseline sub-orbital rocket components and primitive analog systems.",
-                    tech: [
-                        "Probes: Sounding Rocket Payloads (0.5 - 2 IVU)",
-                        "Computers: Mechanical / Manual Control Relays",
-                        "Lifting Bodies: Unpressurized Sounding Rockets",
-                        "Fuels: Low-grade Kerosene & Solid Propellants",
-                        "RCS: Cold Gas Thrusters (Compressed Nitrogen)",
-                        "Power: Primary Silver-Zinc Non-Rechargeable Batteries",
-                        "Heat: Passive Conduction Fins & Thermal Paint",
-                        "Comms: Omnidirectional Whip Antennas",
-                        "Science: Thermometer, Barometer, Geiger Counter"
-                    ]
-                }
-            ],
-            [
-                { 
-                    id: "T1_EARLY_SPACE", 
-                    name: "Tier 1: First Steps", 
-                    tier: 1, 
-                    unlocked: false,
-                    desc: "Early orbital delivery systems, impactors, and short-lived satellites.",
-                    tech: [
-                        "Probes: Impactors, Early Satellites, Return Capsules",
-                        "Computers: Analog Computers (AP/PE math via ground control)",
-                        "Lifting Bodies: Early ICBM-based launch vehicles",
-                        "Fuels: Refined RP-1 / LOX & Advanced Solids",
-                        "RCS: Hydrogen Peroxide Monopropellant",
-                        "Power: Basic Fragile Solar Panels",
-                        "Heat: Gold/Silver Multi-Layer Insulation (MLI)",
-                        "Comms: Directional Yagi-Uda Antennas",
-                        "Science: Micrometeoroid Drums, Deployable Boom Magnetometers"
-                    ]
-                }
-            ]
+        // Detailed Categorized Tech Matrix (Tiers on Columns, Subsystems on Rows)
+        const techMatrix = [
+            {
+                tier: 0,
+                tierName: "TIER 0: FOUNDATION TECH",
+                unlocked: true,
+                categories: [
+                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny volume (0.5 - 2 IVU). Used for sub-orbital vertical hops to test instruments in vacuum for a few minutes." },
+                    { cat: "Computers", name: "Mechanical / Manual Relays", desc: "Computers are mechanical and slow, only able to execute commands based on radio control from ground based computers." },
+                    { cat: "Lifting Bodies", name: "Unpressurized Sounding Rockets", desc: "Solid/liquid fueled rockets for basic sub-orbital flights and potential energy experiments." },
+                    { cat: "Fuels", name: "Kerosene & Solid Propellants", desc: "Low-grade, volatile mixtures with high failure rates and poor efficiency." },
+                    { cat: "RCS", name: "Cold Gas Thrusters", desc: "Compressed Nitrogen tanks providing basic attitude control until pressure depletes." },
+                    { cat: "Power", name: "Primary Silver-Zinc Batteries", desc: "Non-rechargeable, heavy energy storage that drains permanently." },
+                    { cat: "Heat", name: "Passive Conduction Fins", desc: "Fixed conduction fins and thermal paint to radiate excess structural heat." },
+                    { cat: "Comms", name: "Omnidirectional Whips", desc: "360-degree radio wave emissions with high power draw and low transmission rates." },
+                    { cat: "Science", name: "Basic Sounding Suite", desc: "Includes basic Thermometer, Barometer, and Geiger Counter." }
+                ]
+            },
+            {
+                tier: 1,
+                tierName: "TIER 1: FIRST STEPS",
+                unlocked: false,
+                categories: [
+                    { cat: "Probes", name: "Impactors & Early Satellites", desc: "Short-lived orbital probes and lunar impact capsules." },
+                    { cat: "Computers", name: "Analog Guidance Computers", desc: "Basic analog math execution with AP/PE calculations manually requested from ground telemetry." },
+                    { cat: "Lifting Bodies", name: "ICBM-derived Launchers", desc: "Unpressurized early ballistic rocket modifications." },
+                    { cat: "Fuels", name: "Refined RP-1 / LOX", desc: "Decreased engine failure rates and increased combustion efficiency." },
+                    { cat: "RCS", name: "Hydrogen Peroxide Monopropellant", desc: "Catalytic grid thrusters for stable exo-atmospheric alignment." },
+                    { cat: "Power", name: "Basic Solar Panels", desc: "Fragile solar arrays capable of generating power under direct sunlight." },
+                    { cat: "Heat", name: "Multi-Layer Insulation (MLI)", desc: "Gold (Kapton) and Silver Mylar skin wraps for radiation and temp control." },
+                    { cat: "Comms", name: "Yagi-Uda Directional Antennas", desc: "Requires orienting craft toward Earth to achieve higher signal gain." },
+                    { cat: "Science", name: "Deployable Boom Magnetometers", desc: "Extends sensors away from hull EMI to measure planetary magnetic fields." }
+                ]
+            }
         ];
 
-        let selectedRow = 0;
-        let selectedCol = 0;
+        let selectedTierIndex = 0;
+        let selectedCategoryIndex = 0;
 
         const outputEl = document.getElementById("output");
         const promptEl = document.getElementById("prompt");
@@ -201,7 +194,11 @@
 
         function updatePrompt() {
             if (isMoveMode) {
-                promptEl.textContent = "[TREE NAV: WASD=Navigate | E=Detailed Inspection | Q=Exit]> ";
+                promptEl.textContent = "[TREE NAV: WASD=Navigate Categories | E=Inspect Tech | Q=Exit Nav]> ";
+                return;
+            }
+            if (inRDModule) {
+                promptEl.textContent = "[R&D EXEC]> Command (move / terminate):";
                 return;
             }
             switch (currentMode) {
@@ -254,27 +251,29 @@
 
         function printMainMenuHelp() {
             print("System offline. Available commands:");
-            print("  new      - Create a new profile and start game");
-            print("  load     - View save files and login");
-            print("  delete   - Delete a save file");
-            print("  saves    - List available save files");
-            print("  clear    - Clear terminal buffer");
+            print("  new             - Create a new profile and start game");
+            print("  load            - View save files and login");
+            print("  delete          - Delete a save file");
+            print("  saves           - List available save files");
+            print("  clear           - Clear terminal buffer");
         }
 
         function printLoggedInHelp() {
             print("Session Active. Available commands:");
-            print("  run r&d  - Execute Research & Development Module");
-            print("  programs - Display system program tree");
-            print("  status   - Display vessel parameters and telemetry");
-            print("  save     - Save current progress");
-            print("  logout   - Exit current session and lock terminal");
-            print("  clear    - Clear terminal buffer");
+            print("  run [program]   - Execute system program (e.g. 'run r&d')");
+            print("  programs        - Display system program tree");
+            print("  status          - Display vessel parameters and telemetry");
+            print("  save            - Save current progress");
+            print("  logout          - Exit current session and lock terminal");
+            print("  clear           - Clear terminal buffer");
         }
 
         function bootTerminal() {
             outputEl.innerHTML = "";
             showTitle();
             currentMode = "MAIN_MENU";
+            inRDModule = false;
+            isMoveMode = false;
             updatePrompt();
             printMainMenuHelp();
         }
@@ -290,7 +289,6 @@
             return saves;
         }
 
-        // Executable Async Boot
         async function runRDProgram() {
             isExecutingProgram = true;
             inputEl.disabled = true;
@@ -300,8 +298,7 @@
                 "[SYS] INITIALIZING EXECUTABLE: R&D.PMCS...",
                 "[SYS] ALLOCATING MEMORY SECTORS 0x00FF - 0x048A...",
                 "[SYS] MOUNTING ARCHIVE: /sys/rd/tech_tree.db... OK",
-                "[SYS] LOADING SCHEMATIC RENDERING ENGINE...",
-                "[SYS] LINKING TECH NODES... OK",
+                "[SYS] SCHEMATIC ENGINE READY...",
                 "[SYS] EXECUTION OK."
             ];
 
@@ -345,70 +342,64 @@
                 await new Promise(r => setTimeout(r, 100));
             }
 
-            // Lock into Tree View
             isExecutingProgram = false;
-            isMoveMode = true;
-            renderStaticTechTree();
+            inRDModule = true;
+            isMoveMode = false;
+            inputEl.disabled = false;
+            inputEl.focus();
+            
+            outputEl.innerHTML = "";
+            print("================================================================================", "title");
+            print("                 R&D EXECUTABLE LOADED // SYSTEM READY                          ", "title");
+            print("================================================================================", "title");
+            print("Type 'move' to activate WASD matrix navigation.");
+            print("Type 'terminate' to exit the R&D module.");
+            print("");
             updatePrompt();
         }
 
-        // KSP-Style Static Frame Render
         function renderStaticTechTree() {
-            outputEl.innerHTML = ""; // Clear buffer to draw static layout
+            outputEl.innerHTML = "";
+
+            const activeTier = techMatrix[selectedTierIndex];
+            const activeCategory = activeTier.categories[selectedCategoryIndex];
 
             print("================================================================================", "title");
-            print("                     RESEARCH & DEVELOPMENT TECH TREE                           ", "title");
+            print(`                     R&D TECH TREE MATRIX // ${activeTier.tierName}`, "title");
             print("================================================================================", "title");
-            print("  CONTROLS: [W/A/S/D] Navigate Nodes  |  [E] Full Ledger  |  [Q] Exit View");
+            print("  CONTROLS: [W/S] Move Category  |  [A/D] Change Tier  |  [E] Detailed Specs  |  [Q] Exit Nav");
             print("--------------------------------------------------------------------------------");
 
-            // Render Node Grid Map
-            for (let r = 0; r < techTree.length; r++) {
-                let nodeRowStr = "";
-                for (let c = 0; c < techTree[r].length; c++) {
-                    const node = techTree[r][c];
-                    const isSelected = (r === selectedRow && c === selectedCol);
-                    const statusTag = node.unlocked ? "[UNLOCKED]" : "[LOCKED]";
-                    
-                    if (isSelected) {
-                        nodeRowStr += `  ►► [[ ${node.name} ]] ${statusTag} ◄◄  `;
-                    } else {
-                        nodeRowStr += `     [ ${node.name} ] ${statusTag}     `;
-                    }
-                }
-                print(nodeRowStr, (r === selectedRow) ? "title" : "amber");
+            for (let i = 0; i < activeTier.categories.length; i++) {
+                const item = activeTier.categories[i];
+                const isSelected = (i === selectedCategoryIndex);
+                
+                let lineStr = isSelected 
+                    ? ` ►► [${item.cat.toUpperCase()}] : ${item.name} ◄◄` 
+                    : `    [${item.cat.toUpperCase()}] : ${item.name}`;
 
-                if (r < techTree.length - 1) {
-                    print("            │", "amber");
-                    print("            ▼", "amber");
-                }
+                print(lineStr, isSelected ? "title" : "amber");
             }
 
-            // Real-Time Dynamic Inspection Panel
-            const currentNode = techTree[selectedRow][selectedCol];
             print("--------------------------------------------------------------------------------");
-            print(`NODE DETAILS: ${currentNode.name.toUpperCase()}`, "title");
-            print(`DESCRIPTION: ${currentNode.desc}`);
-            print("INCLUDED TECH & MODULES:");
-            currentNode.tech.forEach(item => {
-                print(`  • ${item}`);
-            });
+            print(`HIGHLIGHTED SPECIFICATION: [${activeCategory.cat.toUpperCase()}] -> ${activeCategory.name}`, "title");
+            print(`DESCRIPTION: ${activeCategory.desc}`);
             print("================================================================================", "title");
         }
 
-        function showFullLedger(node) {
+        function showCategoryInspection(item) {
             outputEl.innerHTML = "";
             print("================================================================================", "title");
-            print(`                   HARDWARE SPECIFICATION LEDGER: ${node.name.toUpperCase()}`, "title");
+            print(`                   HARDWARE INSPECTION LEDGER: ${item.cat.toUpperCase()}`, "title");
             print("================================================================================", "title");
-            print(`STATUS: ${node.unlocked ? "UNLOCKED & AVAILABLE" : "LOCKED"}`);
-            print(`SUMMARY: ${node.desc}`);
+            print(`NAME: ${item.name}`);
+            print(`SUBSYSTEM CLASSIFICATION: ${item.cat}`);
             print("");
-            print("TECHNICAL CATEGORY BREAKDOWN:", "title");
-            node.tech.forEach(item => print(`  [SYSTEM SPEC] ${item}`));
+            print("TECHNICAL OVERVIEW:", "title");
+            print(`  ${item.desc}`);
             print("");
             print("--------------------------------------------------------------------------------");
-            print("Press [W/A/S/D] to resume tree navigation or [Q] to exit to terminal.");
+            print("Press [W/A/S/D] to resume navigation or [Q] to exit navigation mode.");
             print("--------------------------------------------------------------------------------");
         }
 
@@ -513,6 +504,28 @@
             const cmd = parts[0].toLowerCase();
             const subCmd = parts[1] ? parts[1].toLowerCase() : "";
 
+            if (inRDModule) {
+                if (cmd === "move") {
+                    isMoveMode = true;
+                    inputEl.disabled = true;
+                    renderStaticTechTree();
+                    updatePrompt();
+                    return;
+                }
+                if (cmd === "terminate") {
+                    inRDModule = false;
+                    isMoveMode = false;
+                    outputEl.innerHTML = "";
+                    print("[SYS] R&D Module Terminated.");
+                    print("");
+                    printLoggedInHelp();
+                    updatePrompt();
+                    return;
+                }
+                print(`[ERR] Program active. Commands available: 'move', 'terminate'.`);
+                return;
+            }
+
             if (currentMode === "LOGGED_IN") {
                 if ((cmd === "run" && subCmd === "r&d") || cmd === "r&d") {
                     runRDProgram();
@@ -606,38 +619,36 @@
             }
         }
 
-        // Global Keyboard Handler (Input + WASD Matrix Nav)
         window.addEventListener("keydown", (e) => {
             if (isExecutingProgram) return;
 
             if (isMoveMode) {
                 const key = e.key.toUpperCase();
 
-                if (key === "W" && selectedRow > 0) {
-                    selectedRow--;
-                    if (selectedCol >= techTree[selectedRow].length) selectedCol = techTree[selectedRow].length - 1;
+                if (key === "W" && selectedCategoryIndex > 0) {
+                    selectedCategoryIndex--;
                     renderStaticTechTree();
-                } else if (key === "S" && selectedRow < techTree.length - 1) {
-                    selectedRow++;
-                    if (selectedCol >= techTree[selectedRow].length) selectedCol = techTree[selectedRow].length - 1;
+                } else if (key === "S" && selectedCategoryIndex < techMatrix[selectedTierIndex].categories.length - 1) {
+                    selectedCategoryIndex++;
                     renderStaticTechTree();
-                } else if (key === "A" && selectedCol > 0) {
-                    selectedCol--;
+                } else if (key === "A" && selectedTierIndex > 0) {
+                    selectedTierIndex--;
                     renderStaticTechTree();
-                } else if (key === "D" && selectedCol < techTree[selectedRow].length - 1) {
-                    selectedCol++;
+                } else if (key === "D" && selectedTierIndex < techMatrix.length - 1) {
+                    selectedTierIndex++;
                     renderStaticTechTree();
                 } else if (key === "E") {
-                    const currentNode = techTree[selectedRow][selectedCol];
-                    showFullLedger(currentNode);
+                    const item = techMatrix[selectedTierIndex].categories[selectedCategoryIndex];
+                    showCategoryInspection(item);
                 } else if (key === "Q") {
                     isMoveMode = false;
                     inputEl.disabled = false;
                     inputEl.focus();
                     outputEl.innerHTML = "";
+                    print("[SYS] Exited Navigation Mode. Returned to R&D Executable command prompt.");
+                    print("Type 'move' to re-enter navigation, or 'terminate' to exit R&D.");
+                    print("");
                     updatePrompt();
-                    print("[SYS] Exited R&D Tech Tree view.");
-                    printLoggedInHelp();
                 }
                 return;
             }
