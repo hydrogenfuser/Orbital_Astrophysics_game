@@ -14,7 +14,7 @@
             width: 100vw;
             height: 100vh;
             background-color: #05080a;
-            color: #ffb000;
+            color: #ffb000; /* All text amber orange */
             font-family: "Courier New", Courier, monospace;
             overflow: hidden;
         }
@@ -37,16 +37,14 @@
             line-height: 1.3;
         }
 
-        .line-info { color: #ffb000; }
-        .line-sys { color: #00bfff; }
-        .line-err { color: #ff4500; }
-        .line-cmd { color: #ffffff; }
+        /* Standardized class styling to maintain pure amber theme */
+        .line-amber { color: #ffb000; }
         .line-title { color: #ffb000; font-weight: bold; }
         
         #input-line {
             display: flex;
             align-items: center;
-            border-top: 1px solid #332200;
+            border-top: 1px solid #ffb000;
             padding-top: 8px;
         }
         #prompt {
@@ -58,7 +56,7 @@
             background: transparent;
             border: none;
             outline: none;
-            color: #ffffff;
+            color: #ffb000; /* Input text amber orange */
             font-family: inherit;
             font-size: 1rem;
             flex: 1;
@@ -95,15 +93,16 @@
             }
         };
 
-        // State machine variables for command sequences
-        let currentMode = "MAIN_MENU"; // MAIN_MENU, NEW_NAME, NEW_PASS, LOGGED_IN
+        // State Machine Modes: MAIN_MENU, NEW_NAME, NEW_PASS, LOAD_SELECT, LOAD_PASS, LOGGED_IN
+        let currentMode = "MAIN_MENU"; 
         let tempName = "";
+        let pendingLoadSlot = "";
 
         const outputEl = document.getElementById("output");
         const promptEl = document.getElementById("prompt");
         const inputEl = document.getElementById("command-input");
 
-        function print(text, type = "info") {
+        function print(text, type = "amber") {
             const div = document.createElement("div");
             div.className = `line-${type}`;
             div.textContent = text;
@@ -112,14 +111,23 @@
         }
 
         function updatePrompt() {
-            if (currentMode === "LOGGED_IN" && GameState.activeSlot) {
-                promptEl.textContent = `[${GameState.activeSlot}]> Command:`;
-            } else if (currentMode === "NEW_NAME") {
-                promptEl.textContent = "Name?:";
-            } else if (currentMode === "NEW_PASS") {
-                promptEl.textContent = "Password?:";
-            } else {
-                promptEl.textContent = "Command:";
+            switch (currentMode) {
+                case "LOGGED_IN":
+                    promptEl.textContent = `[${GameState.activeSlot}]> Command:`;
+                    break;
+                case "NEW_NAME":
+                    promptEl.textContent = "Name?:";
+                    break;
+                case "NEW_PASS":
+                case "LOAD_PASS":
+                    promptEl.textContent = "Password?:";
+                    break;
+                case "LOAD_SELECT":
+                    promptEl.textContent = "Select Save File:";
+                    break;
+                default:
+                    promptEl.textContent = "Command:";
+                    break;
             }
         }
 
@@ -134,7 +142,7 @@
         function printMainMenuHelp() {
             print("System offline. Available commands:");
             print("  new      - Create a new profile and start game");
-            print("  load     - Load saved game");
+            print("  load     - View save files and login");
             print("  saves    - List available save files");
             print("  clear    - Clear terminal buffer");
         }
@@ -155,12 +163,23 @@
             printMainMenuHelp();
         }
 
+        function getSaveList() {
+            const saves = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith("orbital_save_")) {
+                    saves.push(key.replace("orbital_save_", ""));
+                }
+            }
+            return saves;
+        }
+
         function processCommand(input) {
-            // Handle masked password input visually
-            if (currentMode === "NEW_PASS") {
-                print("Password?: ********", "cmd");
+            // Echo password inputs visually as asterisks
+            if (currentMode === "NEW_PASS" || currentMode === "LOAD_PASS") {
+                print(`${promptEl.textContent} ********`, "amber");
             } else {
-                print(`${promptEl.textContent} ${input}`, "cmd");
+                print(`${promptEl.textContent} ${input}`, "amber");
             }
 
             // 1. New Game Setup - Name Step
@@ -177,7 +196,7 @@
             if (currentMode === "NEW_PASS") {
                 if (!input) return;
                 const password = input;
-                inputEl.type = "text"; // Reset input field mask
+                inputEl.type = "text";
 
                 const slotName = tempName.toLowerCase().replace(/\s+/g, '_');
                 GameState.activeSlot = slotName;
@@ -186,23 +205,73 @@
                 GameState.data.user.password = password;
                 GameState.data.timestamp = new Date().toISOString();
 
-                // Save initial state
                 localStorage.setItem(`orbital_save_${slotName}`, JSON.stringify(GameState.data));
 
                 currentMode = "LOGGED_IN";
                 updatePrompt();
-                print(`[SYS] User profile '${tempName}' initialized.`, "sys");
-                print(`[SYS] Access ID locked: [${slotName}]`, "sys");
+                print(`[SYS] User profile '${tempName}' initialized.`);
+                print(`[SYS] Access ID locked: [${slotName}]`);
                 print("");
                 printLoggedInHelp();
                 return;
             }
 
+            // 3. Load File - Selection Step
+            if (currentMode === "LOAD_SELECT") {
+                if (!input) return;
+                const targetSlot = input.toLowerCase().replace(/\s+/g, '_');
+                const rawData = localStorage.getItem(`orbital_save_${targetSlot}`);
+
+                if (!rawData) {
+                    print(`[ERR] Save file '${input}' not found.`);
+                    print("Enter valid save file name or type 'cancel':");
+                    return;
+                }
+
+                if (input.toLowerCase() === "cancel") {
+                    currentMode = "MAIN_MENU";
+                    updatePrompt();
+                    printMainMenuHelp();
+                    return;
+                }
+
+                pendingLoadSlot = targetSlot;
+                currentMode = "LOAD_PASS";
+                inputEl.type = "password";
+                updatePrompt();
+                return;
+            }
+
+            // 4. Load File - Password Verification Step
+            if (currentMode === "LOAD_PASS") {
+                if (!input) return;
+                inputEl.type = "text";
+                const rawData = localStorage.getItem(`orbital_save_${pendingLoadSlot}`);
+                const parsedData = JSON.parse(rawData);
+
+                if (parsedData.user.password === input) {
+                    GameState.data = parsedData;
+                    GameState.activeSlot = pendingLoadSlot;
+                    pendingLoadSlot = "";
+                    currentMode = "LOGGED_IN";
+                    updatePrompt();
+                    print(`[SYS] Access granted. Session loaded for profile '${GameState.data.user.name}'.`);
+                    print("");
+                    printLoggedInHelp();
+                } else {
+                    print("[ERR] Access denied. Incorrect password.");
+                    currentMode = "MAIN_MENU";
+                    pendingLoadSlot = "";
+                    updatePrompt();
+                    printMainMenuHelp();
+                }
+                return;
+            }
+
             const parts = input.split(" ");
             const cmd = parts[0].toLowerCase();
-            const arg = parts[1];
 
-            // 3. Logged In Mode Commands
+            // 5. Logged In Mode Commands
             if (currentMode === "LOGGED_IN") {
                 switch (cmd) {
                     case "help":
@@ -210,21 +279,21 @@
                         break;
 
                     case "status":
-                        print(`User: ${GameState.data.user.name}`, "info");
-                        print(`Vessel: ${GameState.data.vessel.name}`, "info");
-                        print(`Mass: ${GameState.data.vessel.mass_kg} kg`, "info");
-                        print(`Altitude: ${GameState.data.vessel.altitude_m} m`, "info");
-                        print(`Velocity: ${GameState.data.vessel.velocity_ms} m/s`, "info");
+                        print(`User: ${GameState.data.user.name}`);
+                        print(`Vessel: ${GameState.data.vessel.name}`);
+                        print(`Mass: ${GameState.data.vessel.mass_kg} kg`);
+                        print(`Altitude: ${GameState.data.vessel.altitude_m} m`);
+                        print(`Velocity: ${GameState.data.vessel.velocity_ms} m/s`);
                         break;
 
                     case "save":
                         GameState.data.timestamp = new Date().toISOString();
                         localStorage.setItem(`orbital_save_${GameState.activeSlot}`, JSON.stringify(GameState.data));
-                        print(`[SYS] Telemetry saved to slot '${GameState.activeSlot}'.`, "sys");
+                        print(`[SYS] Telemetry saved to slot '${GameState.activeSlot}'.`);
                         break;
 
                     case "logout":
-                        print(`[SYS] Logging out user '${GameState.data.user.name}'...`, "sys");
+                        print(`[SYS] Logging out user '${GameState.data.user.name}'...`);
                         GameState.activeSlot = null;
                         GameState.data.user.name = "";
                         GameState.data.user.password = "";
@@ -236,13 +305,13 @@
                         break;
 
                     default:
-                        print(`Unknown command: '${cmd}'. Type 'help' for available options.`, "err");
+                        print(`Unknown command: '${cmd}'. Type 'help' for options.`);
                         break;
                 }
                 return;
             }
 
-            // 4. Main Menu Mode Commands
+            // 6. Main Menu Mode Commands
             if (currentMode === "MAIN_MENU") {
                 switch (cmd) {
                     case "help":
@@ -255,48 +324,27 @@
                         break;
 
                     case "saves":
-                        print("[SYS] Scanning local state memory...", "sys");
-                        let count = 0;
-                        for (let i = 0; i < localStorage.length; i++) {
-                            const key = localStorage.key(i);
-                            if (key.startsWith("orbital_save_")) {
-                                print(`  - ${key.replace("orbital_save_", "")}`, "info");
-                                count++;
-                            }
+                        print("[SYS] Scanning local state memory...");
+                        const saveFiles = getSaveList();
+                        if (saveFiles.length === 0) {
+                            print("  No save files found.");
+                        } else {
+                            saveFiles.forEach(slot => print(`  - ${slot}`));
                         }
-                        if (count === 0) print("  No save files found.", "err");
                         break;
 
                     case "load":
-                        let target = arg;
-                        if (!target) {
-                            // Find first save if no argument provided
-                            for (let i = 0; i < localStorage.length; i++) {
-                                if (localStorage.key(i).startsWith("orbital_save_")) {
-                                    target = localStorage.key(i).replace("orbital_save_", "");
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (!target) {
-                            print("[ERR] No save file specified or found.", "err");
+                        const saves = getSaveList();
+                        if (saves.length === 0) {
+                            print("[ERR] No save files present in system memory.");
                             return;
                         }
 
-                        const rawData = localStorage.getItem(`orbital_save_${target}`);
-                        if (!rawData) {
-                            print(`[ERR] Save slot '${target}' not found.`, "err");
-                            return;
-                        }
-
-                        GameState.data = JSON.parse(rawData);
-                        GameState.activeSlot = target;
-                        currentMode = "LOGGED_IN";
-                        updatePrompt();
-                        print(`[SYS] Session loaded for profile '${GameState.data.user.name}'.`, "sys");
+                        print("[SYS] Open Save Files Available:");
+                        saves.forEach(slot => print(`  - ${slot}`));
                         print("");
-                        printLoggedInHelp();
+                        currentMode = "LOAD_SELECT";
+                        updatePrompt();
                         break;
 
                     case "clear":
@@ -304,13 +352,13 @@
                         break;
 
                     default:
-                        print(`Unknown command: '${cmd}'. Type 'help' for available options.`, "err");
+                        print(`Unknown command: '${cmd}'. Type 'help' for options.`);
                         break;
                 }
             }
         }
 
-        // Input Listener
+        // Event Listener
         inputEl.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
                 const input = inputEl.value.trim();
@@ -319,7 +367,7 @@
             }
         });
 
-        // Initialize application
+        // Initialize Terminal application
         bootTerminal();
     </script>
 </body>
