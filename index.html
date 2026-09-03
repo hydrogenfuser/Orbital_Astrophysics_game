@@ -37,7 +37,6 @@
             line-height: 1.3;
         }
 
-        /* Standardized class styling to maintain pure amber theme */
         .line-amber { color: #ffb000; }
         .line-title { color: #ffb000; font-weight: bold; }
         
@@ -93,10 +92,11 @@
             }
         };
 
-        // State Machine Modes: MAIN_MENU, NEW_NAME, NEW_PASS, LOAD_SELECT, LOAD_PASS, LOGGED_IN
+        // State Machine Modes: MAIN_MENU, NEW_NAME, NEW_PASS, LOAD_SELECT, LOAD_PASS, DELETE_SELECT, DELETE_CONFIRM, LOGGED_IN
         let currentMode = "MAIN_MENU"; 
         let tempName = "";
         let pendingLoadSlot = "";
+        let pendingDeleteSlot = "";
 
         const outputEl = document.getElementById("output");
         const promptEl = document.getElementById("prompt");
@@ -125,6 +125,12 @@
                 case "LOAD_SELECT":
                     promptEl.textContent = "Select Save File:";
                     break;
+                case "DELETE_SELECT":
+                    promptEl.textContent = "Delete Save File:";
+                    break;
+                case "DELETE_CONFIRM":
+                    promptEl.textContent = "Are you sure? (Y/N):";
+                    break;
                 default:
                     promptEl.textContent = "Command:";
                     break;
@@ -143,6 +149,7 @@
             print("System offline. Available commands:");
             print("  new      - Create a new profile and start game");
             print("  load     - View save files and login");
+            print("  delete   - Delete a save file");
             print("  saves    - List available save files");
             print("  clear    - Clear terminal buffer");
         }
@@ -220,18 +227,18 @@
             if (currentMode === "LOAD_SELECT") {
                 if (!input) return;
                 const targetSlot = input.toLowerCase().replace(/\s+/g, '_');
-                const rawData = localStorage.getItem(`orbital_save_${targetSlot}`);
-
-                if (!rawData) {
-                    print(`[ERR] Save file '${input}' not found.`);
-                    print("Enter valid save file name or type 'cancel':");
-                    return;
-                }
 
                 if (input.toLowerCase() === "cancel") {
                     currentMode = "MAIN_MENU";
                     updatePrompt();
                     printMainMenuHelp();
+                    return;
+                }
+
+                const rawData = localStorage.getItem(`orbital_save_${targetSlot}`);
+                if (!rawData) {
+                    print(`[ERR] Save file '${input}' not found.`);
+                    print("Enter valid save file name or type 'cancel':");
                     return;
                 }
 
@@ -268,10 +275,56 @@
                 return;
             }
 
+            // 5. Delete File - Selection Step
+            if (currentMode === "DELETE_SELECT") {
+                if (!input) return;
+                const targetSlot = input.toLowerCase().replace(/\s+/g, '_');
+
+                if (input.toLowerCase() === "cancel") {
+                    currentMode = "MAIN_MENU";
+                    updatePrompt();
+                    printMainMenuHelp();
+                    return;
+                }
+
+                const rawData = localStorage.getItem(`orbital_save_${targetSlot}`);
+                if (!rawData) {
+                    print(`[ERR] Save file '${input}' not found.`);
+                    print("Enter valid save file name or type 'cancel':");
+                    return;
+                }
+
+                pendingDeleteSlot = targetSlot;
+                currentMode = "DELETE_CONFIRM";
+                updatePrompt();
+                return;
+            }
+
+            // 6. Delete File - Y/N Confirmation Step
+            if (currentMode === "DELETE_CONFIRM") {
+                const choice = input.toUpperCase();
+                if (choice === "Y" || choice === "YES") {
+                    localStorage.removeItem(`orbital_save_${pendingDeleteSlot}`);
+                    print(`[SYS] Save file '${pendingDeleteSlot}' has been permanently deleted.`);
+                } else if (choice === "N" || choice === "NO") {
+                    print("[SYS] Deletion canceled.");
+                } else {
+                    print("[ERR] Invalid input. Please enter 'Y' or 'N'.");
+                    return;
+                }
+
+                pendingDeleteSlot = "";
+                currentMode = "MAIN_MENU";
+                updatePrompt();
+                print("");
+                printMainMenuHelp();
+                return;
+            }
+
             const parts = input.split(" ");
             const cmd = parts[0].toLowerCase();
 
-            // 5. Logged In Mode Commands
+            // 7. Logged In Mode Commands
             if (currentMode === "LOGGED_IN") {
                 switch (cmd) {
                     case "help":
@@ -311,7 +364,7 @@
                 return;
             }
 
-            // 6. Main Menu Mode Commands
+            // 8. Main Menu Mode Commands
             if (currentMode === "MAIN_MENU") {
                 switch (cmd) {
                     case "help":
@@ -334,16 +387,30 @@
                         break;
 
                     case "load":
-                        const saves = getSaveList();
-                        if (saves.length === 0) {
+                        const loadSaves = getSaveList();
+                        if (loadSaves.length === 0) {
                             print("[ERR] No save files present in system memory.");
                             return;
                         }
 
                         print("[SYS] Open Save Files Available:");
-                        saves.forEach(slot => print(`  - ${slot}`));
+                        loadSaves.forEach(slot => print(`  - ${slot}`));
                         print("");
                         currentMode = "LOAD_SELECT";
+                        updatePrompt();
+                        break;
+
+                    case "delete":
+                        const deleteSaves = getSaveList();
+                        if (deleteSaves.length === 0) {
+                            print("[ERR] No save files present to delete.");
+                            return;
+                        }
+
+                        print("[SYS] Open Save Files Available for Deletion:");
+                        deleteSaves.forEach(slot => print(`  - ${slot}`));
+                        print("");
+                        currentMode = "DELETE_SELECT";
                         updatePrompt();
                         break;
 
