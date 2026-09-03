@@ -11,7 +11,6 @@
             padding: 0;
         }
         
-        /* CRT Screen Base */
         html, body {
             width: 100vw;
             height: 100vh;
@@ -22,7 +21,6 @@
             position: relative;
         }
 
-        /* Tightened High-Density CRT Scanlines (2px Pitch, Low Bloom) */
         body::after {
             content: " ";
             display: block;
@@ -38,7 +36,6 @@
             opacity: 0.85;
         }
 
-        /* Full Window Terminal Container */
         #terminal-screen {
             display: flex;
             flex-direction: column;
@@ -58,13 +55,11 @@
             line-height: 1.25;
         }
 
-        /* Subdued Phosphor Text Style */
         .line-amber, .line-title, #prompt, #command-input {
             color: #ffb000;
             text-shadow: 0 0 1.5px rgba(255, 176, 0, 0.4);
         }
 
-        /* Soft Line Generation Scan Animation */
         .line-amber, .line-title {
             animation: generate-scan 0.08s ease-out forwards;
         }
@@ -105,7 +100,6 @@
             flex: 1;
         }
 
-        /* Custom Amber Scrollbar */
         #output::-webkit-scrollbar {
             width: 6px;
         }
@@ -128,21 +122,36 @@
     </div>
 
     <script>
-        // Game State Object
         let GameState = {
             activeSlot: null,
             data: {
                 user: { name: "", password: "" },
                 saveName: "",
                 timestamp: null,
+                sciencePoints: 0,
+                unlockedTech: ["T0_FOUNDATION"],
                 vessel: { name: "Probe-Alpha", mass_kg: 1200, altitude_m: 375000, velocity_ms: 2450 }
             }
         };
 
         let currentMode = "MAIN_MENU"; 
+        let isExecutingProgram = false;
+        let isMoveMode = false;
         let tempName = "";
         let pendingLoadSlot = "";
         let pendingDeleteSlot = "";
+
+        // Tech Tree Matrix for Navigation
+        const techTree = [
+            [
+                { id: "T0_FOUNDATION", name: "Tier 0: Foundation", tier: 0, unlocked: true }
+            ],
+            [
+                { id: "T1_EARLY_SPACE", name: "Tier 1: Early Spaceflight", tier: 1, unlocked: false }
+            ]
+        ];
+        let selectedRow = 0;
+        let selectedCol = 0;
 
         const outputEl = document.getElementById("output");
         const promptEl = document.getElementById("prompt");
@@ -157,6 +166,10 @@
         }
 
         function updatePrompt() {
+            if (isMoveMode) {
+                promptEl.textContent = "[NAV-MODE: WASD=Move | E=Select | Q=Exit]> ";
+                return;
+            }
             switch (currentMode) {
                 case "LOGGED_IN":
                     promptEl.textContent = `[${GameState.activeSlot}]> Command:`;
@@ -216,6 +229,7 @@
 
         function printLoggedInHelp() {
             print("Session Active. Available commands:");
+            print("  run r&d  - Execute Research & Development Module");
             print("  programs - Display system program tree");
             print("  status   - Display vessel parameters and telemetry");
             print("  save     - Save current progress");
@@ -242,7 +256,156 @@
             return saves;
         }
 
+        // Asynchronous Executable Sequence for R&D
+        async function runRDProgram() {
+            isExecutingProgram = true;
+            inputEl.disabled = true;
+            outputEl.innerHTML = "";
+
+            const bootLogs = [
+                "[SYS] INITIALIZING EXECUTABLE: R&D.PMCS...",
+                "[SYS] ALLOCATING MEMORY SECTORS 0x00FF - 0x048A...",
+                "[SYS] MOUNTING ARCHIVE: /sys/rd/tech_tree.db... OK",
+                "[SYS] LOADING CORE ENGINE MODULES...",
+                "[SYS] LINKING QUANTUM SCHEMATICS DATABASE...",
+                "[SYS] CHECKING HARDWARE REVISION... REV 0.1a",
+                "[SYS] VERIFYING TELEMETRY BUFFER... PASSED",
+                "[SYS] CONFIGURING USER PERMISSIONS: LEVEL 0 ACCESS",
+                "[SYS] COMPILING ASCII INTERFACE COMPONENTS...",
+                "[SYS] EXECUTION OK."
+            ];
+
+            // 1. Rapid Boot Logs
+            for (const log of bootLogs) {
+                print(log);
+                await new Promise(r => setTimeout(r, Math.floor(Math.random() * 25) + 10));
+            }
+            print("");
+
+            // 2. Big ASCII Banner Render (R, &, D sequence)
+            const asciiR = [
+                "██████╗ ",
+                "██╔══██╗",
+                "██████╔╝",
+                "██╔══██╗",
+                "██║  ██║",
+                "╚═╝  ╚═╝"
+            ];
+            const asciiAnd = [
+                " █████╗ ",
+                "██╔══██╗",
+                "╚█████╔╝",
+                "██╔══██╗",
+                "╚█████╔╝",
+                " ╚════╝ "
+            ];
+            const asciiD = [
+                "██████╗ ",
+                "██╔══██╗",
+                "██║  ██║",
+                "██║  ██║",
+                "██████╔╝",
+                "╚═════╝ "
+            ];
+
+            print("SYSTEM BANNER INITIALIZATION:");
+            for (let i = 0; i < 6; i++) {
+                print(asciiR[i] + "  " + asciiAnd[i] + "  " + asciiD[i], "title");
+                await new Promise(r => setTimeout(r, 1000)); // 1 second per line render
+            }
+            print("");
+
+            // 3. Dynamic Progress Bar with 25% Stall Chance
+            print("LOADING TECH TREE DATA:");
+            let progress = 0;
+            const totalTime = Math.floor(Math.random() * 3000) + 3000; // 3 to 6 seconds
+            const intervalTime = 100;
+            const steps = totalTime / intervalTime;
+            const increment = 100 / steps;
+
+            const stallPoint = Math.floor(Math.random() * 60) + 20; // Stall between 20% and 80%
+            const willStall = Math.random() < 0.25; // 25% chance
+            let hasStalled = false;
+
+            const progressDiv = document.createElement("div");
+            progressDiv.className = "line-amber";
+            outputEl.appendChild(progressDiv);
+
+            while (progress < 100) {
+                progress += increment;
+                if (progress > 100) progress = 100;
+
+                if (willStall && !hasStalled && progress >= stallPoint) {
+                    hasStalled = true;
+                    progressDiv.textContent = `PROGRESS: [${"█".repeat(Math.floor(progress / 5))}${"-".repeat(20 - Math.floor(progress / 5))}] ${Math.floor(progress)}% [BUSY...]`;
+                    await new Promise(r => setTimeout(r, 2000)); // 2 second pause
+                }
+
+                progressDiv.textContent = `PROGRESS: [${"█".repeat(Math.floor(progress / 5))}${"-".repeat(20 - Math.floor(progress / 5))}] ${Math.floor(progress)}%`;
+                await new Promise(r => setTimeout(r, intervalTime));
+            }
+
+            print("");
+            print("[SYS] R&D SYSTEM ONLINE.", "title");
+            print("Type 'move' to enter WASD Tree Navigation mode.");
+            print("Type 'back' to exit R&D.");
+
+            isExecutingProgram = false;
+            inputEl.disabled = false;
+            inputEl.focus();
+            updatePrompt();
+        }
+
+        function renderTechTree() {
+            print("=== RESEARCH & DEVELOPMENT TECH TREE ===", "title");
+            print(`Available Science: ${GameState.data.sciencePoints} SCI`);
+            print("------------------------------------------------");
+
+            for (let r = 0; r < techTree.length; r++) {
+                let rowString = "";
+                for (let c = 0; c < techTree[r].length; c++) {
+                    const node = techTree[r][c];
+                    const isSelected = (r === selectedRow && c === selectedCol);
+                    const prefix = isSelected ? "> [" : "  [";
+                    const suffix = isSelected ? "] <" : "]  ";
+                    const status = node.unlocked ? "UNLOCKED" : "LOCKED";
+                    
+                    rowString += `${prefix}${node.name} (${status})${suffix}`;
+                }
+                print(rowString, (r === selectedRow) ? "title" : "amber");
+            }
+            print("------------------------------------------------");
+            if (isMoveMode) {
+                print("NAV MODE ACTIVE: [W/A/S/D] Navigate | [E] Inspect Node | [Q] Quit Nav");
+            }
+        }
+
+        function inspectNode(node) {
+            print("");
+            print(`=== NODE INSPECTION: ${node.name} ===`, "title");
+            if (node.id === "T0_FOUNDATION") {
+                print("Status: UNLOCKED (Baseline)");
+                print("Description: Sub-orbital sounding rockets & basic telemetry components.");
+                print("Available Hardware:");
+                print("  • Probes: Sounding Rocket Payloads (0.5 - 2 IVU)");
+                print("  • Computers: Mechanical/Manual Control Systems");
+                print("  • Lifting Bodies: Unpressurized Sounding Rockets");
+                print("  • Fuels: Kerosene & Solid Propellants");
+                print("  • RCS: Cold Gas Thrusters (Nitrogen)");
+                print("  • Power: Primary Silver-Zinc Batteries");
+                print("  • Heat: Passive Conduction Fins & Coating");
+                print("  • Comms: Omnidirectional Whips");
+                print("  • Science: Thermometer, Barometer, Geiger Counter");
+            } else {
+                print("Status: LOCKED");
+                print("Requires Tier 0 completion and Science Points to unlock.");
+            }
+            print("");
+        }
+
         function processCommand(input) {
+            if (isExecutingProgram) return;
+
             if (currentMode === "NEW_PASS" || currentMode === "LOAD_PASS") {
                 print(`${promptEl.textContent} ********`, "amber");
             } else {
@@ -272,7 +435,6 @@
 
                 localStorage.setItem(`orbital_save_${slotName}`, JSON.stringify(GameState.data));
 
-                // Auto-clear terminal on initial creation
                 outputEl.innerHTML = "";
                 currentMode = "LOGGED_IN";
                 updatePrompt();
@@ -321,7 +483,6 @@
                     pendingLoadSlot = "";
                     currentMode = "LOGGED_IN";
                     
-                    // Auto-clear screen on successful load
                     outputEl.innerHTML = "";
                     updatePrompt();
                     
@@ -339,54 +500,30 @@
                 return;
             }
 
-            if (currentMode === "DELETE_SELECT") {
-                if (!input) return;
-                const targetSlot = input.toLowerCase().replace(/\s+/g, '_');
-
-                if (input.toLowerCase() === "cancel") {
-                    currentMode = "MAIN_MENU";
-                    updatePrompt();
-                    printMainMenuHelp();
-                    return;
-                }
-
-                const rawData = localStorage.getItem(`orbital_save_${targetSlot}`);
-                if (!rawData) {
-                    print(`[ERR] Save file '${input}' not found.`);
-                    print("Enter valid save file name or type 'cancel':");
-                    return;
-                }
-
-                pendingDeleteSlot = targetSlot;
-                currentMode = "DELETE_CONFIRM";
-                updatePrompt();
-                return;
-            }
-
-            if (currentMode === "DELETE_CONFIRM") {
-                const choice = input.toUpperCase();
-                if (choice === "Y" || choice === "YES") {
-                    localStorage.removeItem(`orbital_save_${pendingDeleteSlot}`);
-                    print(`[SYS] Save file '${pendingDeleteSlot}' has been permanently deleted.`);
-                } else if (choice === "N" || choice === "NO") {
-                    print("[SYS] Deletion canceled.");
-                } else {
-                    print("[ERR] Invalid input. Please enter 'Y' or 'N'.");
-                    return;
-                }
-
-                pendingDeleteSlot = "";
-                currentMode = "MAIN_MENU";
-                updatePrompt();
-                print("");
-                printMainMenuHelp();
-                return;
-            }
-
             const parts = input.split(" ");
             const cmd = parts[0].toLowerCase();
+            const subCmd = parts[1] ? parts[1].toLowerCase() : "";
 
             if (currentMode === "LOGGED_IN") {
+                if (cmd === "run" && subCmd === "r&d" || cmd === "r&d") {
+                    runRDProgram();
+                    return;
+                }
+
+                if (cmd === "move") {
+                    isMoveMode = true;
+                    inputEl.disabled = true;
+                    updatePrompt();
+                    renderTechTree();
+                    return;
+                }
+
+                if (cmd === "back") {
+                    outputEl.innerHTML = "";
+                    printLoggedInHelp();
+                    return;
+                }
+
                 switch (cmd) {
                     case "help":
                         printLoggedInHelp();
@@ -397,22 +534,10 @@
                         printProgramTree();
                         break;
 
-                    case "vab":
-                    case "hangars":
-                    case "r&d":
-                    case "rnd":
-                    case "astronaut":
-                    case "contractors":
-                    case "flight":
-                    case "dsn":
-                    case "charts":
-                    case "planetary":
-                        print(`[SYS] Program '${cmd.toUpperCase()}' is currently offline / under construction.`);
-                        break;
-
                     case "status":
                         print(`User: ${GameState.data.user.name}`);
                         print(`Vessel: ${GameState.data.vessel.name}`);
+                        print(`Science: ${GameState.data.sciencePoints} SCI`);
                         print(`Mass: ${GameState.data.vessel.mass_kg} kg`);
                         print(`Altitude: ${GameState.data.vessel.altitude_m} m`);
                         print(`Velocity: ${GameState.data.vessel.velocity_ms} m/s`);
@@ -427,8 +552,6 @@
                     case "logout":
                         print(`[SYS] Logging out user '${GameState.data.user.name}'...`);
                         GameState.activeSlot = null;
-                        GameState.data.user.name = "";
-                        GameState.data.user.password = "";
                         bootTerminal();
                         break;
 
@@ -437,7 +560,7 @@
                         break;
 
                     default:
-                        print(`Unknown command: '${cmd}'. Type 'help' or 'programs' for options.`);
+                        print(`Unknown command: '${cmd}'. Type 'help' or 'run r&d'.`);
                         break;
                 }
                 return;
@@ -478,20 +601,6 @@
                         updatePrompt();
                         break;
 
-                    case "delete":
-                        const deleteSaves = getSaveList();
-                        if (deleteSaves.length === 0) {
-                            print("[ERR] No save files present to delete.");
-                            return;
-                        }
-
-                        print("[SYS] Open Save Files Available for Deletion:");
-                        deleteSaves.forEach(slot => print(`  - ${slot}`));
-                        print("");
-                        currentMode = "DELETE_SELECT";
-                        updatePrompt();
-                        break;
-
                     case "clear":
                         outputEl.innerHTML = "";
                         break;
@@ -503,7 +612,39 @@
             }
         }
 
-        inputEl.addEventListener("keydown", (e) => {
+        // Keyboard Listener for Input and WASD Nav Mode
+        window.addEventListener("keydown", (e) => {
+            if (isExecutingProgram) return;
+
+            if (isMoveMode) {
+                const key = e.key.toUpperCase();
+                if (key === "W" && selectedRow > 0) {
+                    selectedRow--;
+                    if (selectedCol >= techTree[selectedRow].length) selectedCol = techTree[selectedRow].length - 1;
+                    renderTechTree();
+                } else if (key === "S" && selectedRow < techTree.length - 1) {
+                    selectedRow++;
+                    if (selectedCol >= techTree[selectedRow].length) selectedCol = techTree[selectedRow].length - 1;
+                    renderTechTree();
+                } else if (key === "A" && selectedCol > 0) {
+                    selectedCol--;
+                    renderTechTree();
+                } else if (key === "D" && selectedCol < techTree[selectedRow].length - 1) {
+                    selectedCol++;
+                    renderTechTree();
+                } else if (key === "E") {
+                    const currentNode = techTree[selectedRow][selectedCol];
+                    inspectNode(currentNode);
+                } else if (key === "Q") {
+                    isMoveMode = false;
+                    inputEl.disabled = false;
+                    inputEl.focus();
+                    updatePrompt();
+                    print("[SYS] Exited Navigation Mode.");
+                }
+                return;
+            }
+
             if (e.key === "Enter") {
                 const input = inputEl.value.trim();
                 inputEl.value = "";
