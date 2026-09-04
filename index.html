@@ -53,7 +53,7 @@
             margin-bottom: 10px;
             padding-right: 5px;
             line-height: 1.15;
-            font-size: 0.95rem;
+            font-size: 0.92rem;
         }
 
         .line-amber, .line-title, #prompt, #command-input {
@@ -124,60 +124,56 @@
 
     <script>
         let GameState = {
-            activeSlot: null,
+            activeSlot: "default_save",
             data: {
-                user: { name: "", password: "" },
-                saveName: "",
+                user: { name: "Operator", password: "" },
+                saveName: "default_save",
                 timestamp: null,
-                unlockedTech: ["T0_FOUNDATION"],
                 vessel: { name: "Probe-Alpha", mass_kg: 1200, altitude_m: 375000, velocity_ms: 2450 }
             }
         };
 
         let currentMode = "MAIN_MENU"; 
         let isExecutingProgram = false;
-        let isMoveMode = false;
         let inRDModule = false;
         let tempName = "";
         let pendingLoadSlot = "";
+        let scrollY = 0;
 
         const techMatrix = [
             {
                 tier: 0,
                 tierName: "TIER 0: FOUNDATION TECH",
-                unlocked: true,
+                status: "fully_researched", // "fully_researched", "half_researched", or "locked"
                 categories: [
-                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny volume (0.5 - 2 IVU). Used for sub-orbital vertical hops to test instruments in vacuum.", unlocked: true },
-                    { cat: "Computers", name: "Mechanical / Manual Relays", desc: "Computers are mechanical and slow, operating purely via radio command execution.", unlocked: true },
-                    { cat: "Lifting Bodies", name: "Unpressurized Sounding Rockets", desc: "Solid/liquid rockets for potential energy testing.", unlocked: true },
-                    { cat: "Fuels", name: "Kerosene & Solid Propellants", desc: "Volatile mixtures with higher failure risks.", unlocked: true },
-                    { cat: "RCS", name: "Cold Gas Thrusters", desc: "Pressurized Nitrogen systems for simple attitude holds.", unlocked: true },
-                    { cat: "Power", name: "Primary Silver-Zinc Batteries", desc: "Non-rechargeable energy cells.", unlocked: true },
-                    { cat: "Heat", name: "Passive Conduction Fins", desc: "Basic structural cooling surfaces.", unlocked: true },
-                    { cat: "Comms", name: "Omnidirectional Whips", desc: "360-degree broad-spectrum radio emissions.", unlocked: true },
-                    { cat: "Science", name: "Basic Sounding Suite", desc: "Thermometers, Barometers, and Geiger counters.", unlocked: true }
+                    { cat: "Probes", name: "Sounding Rocket Payloads", status: "fully_researched" },
+                    { cat: "Computers", name: "Mechanical Relays", status: "fully_researched" },
+                    { cat: "Lifting Bodies", name: "Sounding Rockets", status: "fully_researched" },
+                    { cat: "Fuels", name: "Solid Propellants", status: "fully_researched" }
                 ]
             },
             {
                 tier: 1,
-                tierName: "TIER 1: FIRST STEPS",
-                unlocked: false,
+                tierName: "TIER 1: DIGITAL ARRAYS",
+                status: "half_researched",
                 categories: [
-                    { cat: "Probes", name: "Impactors & Early Satellites", desc: "Short-lived orbital probes and lunar impact capsules.", unlocked: false },
-                    { cat: "Computers", name: "Analog Guidance Computers", desc: "Basic analog calculation relays.", unlocked: false },
-                    { cat: "Lifting Bodies", name: "ICBM-derived Launchers", desc: "Unpressurized ballistic launch systems.", unlocked: false },
-                    { cat: "Fuels", name: "Refined RP-1 / LOX", desc: "Higher efficiency, safer mixtures.", unlocked: false },
-                    { cat: "RCS", name: "Hydrogen Peroxide Monopropellant", desc: "Catalytic thrust for directional control.", unlocked: false },
-                    { cat: "Power", name: "Basic Solar Panels", desc: "Photovoltaic power generation.", unlocked: false },
-                    { cat: "Heat", name: "Multi-Layer Insulation (MLI)", desc: "Gold/Silver skin wraps for radiation shield.", unlocked: false },
-                    { cat: "Comms", name: "Yagi-Uda Directional Antennas", desc: "Point-to-point radio dishes.", unlocked: false },
-                    { cat: "Science", name: "Deployable Boom Magnetometers", desc: "Extended sensors for cleaner data capture.", unlocked: false }
+                    { cat: "Probes", name: "Orbital Satellites", status: "half_researched" },
+                    { cat: "Computers", name: "Analog Guidance", status: "half_researched" },
+                    { cat: "Fuels", name: "Refined RP-1 / LOX", status: "half_researched" },
+                    { cat: "Comms", name: "Yagi Antennas", status: "half_researched" }
+                ]
+            },
+            {
+                tier: 2,
+                tierName: "TIER 2: DEEP SPACE DATA",
+                status: "locked",
+                categories: [
+                    { cat: "Probes", name: "Deep Space Probes", status: "locked" },
+                    { cat: "Power", name: "Solar Array Mk-I", status: "locked" },
+                    { cat: "Science", name: "Magnetometer Booms", status: "locked" }
                 ]
             }
         ];
-
-        let selectedTierIndex = 0;
-        let selectedCategoryIndex = 0;
 
         const outputEl = document.getElementById("output");
         const promptEl = document.getElementById("prompt");
@@ -192,12 +188,8 @@
         }
 
         function updatePrompt() {
-            if (isMoveMode) {
-                promptEl.textContent = `[TREE NAV // TIER ${selectedTierIndex}: WASD=Move | E=Inspect | Q=Exit]> `;
-                return;
-            }
             if (inRDModule) {
-                promptEl.textContent = `[R&D EXEC // VIEWING: TIER ${selectedTierIndex}]> Command:`;
+                promptEl.textContent = `[DIGITAL TREE // W/S: Scroll | exit: Back]> `;
                 return;
             }
             switch (currentMode) {
@@ -223,7 +215,7 @@
         function showTitle() {
             print("╔══════════════════════════════════════════════════╗", "title");
             print("║                   ORBITAL OS                     ║", "title");
-            print("║              CRT MONITOR SYSTEM 0.1              ║", "title");
+            print("║             FRUTIGER DIGITAL TERMINAL            ║", "title");
             print("╚══════════════════════════════════════════════════╝", "title");
             print("");
         }
@@ -237,8 +229,7 @@
             print("    ├── Astronaut Complex");
             print("    ├── Contractors");
             print("    ├── Flight");
-            print("    ├── DSN");
-            print("    └── Planetary Charts");
+            print("    └── DSN");
             print("");
         }
 
@@ -254,9 +245,9 @@
             print("Session Active. Available commands:");
             print("  run [program]   - Execute system program (e.g. 'run r&d')");
             print("  programs        - Display system program tree");
-            print("  status          - Display vessel parameters and telemetry");
+            print("  status          - Display vessel parameters");
             print("  save            - Save current progress");
-            print("  logout          - Exit current session and lock terminal");
+            print("  logout          - Exit current session");
             print("  clear           - Clear terminal buffer");
         }
 
@@ -265,7 +256,6 @@
             showTitle();
             currentMode = "MAIN_MENU";
             inRDModule = false;
-            isMoveMode = false;
             updatePrompt();
             printMainMenuHelp();
         }
@@ -281,56 +271,130 @@
             return saves;
         }
 
-        // CALCULATE CANOPY DENSITY BASED ON UNLOCKED TECHS
-        function getUnlockRatio() {
-            let total = 0;
-            let unlocked = 0;
-            techMatrix.forEach(tier => {
-                tier.categories.forEach(c => {
-                    total++;
-                    if (c.unlocked) unlocked++;
-                });
-            });
-            return total > 0 ? unlocked / total : 0;
+        // Pseudo-random number generator based on save name seed
+        function seededRandom(seed) {
+            let x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
         }
 
-        // DYNAMIC TREE GENERATOR BASED ON REFERENCE IMAGE
-        function buildTreeAscii() {
-            const ratio = getUnlockRatio();
+        // PROCEDURAL DIGITAL TREE GENERATOR (FRUTIGER AERO DIGITAL-ORGANIC STYLE)
+        function generateDigitalTree() {
+            const lines = [];
+            const width = 76;
+            const center = Math.floor(width / 2);
+            let seed = 0;
 
-            // Tier/Leaf Density layers based on progression
-            const L1 = ratio > 0.2 ? "   ░░▒▓▓██████████████████████▓▓▒░░   " : "        ░░▒▓████████████▓▒░░          ";
-            const L2 = ratio > 0.3 ? " ░▒▓██████████████████████████████▓▒░ " : "     ░▒▓████████████████████▓▒░       ";
-            const L3 = ratio > 0.4 ? "░▒▓██████████████████████████████████▓▒" : "   ░▒▓████████████████████████▓▒░     ";
-            const L4 = ratio > 0.5 ? "░▒▓██████████████████████████████████▓▒" : "  ░▒▓██████████████████████████▓▒░    ";
-            const L5 = ratio > 0.6 ? " ░▒▓████████████████████████████████▓▒ " : "   ░▒▓████████████████████████▓▒░     ";
-            const L6 = ratio > 0.7 ? "  ░▒▓██████████████████████████████▓▒  " : "    ░▒▓██████████████████████▓▒░      ";
-            const L7 = ratio > 0.8 ? "    ░▒▓██████████████████████████▓▒░   " : "      ░▒▓██████████████████▓▒░        ";
-            const L8 = ratio > 0.9 ? "      ░▒▓██████/  ██  \\██████▓▒░       " : "        ░▒▓████/  ██  \\██▓▒░          ";
+            for (let i = 0; i < GameState.activeSlot.length; i++) {
+                seed += GameState.activeSlot.charCodeAt(i);
+            }
 
-            const treeLines = [
-                `                 ${L1}`,
-                `               ${L2}`,
-                `              ${L3}`,
-                `              ${L4}`,
-                `               ${L5}`,
-                `                ${L6}`,
-                `                 ${L7}`,
-                `                  ${L8}`,
-                "                        ░▒▓██/   ██   \\██▓▒░",
-                "                       ░▒▓██/    ██    \\██▓▒░",
-                "                      ░▒▓█/      ██      \\█▓▒░",
-                "                                ▄██▄",
-                "                                ████",
-                "                                ████",
-                "                               ▄████▄",
-                "                              ████████",
-                "                             ▄████████▄",
-                "                            ████████████",
-                "                           [ Tier 0: Root Trunk ]"
-            ];
+            // Top canopy buffer
+            lines.push(" ".repeat(center - 10) + "░▒▓ DIGITAL CANOPY MATRIX ▓▒░");
+            lines.push("");
 
-            return treeLines;
+            // Loop through tiers from top down (Tier 2 -> Tier 1 -> Tier 0 Sapling Base)
+            for (let t = techMatrix.length - 1; t >= 0; t--) {
+                const tier = techMatrix[t];
+                const isFull = tier.status === "fully_researched";
+                const isHalf = tier.status === "half_researched";
+
+                // Line characters based on research state
+                // Double lines for fully researched (ASCII 200-216 range)
+                // Single lines for half researched (ASCII 193-197 range)
+                const vLine = isFull ? "║" : (isHalf ? "│" : "┆");
+                const hLine = isFull ? "═" : (isHalf ? "─" : "┄");
+                const lJunc = isFull ? "╠" : (isHalf ? "├" : "├");
+                const rJunc = isFull ? "╣" : (isHalf ? "┤" : "┤");
+                const tCross = isFull ? "╬" : (isHalf ? "┼" : "┼");
+
+                // Render Tier Label Box
+                const labelStr = `[ ${tier.tierName} ]`;
+                const sideBarLen = Math.floor((width - labelStr.length - 2) / 2);
+                
+                let topBorder = (isFull ? "╔" : "┌") + (isFull ? "═" : "─").repeat(labelStr.length) + (isFull ? "╗" : "┐");
+                let midBorder = labelStr;
+                let botBorder = (isFull ? "╚" : "└") + (isFull ? "═" : "─").repeat(labelStr.length) + (isFull ? "╝" : "┘");
+
+                lines.push(" ".repeat(center - Math.floor(labelStr.length / 2) - 1) + topBorder);
+                lines.push(" ".repeat(center - Math.floor(labelStr.length / 2) - 1) + midBorder);
+                lines.push(" ".repeat(center - Math.floor(labelStr.length / 2) - 1) + botBorder);
+
+                // Generate random digital branches and foliage layer for categories
+                tier.categories.forEach((cat, idx) => {
+                    let lineBuffer = Array(width).fill(" ");
+                    lineBuffer[center] = vLine;
+
+                    const dir = (idx % 2 === 0) ? -1 : 1; // Alternate branch direction
+                    const bLen = Math.floor(seededRandom(seed++) * 14) + 8;
+                    const cFull = cat.status === "fully_researched";
+                    const cHalf = cat.status === "half_researched";
+
+                    const bH = cFull ? "═" : (cHalf ? "─" : "┄");
+                    const bCorner = dir === -1 ? (cFull ? "╔" : "┌") : (cFull ? "╗" : "┐");
+
+                    lineBuffer[center] = cFull ? tCross : (cHalf ? "┼" : "┊");
+
+                    // Draw procedural branch horizontally
+                    for (let b = 1; b <= bLen; b++) {
+                        const pos = center + (dir * b);
+                        if (pos > 0 && pos < width) {
+                            lineBuffer[pos] = bH;
+                        }
+                    }
+
+                    // Attach category label at tip
+                    const tipPos = center + (dir * (bLen + 1));
+                    const catText = `[${cat.cat}: ${cat.name}]`;
+
+                    if (dir === -1) {
+                        const start = Math.max(0, tipPos - catText.length);
+                        for (let k = 0; k < catText.length; k++) {
+                            if (start + k < width) lineBuffer[start + k] = catText[k];
+                        }
+                    } else {
+                        for (let k = 0; k < catText.length; k++) {
+                            if (tipPos + k < width) lineBuffer[tipPos + k] = catText[k];
+                        }
+                    }
+
+                    // Procedurally scatter leaves over branches (176-178 density gradient: ░, ▒, ▓)
+                    for (let l = 1; l <= bLen + 4; l++) {
+                        const leafPos = center + (dir * l);
+                        if (leafPos > 0 && leafPos < width && lineBuffer[leafPos] === " ") {
+                            const leafRand = seededRandom(seed++);
+                            if (leafRand > 0.4) {
+                                // Density decreases from inside out
+                                const distRatio = l / (bLen + 4);
+                                const leafChar = distRatio < 0.3 ? "▓" : (distRatio < 0.7 ? "▒" : "░");
+                                lineBuffer[leafPos] = leafChar;
+                            }
+                        }
+                    }
+
+                    lines.push(lineBuffer.join(""));
+                    
+                    // Vertical trunk segment between branches
+                    let connectorBuffer = Array(width).fill(" ");
+                    connectorBuffer[center] = vLine;
+                    
+                    // Add ambient leaf floaters around trunk
+                    if (seededRandom(seed++) > 0.5 && center - 2 > 0) connectorBuffer[center - 2] = "░";
+                    if (seededRandom(seed++) > 0.5 && center + 2 < width) connectorBuffer[center + 2] = "░";
+
+                    lines.push(connectorBuffer.join(""));
+                });
+            }
+
+            // TIER 0 BASE / SAPLING ROOT
+            // Features 186 (║), 182 (╢), and 176 (░) leaf elements
+            lines.push(" ".repeat(center - 2) + "░ ╢ ░");
+            lines.push(" ".repeat(center - 1) + "░║░");
+            lines.push(" ".repeat(center - 1) + " ║ ");
+            lines.push(" ".repeat(center - 1) + " ║ ");
+            lines.push(" ".repeat(center - 6) + "═══╩═══╩═══");
+            lines.push(" ".repeat(center - 9) + "[ TIER 0: SAPLING ROOT ]");
+
+            return lines;
         }
 
         async function runRDProgram() {
@@ -340,9 +404,8 @@
 
             const bootLogs = [
                 "[SYS] INITIALIZING EXECUTABLE: R&D.PMCS...",
-                "[SYS] ALLOCATING MEMORY SECTORS...",
-                "[SYS] PROCESSING REFERENCE IMAGE VECTOR DATA...",
-                "[SYS] SYNTHESIZING DENSE CANOPY MATRICES...",
+                "[SYS] GENERATING PROCEDURAL DIGITAL TREE MATRIX...",
+                "[SYS] RENDERING FRUTIGER FOLIAGE ARRAYS...",
                 "[SYS] EXECUTION OK."
             ];
 
@@ -352,103 +415,39 @@
             }
             print("");
 
-            const asciiR = ["██████╗ ", "██╔══██╗", "██████╔╝", "██╔══██╗", "██║  ██║", "╚═╝  ╚═╝"];
-            const asciiAnd = [" █████╗ ", "██╔══██╗", "╚█████╔╝", "██╔══██╗", "╚█████╔╝", " ╚════╝ "];
-            const asciiD = ["██████╗ ", "██╔══██╗", "██║  ██║", "██║  ██║", "██████╔╝", "╚═════╝ "];
-
-            for (let i = 0; i < 6; i++) {
-                print(asciiR[i] + "  " + asciiAnd[i] + "  " + asciiD[i], "title");
-                await new Promise(r => setTimeout(r, 1000));
-            }
-            print("");
-
-            print("LOADING TECH MATRIX:");
-            let progress = 0;
-            const progressDiv = document.createElement("div");
-            progressDiv.className = "line-amber";
-            outputEl.appendChild(progressDiv);
-
-            while (progress < 100) {
-                progress += 10;
-                progressDiv.textContent = `PROGRESS: [${"█".repeat(progress / 5)}${"-".repeat(20 - progress / 5)}] ${progress}%`;
-                await new Promise(r => setTimeout(r, 80));
-            }
-
             isExecutingProgram = false;
             inRDModule = true;
-            isMoveMode = false;
             inputEl.disabled = false;
             inputEl.focus();
             
-            renderMainRDView();
+            scrollY = 0;
+            renderRDView();
         }
 
-        // RENDER NON-MOVE MAIN VIEW WITH REFERENCE-BASED ASCII TREE
-        function renderMainRDView() {
+        function renderRDView() {
             outputEl.innerHTML = "";
             print("================================================================================", "title");
-            print("                 RESEARCH & DEVELOPMENT // SCHEMATIC TECH TREE                  ", "title");
+            print("           RESEARCH & DEVELOPMENT // DIGITAL TREE (FRUTIGER AERO V0.9)          ", "title");
             print("================================================================================", "title");
-            print("");
+            print("  NAVIGATION: Press [W] to scroll Up | [S] to scroll Down | Type 'exit' to quit");
+            print("  STRUCTURE:  ═══ Double (Researched) | ─── Single (In-Progress) | ░▒▓ Leaves");
+            print("--------------------------------------------------------------------------------");
 
-            const treeAscii = buildTreeAscii();
-            treeAscii.forEach(line => print(line));
+            const fullTreeLines = generateDigitalTree();
+            const viewportSize = 18;
 
-            print("");
-            print("================================================================================", "title");
-            print(`  CANOPY DENSITY: ${Math.round(getUnlockRatio() * 100)}% Coverage | Active Tier: 0`);
-            print("  COMMANDS:");
-            print("    move      - Enter WASD matrix view to scroll categories and specs");
-            print("    terminate - Exit R&D module and unmount process");
+            // Clamp scroll offset
+            const maxScroll = Math.max(0, fullTreeLines.length - viewportSize);
+            if (scrollY < 0) scrollY = 0;
+            if (scrollY > maxScroll) scrollY = maxScroll;
+
+            const visibleLines = fullTreeLines.slice(scrollY, scrollY + viewportSize);
+            visibleLines.forEach(line => print(line));
+
+            print("--------------------------------------------------------------------------------");
+            print(`  VIEWPORT: Lines ${scrollY} - ${Math.min(scrollY + viewportSize, fullTreeLines.length)} of ${fullTreeLines.length} | Unique Seed: [${GameState.activeSlot}]`, "title");
             print("================================================================================", "title");
             updatePrompt();
-        }
-
-        function renderStaticTechTree() {
-            outputEl.innerHTML = "";
-
-            const activeTier = techMatrix[selectedTierIndex];
-            const activeCategory = activeTier.categories[selectedCategoryIndex];
-
-            print("================================================================================", "title");
-            print(`                     R&D TECH TREE MATRIX // ${activeTier.tierName}`, "title");
-            print("================================================================================", "title");
-            print("  CONTROLS: [W/S] Move Category  |  [A/D] Switch Tier  |  [E] Spec Sheet  |  [Q] Exit Nav");
-            print("--------------------------------------------------------------------------------");
-
-            for (let i = 0; i < activeTier.categories.length; i++) {
-                const item = activeTier.categories[i];
-                const isSelected = (i === selectedCategoryIndex);
-                
-                let lineStr = isSelected 
-                    ? ` ►► [${item.cat.toUpperCase()}] : ${item.name} ◄◄` 
-                    : `    [${item.cat.toUpperCase()}] : ${item.name}`;
-
-                print(lineStr, isSelected ? "title" : "amber");
-            }
-
-            print("--------------------------------------------------------------------------------");
-            print(`HIGHLIGHTED SPECIFICATION: [${activeCategory.cat.toUpperCase()}] -> ${activeCategory.name}`, "title");
-            print(`DESCRIPTION: ${activeCategory.desc}`);
-            print("================================================================================", "title");
-            updatePrompt();
-        }
-
-        function showCategoryInspection(item) {
-            outputEl.innerHTML = "";
-            print("================================================================================", "title");
-            print(`                   HARDWARE INSPECTION LEDGER: ${item.cat.toUpperCase()}`, "title");
-            print("================================================================================", "title");
-            print(`NAME: ${item.name}`);
-            print(`SUBSYSTEM CLASSIFICATION: ${item.cat}`);
-            print(`STATUS: ${item.unlocked ? "UNLOCKED & ONLINE" : "LOCKED / RESEARCH REQUIRED"}`);
-            print("");
-            print("TECHNICAL OVERVIEW:", "title");
-            print(`  ${item.desc}`);
-            print("");
-            print("--------------------------------------------------------------------------------");
-            print("Press [W/A/S/D] to return to category list, or [Q] to exit navigation mode.");
-            print("--------------------------------------------------------------------------------");
         }
 
         function processCommand(input) {
@@ -458,6 +457,30 @@
                 print(`${promptEl.textContent} ********`, "amber");
             } else {
                 print(`${promptEl.textContent} ${input}`, "amber");
+            }
+
+            if (inRDModule) {
+                if (input.toLowerCase() === "exit") {
+                    inRDModule = false;
+                    outputEl.innerHTML = "";
+                    print("[SYS] R&D Module Terminated.");
+                    print("");
+                    printLoggedInHelp();
+                    updatePrompt();
+                    return;
+                }
+                if (input.toLowerCase() === "w") {
+                    scrollY -= 2;
+                    renderRDView();
+                    return;
+                }
+                if (input.toLowerCase() === "s") {
+                    scrollY += 2;
+                    renderRDView();
+                    return;
+                }
+                print(`[SYS] Navigation active. Press 'W' (Up), 'S' (Down), or type 'exit'.`);
+                return;
             }
 
             if (currentMode === "NEW_NAME") {
@@ -551,27 +574,6 @@
             const cmd = parts[0].toLowerCase();
             const subCmd = parts[1] ? parts[1].toLowerCase() : "";
 
-            if (inRDModule) {
-                if (cmd === "move") {
-                    isMoveMode = true;
-                    inputEl.disabled = true;
-                    renderStaticTechTree();
-                    return;
-                }
-                if (cmd === "terminate") {
-                    inRDModule = false;
-                    isMoveMode = false;
-                    outputEl.innerHTML = "";
-                    print("[SYS] R&D Module Terminated.");
-                    print("");
-                    printLoggedInHelp();
-                    updatePrompt();
-                    return;
-                }
-                print(`[ERR] Program active. Valid commands: 'move', 'terminate'.`);
-                return;
-            }
-
             if (currentMode === "LOGGED_IN") {
                 if ((cmd === "run" && subCmd === "r&d") || cmd === "r&d") {
                     runRDProgram();
@@ -601,7 +603,7 @@
                         break;
 
                     case "logout":
-                        GameState.activeSlot = null;
+                        GameState.activeSlot = "default_save";
                         bootTerminal();
                         break;
 
@@ -665,33 +667,16 @@
         window.addEventListener("keydown", (e) => {
             if (isExecutingProgram) return;
 
-            if (isMoveMode) {
+            // Direct W/S scroll handling when inside R&D Module
+            if (inRDModule) {
                 const key = e.key.toUpperCase();
-
-                if (key === "W" && selectedCategoryIndex > 0) {
-                    selectedCategoryIndex--;
-                    renderStaticTechTree();
-                } else if (key === "S" && selectedCategoryIndex < techMatrix[selectedTierIndex].categories.length - 1) {
-                    selectedCategoryIndex++;
-                    renderStaticTechTree();
-                } else if (key === "A" && selectedTierIndex > 0) {
-                    selectedTierIndex--;
-                    renderStaticTechTree();
-                } else if (key === "D" && selectedTierIndex < techMatrix.length - 1) {
-                    selectedTierIndex++;
-                    renderStaticTechTree();
-                } else if (key === "E") {
-                    const item = techMatrix[selectedTierIndex].categories[selectedCategoryIndex];
-                    showCategoryInspection(item);
-                } else if (key === "Q") {
-                    e.preventDefault();
-                    isMoveMode = false;
-                    inputEl.disabled = false;
-                    inputEl.focus();
-                    inputEl.value = "";
-                    renderMainRDView();
+                if (key === "W") {
+                    scrollY -= 2;
+                    renderRDView();
+                } else if (key === "S") {
+                    scrollY += 2;
+                    renderRDView();
                 }
-                return;
             }
 
             if (e.key === "Enter") {
