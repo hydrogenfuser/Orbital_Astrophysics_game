@@ -129,6 +129,7 @@
                 user: { name: "Operator", password: "" },
                 saveName: "default_save",
                 timestamp: null,
+                maxUnlockedTier: 0,
                 vessel: { 
                     name: "Sounder-Mk1", 
                     mass_kg: 580, 
@@ -152,35 +153,59 @@
         let selectedCategoryIndex = 0;
 
         const vabApplications = [
-            { id: "rocket", name: "Rocket Designer", reqTechTier: 0, unlocked: true },
-            { id: "payload", name: "Payload Designer", reqTechTier: 0, unlocked: true },
-            { id: "rover", name: "Rover Simulator", reqTechTier: 1, unlocked: false },
-            { id: "lander", name: "Lander Simulator", reqTechTier: 1, unlocked: false },
-            { id: "drone", name: "Drone Simulator", reqTechTier: 2, unlocked: false },
-            { id: "docking", name: "Docking Computer Simulator", reqTechTier: 2, unlocked: false },
-            { id: "station", name: "Space Station Computer Simulator", reqTechTier: 2, unlocked: false }
+            { id: "rocket", name: "Rocket Designer", reqTechTier: 0 },
+            { id: "payload", name: "Payload Designer", reqTechTier: 0 },
+            { id: "rover", name: "Rover Simulator", reqTechTier: 1 },
+            { id: "lander", name: "Lander Simulator", reqTechTier: 1 },
+            { id: "drone", name: "Drone Simulator", reqTechTier: 2 },
+            { id: "docking", name: "Docking Computer Simulator", reqTechTier: 2 },
+            { id: "station", name: "Space Station Computer Simulator", reqTechTier: 2 }
         ];
 
         const techMatrix = [
             {
                 tier: 0,
                 tierName: "TIER 0: FOUNDATION TECH",
-                unlocked: true,
                 categories: [
-                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny volume (0.5 - 2 IVU). Used for sub-orbital vertical hops.", unlocked: true },
-                    { cat: "Computers", name: "Mechanical / Manual Relays", desc: "Computers are mechanical and slow, operating purely via radio command execution.", unlocked: true },
-                    { cat: "Lifting Bodies", name: "Unpressurized Sounding Rockets", desc: "Solid/liquid rockets for potential energy testing.", unlocked: true },
-                    { cat: "Fuels", name: "Kerosene & Solid Propellants", desc: "Volatile mixtures with higher failure risks.", unlocked: true }
+                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny volume (0.5 - 2 IVU). Used for sub-orbital vertical hops to test instruments in vacuum." },
+                    { cat: "Computers", name: "Mechanical / Manual Relays", desc: "Computers are mechanical and slow, operating purely via radio command execution." },
+                    { cat: "Lifting Bodies", name: "Unpressurized Sounding Rockets", desc: "Solid/liquid rockets for potential energy testing." },
+                    { cat: "Fuels", name: "Kerosene & Solid Propellants", desc: "Volatile mixtures with higher failure risks." },
+                    { cat: "RCS", name: "Cold Gas Thrusters", desc: "Pressurized Nitrogen systems for simple attitude holds." },
+                    { cat: "Power", name: "Primary Silver-Zinc Batteries", desc: "Non-rechargeable energy cells." },
+                    { cat: "Heat", name: "Passive Conduction Fins", desc: "Basic structural cooling surfaces." },
+                    { cat: "Comms", name: "Omnidirectional Whips", desc: "360-degree broad-spectrum radio emissions." },
+                    { cat: "Science", name: "Basic Sounding Suite", desc: "Thermometers, Barometers, and Geiger counters." }
                 ]
             },
             {
                 tier: 1,
                 tierName: "TIER 1: FIRST STEPS",
-                unlocked: false,
                 categories: [
-                    { cat: "Probes", name: "Impactors & Early Satellites", desc: "Short-lived orbital probes and lunar impact capsules.", unlocked: false },
-                    { cat: "Computers", name: "Analog Guidance Computers", desc: "Basic analog calculation relays for trajectory correction.", unlocked: false },
-                    { cat: "Lifting Bodies", name: "ICBM-derived Launchers", desc: "Unpressurized ballistic launch systems for low orbit entry.", unlocked: false }
+                    { cat: "Probes", name: "Impactors & Early Satellites", desc: "Short-lived orbital probes and lunar impact capsules." },
+                    { cat: "Computers", name: "Analog Guidance Computers", desc: "Basic analog calculation relays for trajectory correction." },
+                    { cat: "Lifting Bodies", name: "ICBM-derived Launchers", desc: "Unpressurized ballistic launch systems for low orbit entry." },
+                    { cat: "Fuels", name: "Refined RP-1 / LOX", desc: "Higher efficiency, safer chemical propellant mixtures." },
+                    { cat: "RCS", name: "Hydrogen Peroxide Monopropellant", desc: "Catalytic thrust systems for fine directional control." },
+                    { cat: "Power", name: "Basic Solar Panels", desc: "First-generation photovoltaic power generation." },
+                    { cat: "Heat", name: "Multi-Layer Insulation (MLI)", desc: "Gold/Silver skin wraps for vacuum radiation shielding." },
+                    { cat: "Comms", name: "Yagi-Uda Directional Antennas", desc: "Point-to-point focused radio communication dishes." },
+                    { cat: "Science", name: "Deployable Boom Magnetometers", desc: "Extended sensors for cleaner planetary magnetic field mapping." }
+                ]
+            },
+            {
+                tier: 2,
+                tierName: "TIER 2: ORBITAL OPERATIONS",
+                categories: [
+                    { cat: "Probes", name: "Standardized Bus Satellites", desc: "Modular satellite chassis with multi-year lifespan ratings." },
+                    { cat: "Computers", name: "Digital Transistor Processing", desc: "Programmable digital logic blocks for real-time trajectory calculation." },
+                    { cat: "Lifting Bodies", name: "Multistage Heavy Launchers", desc: "Precision staging rockets capable of GEO insertion payloads." },
+                    { cat: "Fuels", name: "Cryogenic Hydrolox (LH2/LOX)", desc: "High specific impulse propellant for deep-space burn execution." },
+                    { cat: "RCS", name: "Hydrazine Monopropellant", desc: "High-density hypergolic attitude control units." },
+                    { cat: "Power", name: "Rechargeable Ni-Cd Banks & Photovoltaics", desc: "Sustained electrical storage systems for shadowed orbits." },
+                    { cat: "Heat", name: "Ablative Heat Shields", desc: "Sacrificial atmospheric re-entry shields." },
+                    { cat: "Comms", name: "Parabolic Deep Space Dishes", desc: "High-gain antennas for interplanetary signal acquisition." },
+                    { cat: "Science", name: "Orbital Imaging & Multispectral Array", desc: "Surface mapping cameras and planetary atmosphere analysis." }
                 ]
             }
         ];
@@ -202,7 +227,7 @@
                 if (isInspecting) {
                     promptEl.textContent = `[R&D LIBRARY // INSPECT: W/S/A/D=Back | exit=Quit]> `;
                 } else {
-                    promptEl.textContent = `[R&D LIBRARY // W/S:Nav | A/D:Tier | E:Inspect | exit:Quit]> `;
+                    promptEl.textContent = `[R&D LIBRARY // W/S:Nav | A/D:Tier | E:Inspect | unlock:Research | exit:Quit]> `;
                 }
                 return;
             }
@@ -312,45 +337,63 @@
             return saves;
         }
 
-        // LOADING LOGIC: 4-7 seconds, 25% chance of 1-2s freeze
+        function renderLoadingVABASCII(percentage) {
+            outputEl.innerHTML = "";
+            print("   _________________________________________________________   ", "title");
+            print("  /  _____________________________________________________  \\  ", "title");
+            print(" /  /  _________________________________________________  \\  \\ ", "title");
+            print("||  ||  [VAB] VEHICLE ASSEMBLY BAY INITIALIZING        ||  ||", "title");
+            print("||  ||                                                 ||  ||", "title");
+            print("||  ||                 .---|---|---.                   ||  ||", "title");
+            print("||  ||                 |   |   |   |                   ||  ||", "title");
+            print("||  ||                 |---|---|---|                   ||  ||", "title");
+            print("||  ||                /|   |   |   |\\                  ||  ||", "title");
+            print("||  ||               /_|___|___|___|_\\                 ||  ||", "title");
+            print("||  ||                 |   |   |   |                   ||  ||", "title");
+            print("||  ||                 |---|---|---|                   ||  ||", "title");
+            print("||  ||                /|   |   |   |\\                  ||  ||", "title");
+            print("||  ||               / |   |   |   | \\                 ||  ||", "title");
+            print("||  ||              /__|___|___|___|__\\                ||  ||", "title");
+            print("||  ||                                                 ||  ||", "title");
+            
+            const totalBars = 30;
+            const filled = Math.floor((percentage / 100) * totalBars);
+            const empty = totalBars - filled;
+            const barStr = "[" + "█".repeat(filled) + "░".repeat(empty) + "]";
+            
+            print(`||  ||  LOADING: ${barStr} ${percentage}%`.padEnd(58) + "||  ||", "title");
+            print(" \\  \\_________________________________________________/  / ", "title");
+            print("  \\_____________________________________________________/  ", "title");
+            print("");
+        }
+
+        // LOADING LOGIC: 4-7 seconds, 25% chance of 1-2s freeze, ASCII VAB bar rendering
         async function runModuleBootSequence(moduleName, onComplete) {
             isExecutingProgram = true;
             inputEl.disabled = true;
-            outputEl.innerHTML = "";
-
-            print(`[SYS] INITIALIZING EXECUTABLE: ${moduleName.toUpperCase()}.EXE...`);
-            print(`[SYS] ALLOCATING MEMORY BUFFERS...`);
-
-            // Total base delay target: ~4.5 to 6.5 seconds across logs
-            const baseSteps = [
-                "ESTABLISHING SYSTEM BUS CONNECTIONS...",
-                "CHECKING PERIPHERAL TELEMETRY SUITE...",
-                "SYNCHRONIZING SAVE STATE RECORDS...",
-                "MOUNTING GRAPHICAL UI FRAMEWORK...",
-                "FINALIZING SYSTEM KERNEL HANDSHAKE..."
-            ];
 
             const totalDurationSec = 4.0 + Math.random() * 3.0; // 4 to 7 seconds total
-            const stepDelay = (totalDurationSec * 1000) / baseSteps.length;
+            const steps = 20;
+            const stepDelay = (totalDurationSec * 1000) / steps;
 
             const isStuck = Math.random() < 0.25; // 25% chance
-            const stuckIndex = Math.floor(Math.random() * (baseSteps.length - 1)) + 1;
+            const stuckStep = Math.floor(Math.random() * 10) + 5;
             const stuckDuration = 1000 + Math.random() * 1000; // 1-2 seconds freeze
 
-            for (let i = 0; i < baseSteps.length; i++) {
-                print(`[SYS] ${baseSteps[i]}`);
-                await new Promise(r => setTimeout(r, stepDelay));
-
-                if (isStuck && i === stuckIndex) {
-                    print(`[WARN] SYSTEM BUS HANG DETECTED... RESOLVING BUFFER MEMORY...`, "amber");
+            for (let i = 1; i <= steps; i++) {
+                const percent = Math.floor((i / steps) * 100);
+                renderLoadingVABASCII(percent);
+                
+                if (isStuck && i === stuckStep) {
+                    print(`[WARN] BUS HANG DETECTED... RESOLVING BUFFER MEMORY...`, "amber");
                     await new Promise(r => setTimeout(r, stuckDuration));
-                    print(`[SYS] BUS RECOVERED. RESUMING BOOT SEQUENCE.`, "amber");
+                } else {
+                    await new Promise(r => setTimeout(r, stepDelay));
                 }
             }
 
             print(`[SYS] ${moduleName.toUpperCase()} BOOT COMPLETE.`);
-            print("");
-            await new Promise(r => setTimeout(r, 400));
+            await new Promise(r => setTimeout(r, 300));
 
             isExecutingProgram = false;
             inputEl.disabled = false;
@@ -364,18 +407,19 @@
             printRDHeader();
 
             const activeTier = techMatrix[selectedTierIndex];
-            const activeCategory = activeTier.categories[selectedCategoryIndex];
+            const isTierUnlocked = (selectedTierIndex <= GameState.data.maxUnlockedTier);
 
             print("================================================================================", "title");
             print(`                 RESEARCH & DEVELOPMENT LIBRARY // ${activeTier.tierName}`, "title");
             print("================================================================================", "title");
             print("  CONTROLS: [W/S] Navigate Subsystems  |  [A/D] Change Tier  |  [E] Inspect Spec Sheet");
+            print("  COMMANDS: Type 'unlock' to research active tier level.");
             print("--------------------------------------------------------------------------------");
 
             for (let i = 0; i < activeTier.categories.length; i++) {
                 const item = activeTier.categories[i];
                 const isSelected = (i === selectedCategoryIndex);
-                const statusTag = item.unlocked ? "[UNLOCKED]" : "[LOCKED]";
+                const statusTag = isTierUnlocked ? "[UNLOCKED]" : "[LOCKED]";
                 
                 let lineStr = isSelected 
                     ? ` ►► ${statusTag.padEnd(10)} ${item.cat.toUpperCase().padEnd(15)} : ${item.name} ◄◄` 
@@ -384,6 +428,7 @@
                 print(lineStr, isSelected ? "title" : "amber");
             }
 
+            const activeCategory = activeTier.categories[selectedCategoryIndex];
             print("--------------------------------------------------------------------------------");
             print(`CURRENTLY HIGHLIGHTED: [${activeCategory.cat.toUpperCase()}] -> ${activeCategory.name}`, "title");
             print(`BRIEF: ${activeCategory.desc}`);
@@ -398,13 +443,14 @@
 
             const activeTier = techMatrix[selectedTierIndex];
             const item = activeTier.categories[selectedCategoryIndex];
+            const isTierUnlocked = (selectedTierIndex <= GameState.data.maxUnlockedTier);
 
             print("================================================================================", "title");
             print(`              SPECIFICATION LEDGER // ${item.cat.toUpperCase()}`, "title");
             print("================================================================================", "title");
             print(`ITEM NAME:   ${item.name}`);
             print(`TIER LEVEL:  ${activeTier.tierName}`);
-            print(`STATUS:      ${item.unlocked ? "UNLOCKED & AVAILABLE" : "RESEARCH REQUIRED"}`);
+            print(`STATUS:      ${isTierUnlocked ? "UNLOCKED & AVAILABLE" : "RESEARCH REQUIRED"}`);
             print("--------------------------------------------------------------------------------");
             print("HARDWARE OVERVIEW:", "title");
             print(`  ${item.desc}`);
@@ -425,9 +471,10 @@
             print("--------------------------------------------------------------------------------");
 
             vabApplications.forEach((app, idx) => {
-                const status = app.unlocked ? "[AVAILABLE]" : `[LOCKED - REQUIRES TIER ${app.reqTechTier}]`;
+                const isUnlocked = (app.reqTechTier <= GameState.data.maxUnlockedTier);
+                const status = isUnlocked ? "[AVAILABLE]" : `[LOCKED - REQUIRES TIER ${app.reqTechTier}]`;
                 const line = `  [${idx + 1}] ${app.name.padEnd(35)} ${status}`;
-                print(line, app.unlocked ? "amber" : "amber");
+                print(line, "amber");
             });
 
             print("--------------------------------------------------------------------------------");
@@ -488,6 +535,19 @@
                     updatePrompt();
                     return;
                 }
+                if (cmd === "unlock") {
+                    if (selectedTierIndex <= GameState.data.maxUnlockedTier) {
+                        print("[SYS] TIER ALREADY UNLOCKED.");
+                    } else if (selectedTierIndex === GameState.data.maxUnlockedTier + 1) {
+                        GameState.data.maxUnlockedTier = selectedTierIndex;
+                        localStorage.setItem(`orbital_save_${GameState.activeSlot}`, JSON.stringify(GameState.data));
+                        print(`[SYS] TECH TIER ${selectedTierIndex} UNLOCKED SUCCESSFULLY.`);
+                        renderRDLibrary();
+                    } else {
+                        print(`[ERR] MUST UNLOCK TIER ${GameState.data.maxUnlockedTier + 1} FIRST.`);
+                    }
+                    return;
+                }
                 if (cmd === "w") {
                     if (isInspecting) { renderRDLibrary(); return; }
                     if (selectedCategoryIndex > 0) selectedCategoryIndex--;
@@ -522,7 +582,7 @@
                     if (!isInspecting) showCategoryInspection();
                     return;
                 }
-                print(`[SYS] Navigation: Use 'W', 'S', 'A', 'D', 'E', or type 'exit'.`);
+                print(`[SYS] Navigation: Use 'W', 'S', 'A', 'D', 'E', 'unlock', or type 'exit'.`);
                 return;
             }
 
@@ -572,7 +632,7 @@
                     const option = parseInt(cmd, 10);
                     if (!isNaN(option) && option >= 1 && option <= vabApplications.length) {
                         const app = vabApplications[option - 1];
-                        if (!app.unlocked) {
+                        if (app.reqTechTier > GameState.data.maxUnlockedTier) {
                             print(`[ERR] ${app.name} is LOCKED. Requires Tier ${app.reqTechTier} research.`);
                             return;
                         }
@@ -580,7 +640,7 @@
                         renderVABAppStudio(app);
                         return;
                     }
-                    print("[SYS] Select a valid unlocked option number or type 'exit'.");
+                    print("[SYS] Select a valid option number or type 'exit'.");
                     return;
                 }
             }
@@ -705,6 +765,7 @@
 
                     case "status":
                         print(`User: ${GameState.data.user.name}`);
+                        print(`Unlocked Tier Level: ${GameState.data.maxUnlockedTier}`);
                         print(`Vessel: ${GameState.data.vessel.name}`);
                         print(`Mass: ${GameState.data.vessel.mass_kg} kg`);
                         break;
