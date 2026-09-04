@@ -53,7 +53,7 @@
             margin-bottom: 10px;
             padding-right: 5px;
             line-height: 1.15;
-            font-size: 0.92rem;
+            font-size: 0.95rem;
         }
 
         .line-amber, .line-title, #prompt, #command-input {
@@ -139,38 +139,41 @@
         let tempName = "";
         let pendingLoadSlot = "";
         let scrollY = 0;
+        let waveFrame = 0;
+        let waveInterval = null;
 
         const techMatrix = [
             {
                 tier: 0,
-                tierName: "TIER 0: FOUNDATION TECH",
-                status: "fully_researched", // "fully_researched", "half_researched", or "locked"
+                tierName: "TIER 0: FOUNDATION GROUND",
+                status: "fully_researched",
                 categories: [
-                    { cat: "Probes", name: "Sounding Rocket Payloads", status: "fully_researched" },
-                    { cat: "Computers", name: "Mechanical Relays", status: "fully_researched" },
-                    { cat: "Lifting Bodies", name: "Sounding Rockets", status: "fully_researched" },
-                    { cat: "Fuels", name: "Solid Propellants", status: "fully_researched" }
+                    { cat: "Probes", status: "fully_researched" },
+                    { cat: "Computers", status: "fully_researched" },
+                    { cat: "Lifting Bodies", status: "fully_researched" },
+                    { cat: "Fuels", status: "fully_researched" }
                 ]
             },
             {
                 tier: 1,
-                tierName: "TIER 1: DIGITAL ARRAYS",
+                tierName: "TIER 1: FIRST STEPS",
                 status: "half_researched",
                 categories: [
-                    { cat: "Probes", name: "Orbital Satellites", status: "half_researched" },
-                    { cat: "Computers", name: "Analog Guidance", status: "half_researched" },
-                    { cat: "Fuels", name: "Refined RP-1 / LOX", status: "half_researched" },
-                    { cat: "Comms", name: "Yagi Antennas", status: "half_researched" }
+                    { cat: "Probes", status: "half_researched" },
+                    { cat: "Computers", status: "half_researched" },
+                    { cat: "Fuels", status: "half_researched" },
+                    { cat: "Comms", status: "half_researched" },
+                    { cat: "Power", status: "half_researched" }
                 ]
             },
             {
                 tier: 2,
-                tierName: "TIER 2: DEEP SPACE DATA",
+                tierName: "TIER 2: DEEP SPACE",
                 status: "locked",
                 categories: [
-                    { cat: "Probes", name: "Deep Space Probes", status: "locked" },
-                    { cat: "Power", name: "Solar Array Mk-I", status: "locked" },
-                    { cat: "Science", name: "Magnetometer Booms", status: "locked" }
+                    { cat: "Probes", status: "locked" },
+                    { cat: "Power", status: "locked" },
+                    { cat: "Science", status: "locked" }
                 ]
             }
         ];
@@ -256,6 +259,7 @@
             showTitle();
             currentMode = "MAIN_MENU";
             inRDModule = false;
+            if (waveInterval) clearInterval(waveInterval);
             updatePrompt();
             printMainMenuHelp();
         }
@@ -271,13 +275,12 @@
             return saves;
         }
 
-        // Pseudo-random number generator based on save name seed
         function seededRandom(seed) {
             let x = Math.sin(seed++) * 10000;
             return x - Math.floor(x);
         }
 
-        // PROCEDURAL DIGITAL TREE GENERATOR (FRUTIGER AERO DIGITAL-ORGANIC STYLE)
+        // GENERATE PROCEDURAL DIGITAL TREE
         function generateDigitalTree() {
             const lines = [];
             const width = 76;
@@ -288,111 +291,67 @@
                 seed += GameState.activeSlot.charCodeAt(i);
             }
 
-            // Top canopy buffer
-            lines.push(" ".repeat(center - 10) + "░▒▓ DIGITAL CANOPY MATRIX ▓▒░");
-            lines.push("");
-
-            // Loop through tiers from top down (Tier 2 -> Tier 1 -> Tier 0 Sapling Base)
-            for (let t = techMatrix.length - 1; t >= 0; t--) {
+            // Render Unconnected Higher Tier Text Floating Labels
+            for (let t = techMatrix.length - 1; t > 0; t--) {
                 const tier = techMatrix[t];
-                const isFull = tier.status === "fully_researched";
-                const isHalf = tier.status === "half_researched";
+                lines.push("");
+                lines.push(" ".repeat(center - Math.floor(tier.tierName.length / 2)) + `[ ${tier.tierName} ]`);
+                lines.push("");
+                lines.push("");
 
-                // Line characters based on research state
-                // Double lines for fully researched (ASCII 200-216 range)
-                // Single lines for half researched (ASCII 193-197 range)
-                const vLine = isFull ? "║" : (isHalf ? "│" : "┆");
-                const hLine = isFull ? "═" : (isHalf ? "─" : "┄");
-                const lJunc = isFull ? "╠" : (isHalf ? "├" : "├");
-                const rJunc = isFull ? "╣" : (isHalf ? "┤" : "┤");
-                const tCross = isFull ? "╬" : (isHalf ? "┼" : "┼");
-
-                // Render Tier Label Box
-                const labelStr = `[ ${tier.tierName} ]`;
-                const sideBarLen = Math.floor((width - labelStr.length - 2) / 2);
-                
-                let topBorder = (isFull ? "╔" : "┌") + (isFull ? "═" : "─").repeat(labelStr.length) + (isFull ? "╗" : "┐");
-                let midBorder = labelStr;
-                let botBorder = (isFull ? "╚" : "└") + (isFull ? "═" : "─").repeat(labelStr.length) + (isFull ? "╝" : "┘");
-
-                lines.push(" ".repeat(center - Math.floor(labelStr.length / 2) - 1) + topBorder);
-                lines.push(" ".repeat(center - Math.floor(labelStr.length / 2) - 1) + midBorder);
-                lines.push(" ".repeat(center - Math.floor(labelStr.length / 2) - 1) + botBorder);
-
-                // Generate random digital branches and foliage layer for categories
+                // Render procedural standalone branches for sub-techs without line connections
                 tier.categories.forEach((cat, idx) => {
                     let lineBuffer = Array(width).fill(" ");
-                    lineBuffer[center] = vLine;
-
-                    const dir = (idx % 2 === 0) ? -1 : 1; // Alternate branch direction
-                    const bLen = Math.floor(seededRandom(seed++) * 14) + 8;
+                    const dir = (idx % 2 === 0) ? -1 : 1;
+                    const bLen = Math.floor(seededRandom(seed++) * 10) + 6;
                     const cFull = cat.status === "fully_researched";
                     const cHalf = cat.status === "half_researched";
 
-                    const bH = cFull ? "═" : (cHalf ? "─" : "┄");
-                    const bCorner = dir === -1 ? (cFull ? "╔" : "┌") : (cFull ? "╗" : "┐");
+                    // Character set: ASCII 200-216 for full, 193-197 for half
+                    const bChar = cFull ? "═" : (cHalf ? "─" : "┄");
 
-                    lineBuffer[center] = cFull ? tCross : (cHalf ? "┼" : "┊");
-
-                    // Draw procedural branch horizontally
-                    for (let b = 1; b <= bLen; b++) {
-                        const pos = center + (dir * b);
+                    // Draw floating branch
+                    const startX = center + (dir * 4);
+                    for (let b = 0; b < bLen; b++) {
+                        const pos = startX + (dir * b);
                         if (pos > 0 && pos < width) {
-                            lineBuffer[pos] = bH;
+                            lineBuffer[pos] = bChar;
                         }
                     }
 
-                    // Attach category label at tip
-                    const tipPos = center + (dir * (bLen + 1));
-                    const catText = `[${cat.cat}: ${cat.name}]`;
-
-                    if (dir === -1) {
-                        const start = Math.max(0, tipPos - catText.length);
-                        for (let k = 0; k < catText.length; k++) {
-                            if (start + k < width) lineBuffer[start + k] = catText[k];
-                        }
-                    } else {
-                        for (let k = 0; k < catText.length; k++) {
-                            if (tipPos + k < width) lineBuffer[tipPos + k] = catText[k];
-                        }
-                    }
-
-                    // Procedurally scatter leaves over branches (176-178 density gradient: ░, ▒, ▓)
-                    for (let l = 1; l <= bLen + 4; l++) {
-                        const leafPos = center + (dir * l);
-                        if (leafPos > 0 && leafPos < width && lineBuffer[leafPos] === " ") {
-                            const leafRand = seededRandom(seed++);
-                            if (leafRand > 0.4) {
-                                // Density decreases from inside out
-                                const distRatio = l / (bLen + 4);
-                                const leafChar = distRatio < 0.3 ? "▓" : (distRatio < 0.7 ? "▒" : "░");
-                                lineBuffer[leafPos] = leafChar;
+                    // Overlap animated leaves (176-178: ░, ▒, ▓) on top of the branches
+                    const leafShifts = ["░", "▒", "▓", "░"];
+                    for (let l = 0; l < bLen + 2; l++) {
+                        const leafPos = startX + (dir * l);
+                        if (leafPos > 0 && leafPos < width) {
+                            if (seededRandom(seed++) > 0.35) {
+                                const leafIndex = Math.abs((l + waveFrame) % leafShifts.length);
+                                lineBuffer[leafPos] = leafShifts[leafIndex]; // Render directly over branch
                             }
                         }
                     }
 
                     lines.push(lineBuffer.join(""));
-                    
-                    // Vertical trunk segment between branches
-                    let connectorBuffer = Array(width).fill(" ");
-                    connectorBuffer[center] = vLine;
-                    
-                    // Add ambient leaf floaters around trunk
-                    if (seededRandom(seed++) > 0.5 && center - 2 > 0) connectorBuffer[center - 2] = "░";
-                    if (seededRandom(seed++) > 0.5 && center + 2 < width) connectorBuffer[center + 2] = "░";
-
-                    lines.push(connectorBuffer.join(""));
                 });
+                lines.push("");
             }
 
-            // TIER 0 BASE / SAPLING ROOT
-            // Features 186 (║), 182 (╢), and 176 (░) leaf elements
-            lines.push(" ".repeat(center - 2) + "░ ╢ ░");
-            lines.push(" ".repeat(center - 1) + "░║░");
-            lines.push(" ".repeat(center - 1) + " ║ ");
-            lines.push(" ".repeat(center - 1) + " ║ ");
-            lines.push(" ".repeat(center - 6) + "═══╩═══╩═══");
-            lines.push(" ".repeat(center - 9) + "[ TIER 0: SAPLING ROOT ]");
+            // TIER 0 GROUND & 4-CHARACTER SAPLING BASE
+            lines.push("");
+            lines.push(" ".repeat(center - 10) + "░▒▓ TIER 0: SAPLING MATRIX ▓▒░");
+            lines.push("");
+            
+            // Sapling top: ╢ (182) flanked by two ░ (176) leaves
+            const leafLeft = (waveFrame % 2 === 0) ? "░" : "▒";
+            const leafRight = (waveFrame % 2 === 0) ? "▒" : "░";
+            lines.push(" ".repeat(center - 1) + leafLeft + "╢" + leafRight);
+            
+            // Sapling base stem: ║ (186)
+            lines.push(" ".repeat(center) + "║");
+            
+            // Tier 0 Ground line
+            lines.push(" ".repeat(center - 8) + "═════════╩═════════");
+            lines.push(" ".repeat(center - 10) + "[ TIER 0: GROUND FOUNDATION ]");
 
             return lines;
         }
@@ -404,8 +363,8 @@
 
             const bootLogs = [
                 "[SYS] INITIALIZING EXECUTABLE: R&D.PMCS...",
-                "[SYS] GENERATING PROCEDURAL DIGITAL TREE MATRIX...",
-                "[SYS] RENDERING FRUTIGER FOLIAGE ARRAYS...",
+                "[SYS] RENDERING TIER 0 SAPLING BASE...",
+                "[SYS] SYNTHESIZING DYNAMIC LEAF WAVE ENGINE...",
                 "[SYS] EXECUTION OK."
             ];
 
@@ -422,21 +381,29 @@
             
             scrollY = 0;
             renderRDView();
+
+            // Start ambient leaf waving animation loop
+            if (waveInterval) clearInterval(waveInterval);
+            waveInterval = setInterval(() => {
+                if (inRDModule) {
+                    waveFrame++;
+                    renderRDView();
+                }
+            }, 350);
         }
 
         function renderRDView() {
             outputEl.innerHTML = "";
             print("================================================================================", "title");
-            print("           RESEARCH & DEVELOPMENT // DIGITAL TREE (FRUTIGER AERO V0.9)          ", "title");
+            print("           RESEARCH & DEVELOPMENT // DIGITAL TREE (FRUTIGER AERO V1.0)          ", "title");
             print("================================================================================", "title");
             print("  NAVIGATION: Press [W] to scroll Up | [S] to scroll Down | Type 'exit' to quit");
-            print("  STRUCTURE:  ═══ Double (Researched) | ─── Single (In-Progress) | ░▒▓ Leaves");
+            print("  SAPLING:    ║ (186) Base | ╢ (182) Stem | ░ (176) Leaves | ═╩═ Ground");
             print("--------------------------------------------------------------------------------");
 
             const fullTreeLines = generateDigitalTree();
-            const viewportSize = 18;
+            const viewportSize = 16;
 
-            // Clamp scroll offset
             const maxScroll = Math.max(0, fullTreeLines.length - viewportSize);
             if (scrollY < 0) scrollY = 0;
             if (scrollY > maxScroll) scrollY = maxScroll;
@@ -445,7 +412,7 @@
             visibleLines.forEach(line => print(line));
 
             print("--------------------------------------------------------------------------------");
-            print(`  VIEWPORT: Lines ${scrollY} - ${Math.min(scrollY + viewportSize, fullTreeLines.length)} of ${fullTreeLines.length} | Unique Seed: [${GameState.activeSlot}]`, "title");
+            print(`  VIEWPORT: Lines ${scrollY} - ${Math.min(scrollY + viewportSize, fullTreeLines.length)} of ${fullTreeLines.length} | Animated Wind Frame: ${waveFrame}`, "title");
             print("================================================================================", "title");
             updatePrompt();
         }
@@ -462,6 +429,7 @@
             if (inRDModule) {
                 if (input.toLowerCase() === "exit") {
                     inRDModule = false;
+                    if (waveInterval) clearInterval(waveInterval);
                     outputEl.innerHTML = "";
                     print("[SYS] R&D Module Terminated.");
                     print("");
@@ -667,7 +635,6 @@
         window.addEventListener("keydown", (e) => {
             if (isExecutingProgram) return;
 
-            // Direct W/S scroll handling when inside R&D Module
             if (inRDModule) {
                 const key = e.key.toUpperCase();
                 if (key === "W") {
