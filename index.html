@@ -129,17 +129,37 @@
                 user: { name: "Operator", password: "" },
                 saveName: "default_save",
                 timestamp: null,
-                vessel: { name: "Probe-Alpha", mass_kg: 1200, altitude_m: 375000, velocity_ms: 2450 }
+                vessel: { 
+                    name: "Sounder-Mk1", 
+                    mass_kg: 580, 
+                    fuelRatio: 65,
+                    gimbal: 100,
+                    finArea: 10,
+                    sepDelay: 1.5
+                }
             }
         };
 
         let currentMode = "MAIN_MENU"; 
         let inRDModule = false;
+        let inVABModule = false;
+        let activeVABApp = null;
+        let isExecutingProgram = false;
         let isInspecting = false;
         let tempName = "";
         let pendingLoadSlot = "";
         let selectedTierIndex = 0;
         let selectedCategoryIndex = 0;
+
+        const vabApplications = [
+            { id: "rocket", name: "Rocket Designer", reqTechTier: 0, unlocked: true },
+            { id: "payload", name: "Payload Designer", reqTechTier: 0, unlocked: true },
+            { id: "rover", name: "Rover Simulator", reqTechTier: 1, unlocked: false },
+            { id: "lander", name: "Lander Simulator", reqTechTier: 1, unlocked: false },
+            { id: "drone", name: "Drone Simulator", reqTechTier: 2, unlocked: false },
+            { id: "docking", name: "Docking Computer Simulator", reqTechTier: 2, unlocked: false },
+            { id: "station", name: "Space Station Computer Simulator", reqTechTier: 2, unlocked: false }
+        ];
 
         const techMatrix = [
             {
@@ -147,15 +167,10 @@
                 tierName: "TIER 0: FOUNDATION TECH",
                 unlocked: true,
                 categories: [
-                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny volume (0.5 - 2 IVU). Used for sub-orbital vertical hops to test instruments in vacuum.", unlocked: true },
+                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny volume (0.5 - 2 IVU). Used for sub-orbital vertical hops.", unlocked: true },
                     { cat: "Computers", name: "Mechanical / Manual Relays", desc: "Computers are mechanical and slow, operating purely via radio command execution.", unlocked: true },
                     { cat: "Lifting Bodies", name: "Unpressurized Sounding Rockets", desc: "Solid/liquid rockets for potential energy testing.", unlocked: true },
-                    { cat: "Fuels", name: "Kerosene & Solid Propellants", desc: "Volatile mixtures with higher failure risks.", unlocked: true },
-                    { cat: "RCS", name: "Cold Gas Thrusters", desc: "Pressurized Nitrogen systems for simple attitude holds.", unlocked: true },
-                    { cat: "Power", name: "Primary Silver-Zinc Batteries", desc: "Non-rechargeable energy cells.", unlocked: true },
-                    { cat: "Heat", name: "Passive Conduction Fins", desc: "Basic structural cooling surfaces.", unlocked: true },
-                    { cat: "Comms", name: "Omnidirectional Whips", desc: "360-degree broad-spectrum radio emissions.", unlocked: true },
-                    { cat: "Science", name: "Basic Sounding Suite", desc: "Thermometers, Barometers, and Geiger counters.", unlocked: true }
+                    { cat: "Fuels", name: "Kerosene & Solid Propellants", desc: "Volatile mixtures with higher failure risks.", unlocked: true }
                 ]
             },
             {
@@ -165,13 +180,7 @@
                 categories: [
                     { cat: "Probes", name: "Impactors & Early Satellites", desc: "Short-lived orbital probes and lunar impact capsules.", unlocked: false },
                     { cat: "Computers", name: "Analog Guidance Computers", desc: "Basic analog calculation relays for trajectory correction.", unlocked: false },
-                    { cat: "Lifting Bodies", name: "ICBM-derived Launchers", desc: "Unpressurized ballistic launch systems for low orbit entry.", unlocked: false },
-                    { cat: "Fuels", name: "Refined RP-1 / LOX", desc: "Higher efficiency, safer chemical propellant mixtures.", unlocked: false },
-                    { cat: "RCS", name: "Hydrogen Peroxide Monopropellant", desc: "Catalytic thrust systems for fine directional control.", unlocked: false },
-                    { cat: "Power", name: "Basic Solar Panels", desc: "First-generation photovoltaic power generation.", unlocked: false },
-                    { cat: "Heat", name: "Multi-Layer Insulation (MLI)", desc: "Gold/Silver skin wraps for vacuum radiation shielding.", unlocked: false },
-                    { cat: "Comms", name: "Yagi-Uda Directional Antennas", desc: "Point-to-point focused radio communication dishes.", unlocked: false },
-                    { cat: "Science", name: "Deployable Boom Magnetometers", desc: "Extended sensors for cleaner planetary magnetic field mapping.", unlocked: false }
+                    { cat: "Lifting Bodies", name: "ICBM-derived Launchers", desc: "Unpressurized ballistic launch systems for low orbit entry.", unlocked: false }
                 ]
             }
         ];
@@ -194,6 +203,14 @@
                     promptEl.textContent = `[R&D LIBRARY // INSPECT: W/S/A/D=Back | exit=Quit]> `;
                 } else {
                     promptEl.textContent = `[R&D LIBRARY // W/S:Nav | A/D:Tier | E:Inspect | exit:Quit]> `;
+                }
+                return;
+            }
+            if (inVABModule) {
+                if (activeVABApp) {
+                    promptEl.textContent = `[VAB // ${activeVABApp.name.toUpperCase()} // 1-4:Tune | back:List | exit:Quit]> `;
+                } else {
+                    promptEl.textContent = `[VAB MENU // Enter App # | exit:Quit]> `;
                 }
                 return;
             }
@@ -220,7 +237,24 @@
         function showTitle() {
             print("╔══════════════════════════════════════════════════╗", "title");
             print("║                   ORBITAL OS                     ║", "title");
-            print("║            RESEARCH & DEVELOPMENT SYSTEM         ║", "title");
+            print("║             FRUTIGER DIGITAL TERMINAL            ║", "title");
+            print("╚══════════════════════════════════════════════════╝", "title");
+            print("");
+        }
+
+        function printRDHeader() {
+            print("╔══════════════════════════════════════════════════╗", "title");
+            print("║               RESEARCH  ░▒▓  DEVELOPMENT         ║", "title");
+            print("║                 (  R  __&__  D  )                ║", "title");
+            print("║                       /     \\                    ║", "title");
+            print("╚══════════════════════════════════════════════════╝", "title");
+            print("");
+        }
+
+        function printVABHeader() {
+            print("╔══════════════════════════════════════════════════╗", "title");
+            print("║            VEHICLE ASSEMBLY BUILDING             ║", "title");
+            print("║             [ MOD & TUNING MATRIX ]              ║", "title");
             print("╚══════════════════════════════════════════════════╝", "title");
             print("");
         }
@@ -248,7 +282,7 @@
 
         function printLoggedInHelp() {
             print("Session Active. Available commands:");
-            print("  run [program]   - Execute system program (e.g. 'run r&d')");
+            print("  run [program]   - Execute system program (e.g. 'run r&d', 'run vab')");
             print("  programs        - Display system program tree");
             print("  status          - Display vessel parameters");
             print("  save            - Save current progress");
@@ -261,7 +295,8 @@
             showTitle();
             currentMode = "MAIN_MENU";
             inRDModule = false;
-            isInspecting = false;
+            inVABModule = false;
+            activeVABApp = null;
             updatePrompt();
             printMainMenuHelp();
         }
@@ -277,9 +312,56 @@
             return saves;
         }
 
+        // LOADING LOGIC: 4-7 seconds, 25% chance of 1-2s freeze
+        async function runModuleBootSequence(moduleName, onComplete) {
+            isExecutingProgram = true;
+            inputEl.disabled = true;
+            outputEl.innerHTML = "";
+
+            print(`[SYS] INITIALIZING EXECUTABLE: ${moduleName.toUpperCase()}.EXE...`);
+            print(`[SYS] ALLOCATING MEMORY BUFFERS...`);
+
+            // Total base delay target: ~4.5 to 6.5 seconds across logs
+            const baseSteps = [
+                "ESTABLISHING SYSTEM BUS CONNECTIONS...",
+                "CHECKING PERIPHERAL TELEMETRY SUITE...",
+                "SYNCHRONIZING SAVE STATE RECORDS...",
+                "MOUNTING GRAPHICAL UI FRAMEWORK...",
+                "FINALIZING SYSTEM KERNEL HANDSHAKE..."
+            ];
+
+            const totalDurationSec = 4.0 + Math.random() * 3.0; // 4 to 7 seconds total
+            const stepDelay = (totalDurationSec * 1000) / baseSteps.length;
+
+            const isStuck = Math.random() < 0.25; // 25% chance
+            const stuckIndex = Math.floor(Math.random() * (baseSteps.length - 1)) + 1;
+            const stuckDuration = 1000 + Math.random() * 1000; // 1-2 seconds freeze
+
+            for (let i = 0; i < baseSteps.length; i++) {
+                print(`[SYS] ${baseSteps[i]}`);
+                await new Promise(r => setTimeout(r, stepDelay));
+
+                if (isStuck && i === stuckIndex) {
+                    print(`[WARN] SYSTEM BUS HANG DETECTED... RESOLVING BUFFER MEMORY...`, "amber");
+                    await new Promise(r => setTimeout(r, stuckDuration));
+                    print(`[SYS] BUS RECOVERED. RESUMING BOOT SEQUENCE.`, "amber");
+                }
+            }
+
+            print(`[SYS] ${moduleName.toUpperCase()} BOOT COMPLETE.`);
+            print("");
+            await new Promise(r => setTimeout(r, 400));
+
+            isExecutingProgram = false;
+            inputEl.disabled = false;
+            inputEl.focus();
+            onComplete();
+        }
+
         function renderRDLibrary() {
             outputEl.innerHTML = "";
             isInspecting = false;
+            printRDHeader();
 
             const activeTier = techMatrix[selectedTierIndex];
             const activeCategory = activeTier.categories[selectedCategoryIndex];
@@ -312,6 +394,8 @@
         function showCategoryInspection() {
             outputEl.innerHTML = "";
             isInspecting = true;
+            printRDHeader();
+
             const activeTier = techMatrix[selectedTierIndex];
             const item = activeTier.categories[selectedCategoryIndex];
 
@@ -330,7 +414,62 @@
             updatePrompt();
         }
 
+        function renderVABMenu() {
+            outputEl.innerHTML = "";
+            printVABHeader();
+
+            print("================================================================================", "title");
+            print("                       VAB APPLICATION & SUITE SELECTION                        ", "title");
+            print("================================================================================", "title");
+            print("  Select an application by entering its option number below:");
+            print("--------------------------------------------------------------------------------");
+
+            vabApplications.forEach((app, idx) => {
+                const status = app.unlocked ? "[AVAILABLE]" : `[LOCKED - REQUIRES TIER ${app.reqTechTier}]`;
+                const line = `  [${idx + 1}] ${app.name.padEnd(35)} ${status}`;
+                print(line, app.unlocked ? "amber" : "amber");
+            });
+
+            print("--------------------------------------------------------------------------------");
+            print("Type 'exit' to leave the VAB.");
+            print("================================================================================", "title");
+            updatePrompt();
+        }
+
+        function renderVABAppStudio(app) {
+            outputEl.innerHTML = "";
+            printVABHeader();
+
+            const v = GameState.data.vessel;
+            const totalMass = v.mass_kg + Math.floor(v.fuelRatio * 4.2) + Math.floor(v.finArea * 1.5);
+            const thrust = 12.5; // kN
+            const twr = ((thrust * 1000) / (totalMass * 9.81)).toFixed(2);
+            const estDV = Math.floor(1200 + (v.fuelRatio * 18) - (v.finArea * 5));
+
+            print("================================================================================", "title");
+            print(`            VAB TOOLKITS // ACTIVE: ${app.name.toUpperCase()}            `, "title");
+            print("================================================================================", "title");
+            print(`  TARGET CHASSIS: [ ${v.name} ]`);
+            print("--------------------------------------------------------------------------------");
+            print(" [TUNING & MODIFICATION MATRIX]", "title");
+            print(`  [1] Fuel Mixture Ratio  : [${"█".repeat(Math.floor(v.fuelRatio / 10))}${"░".repeat(10 - Math.floor(v.fuelRatio / 10))}] ${v.fuelRatio}% Kerosene`);
+            print(`  [2] Gimbal Limiter      : [${"█".repeat(Math.floor(v.gimbal / 10))}${"░".repeat(10 - Math.floor(v.gimbal / 10))}] ${v.gimbal}% Range`);
+            print(`  [3] Aero Fin Area       : [${"█".repeat(Math.floor(v.finArea / 2))}${"░".repeat(10 - Math.floor(v.finArea / 2))}] ${v.finArea} sq.m`);
+            print(`  [4] Stage Sep Delay     : [ ${v.sepDelay}s ]`);
+            print("--------------------------------------------------------------------------------");
+            print(" [DYNAMIC TELEMETRY CALCULATOR]", "title");
+            print(`  Calculated Wet Mass : ${totalMass} kg`);
+            print(`  Ground Thrust-to-Wt : ${twr} TWR`);
+            print(`  Estimated Delta-V   : ${estDV} m/s`);
+            print("--------------------------------------------------------------------------------");
+            print("Controls: Type '1'-'4' to cycle values. Type 'back' for VAB Menu, or 'exit'.");
+            print("================================================================================", "title");
+            updatePrompt();
+        }
+
         function processCommand(input) {
+            if (isExecutingProgram) return;
+
             if (currentMode === "NEW_PASS" || currentMode === "LOAD_PASS") {
                 print(`${promptEl.textContent} ********`, "amber");
             } else {
@@ -385,6 +524,65 @@
                 }
                 print(`[SYS] Navigation: Use 'W', 'S', 'A', 'D', 'E', or type 'exit'.`);
                 return;
+            }
+
+            if (inVABModule) {
+                const cmd = input.toLowerCase();
+                if (cmd === "exit") {
+                    inVABModule = false;
+                    activeVABApp = null;
+                    outputEl.innerHTML = "";
+                    print("[SYS] VAB Suite Exited.");
+                    print("");
+                    printLoggedInHelp();
+                    updatePrompt();
+                    return;
+                }
+
+                if (activeVABApp) {
+                    if (cmd === "back") {
+                        activeVABApp = null;
+                        renderVABMenu();
+                        return;
+                    }
+                    const v = GameState.data.vessel;
+                    if (cmd === "1") {
+                        v.fuelRatio = (v.fuelRatio + 10) > 100 ? 10 : v.fuelRatio + 10;
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    if (cmd === "2") {
+                        v.gimbal = (v.gimbal + 20) > 100 ? 20 : v.gimbal + 20;
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    if (cmd === "3") {
+                        v.finArea = (v.finArea + 2) > 20 ? 2 : v.finArea + 2;
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    if (cmd === "4") {
+                        v.sepDelay = (v.sepDelay >= 3.0) ? 0.5 : parseFloat((v.sepDelay + 0.5).toFixed(1));
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    print("[SYS] Type '1'-'4' to change parameters, 'back' for menu, or 'exit'.");
+                    return;
+                } else {
+                    const option = parseInt(cmd, 10);
+                    if (!isNaN(option) && option >= 1 && option <= vabApplications.length) {
+                        const app = vabApplications[option - 1];
+                        if (!app.unlocked) {
+                            print(`[ERR] ${app.name} is LOCKED. Requires Tier ${app.reqTechTier} research.`);
+                            return;
+                        }
+                        activeVABApp = app;
+                        renderVABAppStudio(app);
+                        return;
+                    }
+                    print("[SYS] Select a valid unlocked option number or type 'exit'.");
+                    return;
+                }
             }
 
             if (currentMode === "NEW_NAME") {
@@ -480,8 +678,18 @@
 
             if (currentMode === "LOGGED_IN") {
                 if ((cmd === "run" && subCmd === "r&d") || cmd === "r&d") {
-                    inRDModule = true;
-                    renderRDLibrary();
+                    runModuleBootSequence("R&D Module", () => {
+                        inRDModule = true;
+                        renderRDLibrary();
+                    });
+                    return;
+                }
+
+                if ((cmd === "run" && subCmd === "vab") || cmd === "vab") {
+                    runModuleBootSequence("VAB Suite", () => {
+                        inVABModule = true;
+                        renderVABMenu();
+                    });
                     return;
                 }
 
@@ -517,7 +725,7 @@
                         break;
 
                     default:
-                        print(`Unknown command: '${cmd}'. Type 'help' or 'run r&d'.`);
+                        print(`Unknown command: '${cmd}'. Type 'help', 'run r&d', or 'run vab'.`);
                         break;
                 }
                 return;
@@ -570,6 +778,8 @@
         }
 
         window.addEventListener("keydown", (e) => {
+            if (isExecutingProgram) return;
+
             if (inRDModule) {
                 const key = e.key.toUpperCase();
                 if (key === "W") {
