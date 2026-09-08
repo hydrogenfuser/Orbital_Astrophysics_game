@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ORBITAL OS v0.0.1</title>
+    <title>ORBITAL</title>
     <style>
         * {
             box-sizing: border-box;
@@ -52,11 +52,11 @@
             white-space: pre-wrap;
             margin-bottom: 10px;
             padding-right: 5px;
-            line-height: 1.15;
+            line-height: 1.25;
             font-size: 0.95rem;
         }
 
-        .line-amber, .line-title, #prompt, #command-input, #controls-bar {
+        .line-amber, .line-title, #prompt, #command-input, #controls-info {
             color: #ffb000;
             text-shadow: 0 0 1.5px rgba(255, 176, 0, 0.4);
         }
@@ -82,20 +82,31 @@
             font-weight: bold; 
         }
 
-        #controls-bar {
-            padding: 6px 10px;
-            margin-bottom: 6px;
-            background: rgba(255, 176, 0, 0.08);
-            border: 1px solid rgba(255, 176, 0, 0.4);
-            font-size: 0.85rem;
-            display: none;
+        .entry-title {
+            font-size: 2.2rem;
             font-weight: bold;
+            letter-spacing: 4px;
+            margin-bottom: 2px;
+        }
+
+        .entry-version {
+            font-size: 1rem;
+            opacity: 0.85;
+            margin-bottom: 15px;
+        }
+
+        #controls-info {
+            border-top: 1px solid rgba(255, 176, 0, 0.3);
+            padding: 4px 0;
+            font-size: 0.85rem;
+            min-height: 1.5rem;
+            opacity: 0.9;
         }
 
         #input-line {
             display: flex;
             align-items: center;
-            border-top: 1px solid rgba(255, 176, 0, 0.4);
+            border-top: 1px solid rgba(255, 176, 0, 0.5);
             padding-top: 8px;
         }
 
@@ -128,7 +139,7 @@
 
     <div id="terminal-screen">
         <div id="output"></div>
-        <div id="controls-bar"></div>
+        <div id="controls-info"></div>
         <div id="input-line">
             <span id="prompt">Command:</span>
             <input type="text" id="command-input" autofocus autocomplete="off" spellcheck="false">
@@ -142,26 +153,42 @@
                 user: { name: "Operator", password: "" },
                 saveName: "default_save",
                 timestamp: null,
-                vessel: { name: "Sounder-Mk1", mass_kg: 580, thrust_kn: 12.5 }
+                vessel: { 
+                    name: "Sounder-Mk1", 
+                    mass_kg: 580, 
+                    fuelRatio: 65,
+                    gimbal: 100,
+                    finArea: 10,
+                    sepDelay: 1.5
+                }
             }
         };
 
         let currentMode = "MAIN_MENU"; 
+        let inRDModule = false;
+        let inVABModule = false;
+        let activeVABApp = null;
         let isExecutingProgram = false;
-        let activeProgram = null; // "RD" or "VAB"
-        let rdInputFocus = false; // toggled via 'Q' key
         let isInspecting = false;
         let tempName = "";
         let pendingLoadSlot = "";
-        
         let selectedTierIndex = 0;
         let selectedCategoryIndex = 0;
-        let selectedVabIndex = 0;
+
+        const vabApplications = [
+            { id: "rocket", name: "Rocket Designer" },
+            { id: "payload", name: "Payload Designer" },
+            { id: "rover", name: "Rover Simulator" },
+            { id: "lander", name: "Lander Simulator" },
+            { id: "drone", name: "Drone Simulator" },
+            { id: "docking", name: "Docking Computer Simulator" },
+            { id: "station", name: "Space Station Computer Simulator" }
+        ];
 
         const techMatrix = [
             {
                 tier: 0,
-                tierName: "FOUNDATION TECH",
+                tierName: "TIER 0: FOUNDATION TECH",
                 categories: [
                     { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny volume (0.5 - 2 IVU). Used for sub-orbital vertical hops to test instruments in vacuum." },
                     { cat: "Computers", name: "Mechanical / Manual Relays", desc: "Computers are mechanical and slow, operating purely via radio command execution." },
@@ -176,7 +203,7 @@
             },
             {
                 tier: 1,
-                tierName: "FIRST STEPS",
+                tierName: "TIER 1: FIRST STEPS",
                 categories: [
                     { cat: "Probes", name: "Impactors & Early Satellites", desc: "Short-lived orbital probes and lunar impact capsules." },
                     { cat: "Computers", name: "Analog Guidance Computers", desc: "Basic analog calculation relays for trajectory correction." },
@@ -191,18 +218,10 @@
             }
         ];
 
-        const vabInventory = [
-            { name: "Sounder-Mk1 Pod", type: "Core Payload", mass: "120 kg", status: "READY" },
-            { name: "Alpha-1 Solid Booster", type: "Propulsion", mass: "450 kg", status: "READY" },
-            { name: "Aerodynamic Fin Assembly", type: "Control Surface", mass: "35 kg", status: "READY" },
-            { name: "High-Altitude Barometric Probe", type: "Science Unit", mass: "15 kg", status: "READY" },
-            { name: "Cold-Gas Nitrogen Thruster", type: "Attitude Control", mass: "22 kg", status: "STANDBY" }
-        ];
-
         const outputEl = document.getElementById("output");
         const promptEl = document.getElementById("prompt");
         const inputEl = document.getElementById("command-input");
-        const controlsBarEl = document.getElementById("controls-bar");
+        const controlsInfoEl = document.getElementById("controls-info");
 
         function print(text, type = "amber") {
             const div = document.createElement("div");
@@ -212,39 +231,32 @@
             outputEl.scrollTop = outputEl.scrollHeight;
         }
 
-        function updateControlsBar() {
-            if (activeProgram === "RD") {
-                controlsBarEl.style.display = "block";
-                if (rdInputFocus) {
-                    controlsBarEl.textContent = `[ CONTROLS ] Mode: TERMINAL TYPING | Type 'terminate' to exit | Press [ESC] or [Q] to switch back to WASD Navigation`;
-                } else {
-                    controlsBarEl.textContent = `[ CONTROLS ] Mode: MOVE/NAVIGATE TREE | [WASD]: Move | [E]: Select/Inspect | [Q]: Terminal Typing | Type 'terminate': Exit`;
-                }
-            } else if (activeProgram === "VAB") {
-                controlsBarEl.style.display = "block";
-                if (rdInputFocus) {
-                    controlsBarEl.textContent = `[ CONTROLS ] Mode: TERMINAL TYPING | Type 'terminate' to exit | Press [ESC] or [Q] to switch back to WASD Navigation`;
-                } else {
-                    controlsBarEl.textContent = `[ CONTROLS ] Mode: MOVE/NAVIGATE VAB | [W/S]: Select Component | [E]: Inspect | [Q]: Terminal Typing | Type 'terminate': Exit`;
-                }
-            } else {
-                controlsBarEl.style.display = "none";
-            }
+        function setControlsBar(text) {
+            controlsInfoEl.textContent = text;
         }
 
         function updatePrompt() {
-            updateControlsBar();
-
-            if (activeProgram) {
-                if (rdInputFocus) {
-                    promptEl.textContent = `[${activeProgram} // TERMINAL INPUT]> `;
-                    inputEl.focus();
+            if (inRDModule) {
+                setControlsBar("CONTROLS: WASD = Navigate | E = Select / Inspect | Q = Back | 'terminate' = Close Program");
+                if (isInspecting) {
+                    promptEl.textContent = `[R&D // INSPECT]> `;
                 } else {
-                    promptEl.textContent = `[${activeProgram} // NAV MODE (Press Q for Typing)]> `;
-                    inputEl.blur();
+                    promptEl.textContent = `[R&D // NAVIGATE]> `;
                 }
                 return;
             }
+
+            if (inVABModule) {
+                setControlsBar("CONTROLS: Enter Option # to Launch | 'back' = App List | 'terminate' = Close Program");
+                if (activeVABApp) {
+                    promptEl.textContent = `[VAB // ${activeVABApp.name.toUpperCase()} ]> `;
+                } else {
+                    promptEl.textContent = `[VAB // MENU]> `;
+                }
+                return;
+            }
+
+            setControlsBar("SYSTEM READY // Enter command.");
 
             switch (currentMode) {
                 case "LOGGED_IN":
@@ -264,50 +276,42 @@
                     promptEl.textContent = "Command:";
                     break;
             }
-            inputEl.focus();
         }
 
         function showTitle() {
-            print("ORBITAL", "title");
-            print("v0.0.1", "title");
-            print("================================================================================", "title");
-            print("  .-----------------------------------------------------------------.  ", "title");
-            print(" /  =============================================================  \\ ", "title");
-            print("||  |      ___   ____  ____  ___ _____  _   _     ___  ____     |  ||", "title");
-            print("||  |     / _ \\ |  _ \\| __ )|_ _|_   _|/ \\ | |   / _ \\/ ___|    |  ||", "title");
-            print("||  |    | | | || |_) |  _ \\ | |  | | / _ \\| |  | | | \\___ \\    |  ||", "title");
-            print("||  |    | |_| ||  _ <| |_) || |  | |/ ___ \\ |__| |_| |___) |   |  ||", "title");
-            print("||  |     \\___/ |_| \\_\\____/|___| |_/_/   \\_\\_____\\___/|____/    |  ||", "title");
-            print("||  |                                                           |  ||", "title");
-            print("||  |             FRUTIGER DIGITAL TERMINAL SYSTEM v0.0.1       |  ||", "title");
-            print(" \\  =============================================================  / ", "title");
-            print("  '-----------------------------------------------------------------'  ", "title");
+            const titleDiv = document.createElement("div");
+            titleDiv.className = "entry-title line-title";
+            titleDiv.textContent = "ORBITAL";
+            
+            const versionDiv = document.createElement("div");
+            versionDiv.className = "entry-version line-amber";
+            versionDiv.textContent = "v0.0.1";
+
+            outputEl.appendChild(titleDiv);
+            outputEl.appendChild(versionDiv);
             print("");
         }
 
-        // ASCII Header for R&D using ASCII 177 (▒) and 219 (█)
         function printRDHeader() {
+            print("██████▒   ▒▒▒   ██████▒ ", "title");
+            print("██▒  ██▒   █    ██▒  ██▒", "title");
+            print("██████▒   ▒█▒   ██▒  ██▒", "title");
+            print("██▒  ██▒   █    ██▒  ██▒", "title");
+            print("██▒  ██▒  ▒▒▒   ██████▒ ", "title");
             print("================================================================================", "title");
-            print("  ██████╗  ▒▒▒▒▒▒▒╗ ██████╗ ", "title");
-            print("  ██╔══██╗ ▒▒╔════╝ ██╔══██╗", "title");
-            print("  ██████╔╝ ▒▒▒▒▒╗   ██║  ██║", "title");
-            print("  ██╔══██╗ ▒▒╔══╝   ██║  ██║", "title");
-            print("  ██║  ██║ ▒▒▒▒▒▒▒╗ ██████╔╝", "title");
-            print("  ╚═╝  ╚═╝ ╚══════╝ ╚═════╝ ", "title");
-            print("  [ RESEARCH  &  DEVELOPMENT MODULE ]", "title");
+            print("                    RESEARCH & DEVELOPMENT LABORATORY                           ", "title");
             print("================================================================================", "title");
             print("");
         }
 
-        // ASCII Header for VAB using ASCII 177 (▒) and 219 (█)
         function printVABHeader() {
+            print("██▒  ██▒  █████▒   ██████▒ ", "title");
+            print("██▒  ██▒ ██▒  ██▒  ██▒  ██▒", "title");
+            print("██▒  ██▒ ███████▒  ██████▒ ", "title");
+            print("██▒  ██▒ ██▒  ██▒  ██▒  ██▒", "title");
+            print(" █████▒  ██▒  ██▒  ██████▒ ", "title");
             print("================================================================================", "title");
-            print("  ██╗   ██╗ ▒▒▒▒▒╗  ██████╗ ", "title");
-            print("  ██║   ██║▒▒╔══▒▒╗ ██╔══██╗", "title");
-            print("  ██║   ██║▒▒▒▒▒▒▒║ ██████╔╝", "title");
-            print("  ▒██╗ ██╔▒▒▒╔══▒▒║ ██╔══██╗", "title");
-            print("   ▒████╔▒ ▒▒║  ▒▒║ ██████╔╝", "title");
-            print("  [ VEHICLE ASSEMBLY BUILDING ]", "title");
+            print("                   VEHICLE ASSEMBLY BUILDING SYSTEM                             ", "title");
             print("================================================================================", "title");
             print("");
         }
@@ -316,6 +320,7 @@
             print("ORBITAL OS // SYSTEM DIRECTORY", "title");
             print("└── System Programs");
             print("    ├── VAB");
+            print("    ├── Hangars");
             print("    ├── R&D");
             print("    ├── Astronaut Complex");
             print("    ├── Contractors");
@@ -325,30 +330,30 @@
         }
 
         function printMainMenuHelp() {
-            print("System offline. Available commands:");
-            print("  new             - Create a new profile and start game");
+            print("Available commands:");
+            print("  new             - Create a new profile and start session");
             print("  load            - View save files and login");
             print("  saves           - List available save files");
-            print("  clear           - Clear terminal buffer");
+            print("  clear           - Clear terminal screen");
         }
 
         function printLoggedInHelp() {
-            print("Session Active. Available commands:");
-            print("  run r&d         - Launch Research & Development Module");
-            print("  run vab         - Launch Vehicle Assembly Building");
+            print("Available commands:");
+            print("  run [program]   - Execute system program (e.g. 'run r&d', 'run vab')");
             print("  programs        - Display system program tree");
             print("  status          - Display vessel parameters");
             print("  save            - Save current progress");
             print("  logout          - Exit current session");
-            print("  clear           - Clear terminal buffer");
+            print("  clear           - Clear terminal screen");
         }
 
         function bootTerminal() {
             outputEl.innerHTML = "";
             showTitle();
             currentMode = "MAIN_MENU";
-            activeProgram = null;
-            rdInputFocus = false;
+            inRDModule = false;
+            inVABModule = false;
+            activeVABApp = null;
             updatePrompt();
             printMainMenuHelp();
         }
@@ -364,61 +369,81 @@
             return saves;
         }
 
-        // ASCII Loading screen renderer using ASCII 177 (▒) and 219 (█)
-        function renderLoadingASCII(percentage, moduleName) {
+        function renderRDBootScreen(percentage) {
             outputEl.innerHTML = "";
+            print("██████▒   ▒▒▒   ██████▒ ", "title");
+            print("██▒  ██▒   █    ██▒  ██▒", "title");
+            print("██████▒   ▒█▒   ██▒  ██▒", "title");
+            print("██▒  ██▒   █    ██▒  ██▒", "title");
+            print("██▒  ██▒  ▒▒▒   ██████▒ ", "title");
             print("================================================================================", "title");
-            print(`                 INITIALIZING SUBSYSTEM: ${moduleName.toUpperCase()}`, "title");
-            print("================================================================================", "title");
-            print("");
-            print("  ██████╗ ██████╗ ██████╗ ██████╗████████╗██████╗ ██╗     ", "title");
-            print("  ██╔══██╗██╔══██╗██╔══██╗██╔════╝   ██║   ██╔══██╗██║     ", "title");
-            print("  ██║  ██║██████╔╝██████╔╝█████╗     ██║   ███████║██║     ", "title");
-            print("  ██║  ██║██╔══██╗██╔══██╗██╔══╝     ██║   ██╔══██║██║     ", "title");
-            print("  ██████╔╝██║  ██║██████╔╝███████╗   ██║   ██║  ██║███████╗", "title");
-            print("  ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝", "title");
-            print("");
+            print("INITIALIZING R&D DATABASE RELAYS...");
             
-            const totalBars = 40;
+            const totalBars = 35;
             const filled = Math.floor((percentage / 100) * totalBars);
             const empty = totalBars - filled;
-            const barStr = "[" + "█".repeat(filled) + "▒".repeat(empty) + "]";
+            const barStr = "[" + "█".repeat(filled) + "░".repeat(empty) + "]";
             
-            print(`  BUS LINK STATUS: ${barStr} ${percentage}%`, "title");
-            print("");
+            print(`LOADING: ${barStr} ${percentage}%`, "title");
             print("================================================================================", "title");
+            print("");
         }
 
-        // Dedicated dynamic loading screens with 4-7 second timers and buffer hang logic
-        async function runModuleBootSequence(moduleName, onComplete) {
+        function renderVABBootScreen(percentage) {
+            outputEl.innerHTML = "";
+            print("██▒  ██▒  █████▒   ██████▒ ", "title");
+            print("██▒  ██▒ ██▒  ██▒  ██▒  ██▒", "title");
+            print("██▒  ██▒ ███████▒  ██████▒ ", "title");
+            print("██▒  ██▒ ██▒  ██▒  ██▒  ██▒", "title");
+            print(" █████▒  ██▒  ██▒  ██████▒ ", "title");
+            print("================================================================================", "title");
+            print("MOUNTING VEHICLE ASSEMBLY BAY HARDWARE SUITE...");
+            
+            const totalBars = 35;
+            const filled = Math.floor((percentage / 100) * totalBars);
+            const empty = totalBars - filled;
+            const barStr = "[" + "█".repeat(filled) + "░".repeat(empty) + "]";
+            
+            print(`LOADING: ${barStr} ${percentage}%`, "title");
+            print("================================================================================", "title");
+            print("");
+        }
+
+        async function runModuleBootSequence(moduleType, onComplete) {
             isExecutingProgram = true;
             inputEl.disabled = true;
 
-            const totalDurationSec = 4.0 + Math.random() * 3.0; // 4.0 to 7.0 seconds
-            const steps = 30;
+            const totalDurationSec = 4.0 + Math.random() * 3.0; // 4 to 7 seconds total
+            const steps = 25;
             const stepDelay = (totalDurationSec * 1000) / steps;
 
-            const isStuck = Math.random() < 0.25; // 25% chance buffer hang
-            const stuckStep = Math.floor(Math.random() * 12) + 10;
-            const stuckDuration = 1200 + Math.random() * 1000;
+            const isStuck = Math.random() < 0.25; // 25% chance
+            const stuckStep = Math.floor(Math.random() * 10) + 8;
+            const stuckDuration = 1000 + Math.random() * 1000; // 1 to 2 seconds hang
 
             for (let i = 1; i <= steps; i++) {
                 const percent = Math.floor((i / steps) * 100);
-                renderLoadingASCII(percent, moduleName);
+                
+                if (moduleType === "RD") {
+                    renderRDBootScreen(percent);
+                } else {
+                    renderVABBootScreen(percent);
+                }
                 
                 if (isStuck && i === stuckStep) {
-                    print(`  [WARN] MEMORY BUFFER HANG... RE-SYNCHRONIZING BUS LINK...`, "amber");
+                    print(`[WARN] SYSTEM BUS HANG DETECTED... RESOLVING BUFFER MEMORY...`, "amber");
                     await new Promise(r => setTimeout(r, stuckDuration));
                 } else {
                     await new Promise(r => setTimeout(r, stepDelay));
                 }
             }
 
-            print(`  [SYS] ${moduleName.toUpperCase()} BOOT COMPLETE.`);
-            await new Promise(r => setTimeout(r, 200));
+            print(`[SYS] BOOT COMPLETE.`);
+            await new Promise(r => setTimeout(r, 250));
 
             isExecutingProgram = false;
             inputEl.disabled = false;
+            inputEl.focus();
             onComplete();
         }
 
@@ -430,7 +455,7 @@
             const activeTier = techMatrix[selectedTierIndex];
             const activeCategory = activeTier.categories[selectedCategoryIndex];
 
-            print(`TECH MATRIX // LAYER ${selectedTierIndex}: ${activeTier.tierName}`, "title");
+            print(`ACTIVE TIER: ${activeTier.tierName}`, "title");
             print("--------------------------------------------------------------------------------");
 
             for (let i = 0; i < activeTier.categories.length; i++) {
@@ -438,15 +463,15 @@
                 const isSelected = (i === selectedCategoryIndex);
                 
                 let lineStr = isSelected 
-                    ? ` ►► [MOVE SELECT] ${item.cat.toUpperCase().padEnd(16)} : ${item.name} ◄◄` 
-                    : `    [AVAILABLE]   ${item.cat.toUpperCase().padEnd(16)} : ${item.name}`;
+                    ? ` ►► [UNLOCKED] ${item.cat.toUpperCase().padEnd(15)} : ${item.name} ◄◄` 
+                    : `    [UNLOCKED] ${item.cat.toUpperCase().padEnd(15)} : ${item.name}`;
 
                 print(lineStr, isSelected ? "title" : "amber");
             }
 
             print("--------------------------------------------------------------------------------");
-            print(`ACTIVE NODE: [${activeCategory.cat.toUpperCase()}] -> ${activeCategory.name}`, "title");
-            print(`SUMMARY: ${activeCategory.desc}`);
+            print(`CURRENTLY HIGHLIGHTED: [${activeCategory.cat.toUpperCase()}] -> ${activeCategory.name}`, "title");
+            print(`BRIEF: ${activeCategory.desc}`);
             print("================================================================================", "title");
             updatePrompt();
         }
@@ -459,104 +484,180 @@
             const activeTier = techMatrix[selectedTierIndex];
             const item = activeTier.categories[selectedCategoryIndex];
 
-            print("================================================================================", "title");
-            print(`              SPECIFICATION LEDGER // ${item.cat.toUpperCase()}`, "title");
-            print("================================================================================", "title");
-            print(`COMPONENT NAME: ${item.name}`);
-            print(`TECH LAYER:     ${activeTier.tierName}`);
-            print(`STATUS:         UNLOCKED & AVAILABLE`);
+            print(`SPECIFICATION LEDGER // ${item.cat.toUpperCase()}`, "title");
             print("--------------------------------------------------------------------------------");
-            print("SPECIFICATIONS & OVERVIEW:", "title");
+            print(`ITEM NAME:   ${item.name}`);
+            print(`TIER LEVEL:  ${activeTier.tierName}`);
+            print(`STATUS:      UNLOCKED & AVAILABLE`);
+            print("--------------------------------------------------------------------------------");
+            print("HARDWARE OVERVIEW:", "title");
             print(`  ${item.desc}`);
             print("--------------------------------------------------------------------------------");
-            print("Press [WASD] or [E] to return to tech tree navigation.");
             print("================================================================================", "title");
             updatePrompt();
         }
 
-        function renderVAB() {
+        function renderVABMenu() {
             outputEl.innerHTML = "";
-            isInspecting = false;
             printVABHeader();
 
-            print("ASSEMBLY MANIFEST // INVENTORY", "title");
+            print("AVAILABLE APPLICATIONS:", "title");
             print("--------------------------------------------------------------------------------");
 
-            for (let i = 0; i < vabInventory.length; i++) {
-                const item = vabInventory[i];
-                const isSelected = (i === selectedVabIndex);
-
-                let lineStr = isSelected
-                    ? ` ►► [SELECTED] ${item.name.padEnd(32)} | TYPE: ${item.type.padEnd(18)} | MASS: ${item.mass} ◄◄`
-                    : `    [PARTS]    ${item.name.padEnd(32)} | TYPE: ${item.type.padEnd(18)} | MASS: ${item.mass}`;
-
-                print(lineStr, isSelected ? "title" : "amber");
-            }
+            vabApplications.forEach((app, idx) => {
+                const line = `  [${idx + 1}] ${app.name}`;
+                print(line, "amber");
+            });
 
             print("--------------------------------------------------------------------------------");
-            const activeItem = vabInventory[selectedVabIndex];
-            print(`COMPONENT HIGHLIGHT: ${activeItem.name}`, "title");
-            print(`STATUS: ${activeItem.status} | MASS: ${activeItem.mass} | CLASS: ${activeItem.type}`);
             print("================================================================================", "title");
             updatePrompt();
         }
 
-        function showVabInspection() {
+        function renderVABAppStudio(app) {
             outputEl.innerHTML = "";
-            isInspecting = true;
             printVABHeader();
 
-            const item = vabInventory[selectedVabIndex];
-            print("================================================================================", "title");
-            print(`              ASSEMBLY COMPONENT SHEET // ${item.name.toUpperCase()}`, "title");
-            print("================================================================================", "title");
-            print(`NAME:         ${item.name}`);
-            print(`TYPE:         ${item.type}`);
-            print(`MASS:         ${item.mass}`);
-            print(`INTEGRITY:    100% NOMINAL`);
-            print(`AVAILABILITY: INSTALLED / READY FOR FLIGHT STACK`);
-            print("--------------------------------------------------------------------------------");
-            print("Press [W/S] or [E] to return to VAB Manifest.");
-            print("================================================================================", "title");
-            updatePrompt();
-        }
+            const v = GameState.data.vessel;
+            const totalMass = v.mass_kg + Math.floor(v.fuelRatio * 4.2) + Math.floor(v.finArea * 1.5);
+            const thrust = 12.5; // kN
+            const twr = ((thrust * 1000) / (totalMass * 9.81)).toFixed(2);
+            const estDV = Math.floor(1200 + (v.fuelRatio * 18) - (v.finArea * 5));
 
-        function terminateProgram() {
-            const prevProgram = activeProgram;
-            activeProgram = null;
-            rdInputFocus = false;
-            isInspecting = false;
-            outputEl.innerHTML = "";
-            print(`[SYS] ${prevProgram} Module terminated.`);
-            print("");
-            printLoggedInHelp();
+            print(`ACTIVE STUDIO TOOLKIT: ${app.name.toUpperCase()}`, "title");
+            print(`TARGET CHASSIS: [ ${v.name} ]`);
+            print("--------------------------------------------------------------------------------");
+            print(" [TUNING & MODIFICATION MATRIX]", "title");
+            print(`  [1] Fuel Mixture Ratio  : [${"█".repeat(Math.floor(v.fuelRatio / 10))}${"░".repeat(10 - Math.floor(v.fuelRatio / 10))}] ${v.fuelRatio}% Kerosene`);
+            print(`  [2] Gimbal Limiter      : [${"█".repeat(Math.floor(v.gimbal / 10))}${"░".repeat(10 - Math.floor(v.gimbal / 10))}] ${v.gimbal}% Range`);
+            print(`  [3] Aero Fin Area       : [${"█".repeat(Math.floor(v.finArea / 2))}${"░".repeat(10 - Math.floor(v.finArea / 2))}] ${v.finArea} sq.m`);
+            print(`  [4] Stage Sep Delay     : [ ${v.sepDelay}s ]`);
+            print("--------------------------------------------------------------------------------");
+            print(" [DYNAMIC TELEMETRY CALCULATOR]", "title");
+            print(`  Calculated Wet Mass : ${totalMass} kg`);
+            print(`  Ground Thrust-to-Wt : ${twr} TWR`);
+            print(`  Estimated Delta-V   : ${estDV} m/s`);
+            print("--------------------------------------------------------------------------------");
+            print("Controls: Type '1'-'4' to adjust parameters. Type 'back' for VAB menu, or 'terminate'.");
+            print("================================================================================", "title");
             updatePrompt();
         }
 
         function processCommand(input) {
             if (isExecutingProgram) return;
 
-            const trimmed = input.trim();
-
-            if (activeProgram) {
-                print(`${promptEl.textContent} ${trimmed}`, "amber");
-                if (trimmed.toLowerCase() === "terminate") {
-                    terminateProgram();
-                    return;
-                }
-                print(`[SYS] Terminal command '${trimmed}' executed in ${activeProgram}. Type 'terminate' to exit program.`);
-                return;
-            }
+            const trimmedInput = input.trim();
+            const lowerInput = trimmedInput.toLowerCase();
 
             if (currentMode === "NEW_PASS" || currentMode === "LOAD_PASS") {
                 print(`${promptEl.textContent} ********`, "amber");
             } else {
-                print(`${promptEl.textContent} ${trimmed}`, "amber");
+                print(`${promptEl.textContent} ${trimmedInput}`, "amber");
+            }
+
+            if (lowerInput === "terminate") {
+                inRDModule = false;
+                inVABModule = false;
+                isInspecting = false;
+                activeVABApp = null;
+                outputEl.innerHTML = "";
+                print("[SYS] ACTIVE PROGRAM TERMINATED.");
+                print("");
+                printLoggedInHelp();
+                updatePrompt();
+                return;
+            }
+
+            if (inRDModule) {
+                if (lowerInput === "q") {
+                    if (isInspecting) {
+                        renderRDLibrary();
+                    }
+                    return;
+                }
+                if (lowerInput === "w") {
+                    if (isInspecting) { renderRDLibrary(); return; }
+                    if (selectedCategoryIndex > 0) selectedCategoryIndex--;
+                    renderRDLibrary();
+                    return;
+                }
+                if (lowerInput === "s") {
+                    if (isInspecting) { renderRDLibrary(); return; }
+                    if (selectedCategoryIndex < techMatrix[selectedTierIndex].categories.length - 1) selectedCategoryIndex++;
+                    renderRDLibrary();
+                    return;
+                }
+                if (lowerInput === "a") {
+                    if (isInspecting) { renderRDLibrary(); return; }
+                    if (selectedTierIndex > 0) {
+                        selectedTierIndex--;
+                        selectedCategoryIndex = 0;
+                    }
+                    renderRDLibrary();
+                    return;
+                }
+                if (lowerInput === "d") {
+                    if (isInspecting) { renderRDLibrary(); return; }
+                    if (selectedTierIndex < techMatrix.length - 1) {
+                        selectedTierIndex++;
+                        selectedCategoryIndex = 0;
+                    }
+                    renderRDLibrary();
+                    return;
+                }
+                if (lowerInput === "e") {
+                    if (!isInspecting) showCategoryInspection();
+                    return;
+                }
+                print(`[SYS] R&D Navigation: Use WASD keys, 'E' to select, 'Q' for back, or 'terminate'.`);
+                return;
+            }
+
+            if (inVABModule) {
+                if (activeVABApp) {
+                    if (lowerInput === "back") {
+                        activeVABApp = null;
+                        renderVABMenu();
+                        return;
+                    }
+                    const v = GameState.data.vessel;
+                    if (lowerInput === "1") {
+                        v.fuelRatio = (v.fuelRatio + 10) > 100 ? 10 : v.fuelRatio + 10;
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    if (lowerInput === "2") {
+                        v.gimbal = (v.gimbal + 20) > 100 ? 20 : v.gimbal + 20;
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    if (lowerInput === "3") {
+                        v.finArea = (v.finArea + 2) > 20 ? 2 : v.finArea + 2;
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    if (lowerInput === "4") {
+                        v.sepDelay = (v.sepDelay >= 3.0) ? 0.5 : parseFloat((v.sepDelay + 0.5).toFixed(1));
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    print("[SYS] Type '1'-'4' to adjust, 'back' for menu, or 'terminate'.");
+                    return;
+                } else {
+                    const option = parseInt(lowerInput, 10);
+                    if (!isNaN(option) && option >= 1 && option <= vabApplications.length) {
+                        activeVABApp = vabApplications[option - 1];
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    print("[SYS] Enter an application number (1-7), or type 'terminate'.");
+                    return;
+                }
             }
 
             if (currentMode === "NEW_NAME") {
-                if (!trimmed) return;
-                tempName = trimmed;
+                if (!trimmedInput) return;
+                tempName = trimmedInput;
                 currentMode = "NEW_PASS";
                 inputEl.type = "password";
                 updatePrompt();
@@ -564,8 +665,8 @@
             }
 
             if (currentMode === "NEW_PASS") {
-                if (!trimmed) return;
-                const password = trimmed;
+                if (!trimmedInput) return;
+                const password = trimmedInput;
                 inputEl.type = "text";
 
                 const slotName = tempName.toLowerCase().replace(/\s+/g, '_');
@@ -580,8 +681,8 @@
                 outputEl.innerHTML = "";
                 currentMode = "LOGGED_IN";
                 updatePrompt();
-                print(`[SYS] User profile '${tempName}' initialized.`);
-                print(`[SYS] Access ID locked: [${slotName}]`);
+                print(`[SYS] User profile '${tempName}' created.`);
+                print(`[SYS] Profile ID: [${slotName}]`);
                 print("");
                 printProgramTree();
                 printLoggedInHelp();
@@ -589,10 +690,10 @@
             }
 
             if (currentMode === "LOAD_SELECT") {
-                if (!trimmed) return;
-                const targetSlot = trimmed.toLowerCase().replace(/\s+/g, '_');
+                if (!trimmedInput) return;
+                const targetSlot = trimmedInput.toLowerCase().replace(/\s+/g, '_');
 
-                if (trimmed.toLowerCase() === "cancel") {
+                if (lowerInput === "cancel") {
                     currentMode = "MAIN_MENU";
                     updatePrompt();
                     printMainMenuHelp();
@@ -601,7 +702,7 @@
 
                 const rawData = localStorage.getItem(`orbital_save_${targetSlot}`);
                 if (!rawData) {
-                    print(`[ERR] Save file '${trimmed}' not found.`);
+                    print(`[ERR] Save file '${trimmedInput}' not found.`);
                     return;
                 }
 
@@ -613,12 +714,12 @@
             }
 
             if (currentMode === "LOAD_PASS") {
-                if (!trimmed) return;
+                if (!trimmedInput) return;
                 inputEl.type = "text";
                 const rawData = localStorage.getItem(`orbital_save_${pendingLoadSlot}`);
                 const parsedData = JSON.parse(rawData);
 
-                if (parsedData.user.password === trimmed) {
+                if (parsedData.user.password === trimmedInput) {
                     GameState.data = parsedData;
                     GameState.activeSlot = pendingLoadSlot;
                     pendingLoadSlot = "";
@@ -627,12 +728,12 @@
                     outputEl.innerHTML = "";
                     updatePrompt();
                     
-                    print(`[SYS] Access granted for profile '${GameState.data.user.name}'.`);
+                    print(`[SYS] Access granted for user '${GameState.data.user.name}'.`);
                     print("");
                     printProgramTree();
                     printLoggedInHelp();
                 } else {
-                    print("[ERR] Access denied. Incorrect password.");
+                    print("[ERR] Access denied. Invalid password.");
                     currentMode = "MAIN_MENU";
                     pendingLoadSlot = "";
                     updatePrompt();
@@ -641,30 +742,23 @@
                 return;
             }
 
-            const parts = trimmed.split(" ");
-            const cmd = parts[0].toLowerCase();
-            const subCmd = parts[1] ? parts[1].toLowerCase() : "";
+            const parts = lowerInput.split(" ");
+            const cmd = parts[0];
+            const subCmd = parts[1] || "";
 
             if (currentMode === "LOGGED_IN") {
-                if (cmd === "terminate") {
-                    print("[SYS] No active sub-program running to terminate.");
-                    return;
-                }
-
                 if ((cmd === "run" && subCmd === "r&d") || cmd === "r&d") {
-                    runModuleBootSequence("Research & Development", () => {
-                        activeProgram = "RD";
-                        rdInputFocus = false;
+                    runModuleBootSequence("RD", () => {
+                        inRDModule = true;
                         renderRDLibrary();
                     });
                     return;
                 }
 
                 if ((cmd === "run" && subCmd === "vab") || cmd === "vab") {
-                    runModuleBootSequence("Vehicle Assembly Building", () => {
-                        activeProgram = "VAB";
-                        rdInputFocus = false;
-                        renderVAB();
+                    runModuleBootSequence("VAB", () => {
+                        inVABModule = true;
+                        renderVABMenu();
                     });
                     return;
                 }
@@ -688,7 +782,7 @@
                     case "save":
                         GameState.data.timestamp = new Date().toISOString();
                         localStorage.setItem(`orbital_save_${GameState.activeSlot}`, JSON.stringify(GameState.data));
-                        print(`[SYS] Telemetry saved to slot '${GameState.activeSlot}'.`);
+                        print(`[SYS] Data written to slot '${GameState.activeSlot}'.`);
                         break;
 
                     case "logout":
@@ -719,7 +813,7 @@
                         break;
 
                     case "saves":
-                        print("[SYS] Scanning local memory...");
+                        print("[SYS] Reading save records...");
                         const saveFiles = getSaveList();
                         if (saveFiles.length === 0) {
                             print("  No save files found.");
@@ -735,7 +829,7 @@
                             return;
                         }
 
-                        print("[SYS] Open Save Files:");
+                        print("[SYS] Available Save Files:");
                         loadSaves.forEach(slot => print(`  - ${slot}`));
                         print("");
                         currentMode = "LOAD_SELECT";
@@ -756,77 +850,34 @@
         window.addEventListener("keydown", (e) => {
             if (isExecutingProgram) return;
 
-            if (activeProgram) {
-                if (e.key === "Escape") {
-                    rdInputFocus = false;
-                    updatePrompt();
-                    return;
-                }
-
-                if (!rdInputFocus) {
-                    const key = e.key.toUpperCase();
-
-                    if (key === "Q") {
-                        rdInputFocus = true;
-                        updatePrompt();
-                        e.preventDefault();
-                        return;
+            if (inRDModule) {
+                const key = e.key.toUpperCase();
+                if (key === "W") {
+                    if (isInspecting) { renderRDLibrary(); return; }
+                    if (selectedCategoryIndex > 0) selectedCategoryIndex--;
+                    renderRDLibrary();
+                } else if (key === "S") {
+                    if (isInspecting) { renderRDLibrary(); return; }
+                    if (selectedCategoryIndex < techMatrix[selectedTierIndex].categories.length - 1) selectedCategoryIndex++;
+                    renderRDLibrary();
+                } else if (key === "A") {
+                    if (isInspecting) { renderRDLibrary(); return; }
+                    if (selectedTierIndex > 0) {
+                        selectedTierIndex--;
+                        selectedCategoryIndex = 0;
                     }
-
-                    if (activeProgram === "RD") {
-                        if (key === "W") {
-                            if (isInspecting) { renderRDLibrary(); return; }
-                            if (selectedCategoryIndex > 0) selectedCategoryIndex--;
-                            renderRDLibrary();
-                        } else if (key === "S") {
-                            if (isInspecting) { renderRDLibrary(); return; }
-                            if (selectedCategoryIndex < techMatrix[selectedTierIndex].categories.length - 1) selectedCategoryIndex++;
-                            renderRDLibrary();
-                        } else if (key === "A") {
-                            if (isInspecting) { renderRDLibrary(); return; }
-                            if (selectedTierIndex > 0) {
-                                selectedTierIndex--;
-                                selectedCategoryIndex = 0;
-                            }
-                            renderRDLibrary();
-                        } else if (key === "D") {
-                            if (isInspecting) { renderRDLibrary(); return; }
-                            if (selectedTierIndex < techMatrix.length - 1) {
-                                selectedTierIndex++;
-                                selectedCategoryIndex = 0;
-                            }
-                            renderRDLibrary();
-                        } else if (key === "E") {
-                            if (isInspecting) {
-                                renderRDLibrary();
-                            } else {
-                                showCategoryInspection();
-                            }
-                        }
-                    } else if (activeProgram === "VAB") {
-                        if (key === "W") {
-                            if (isInspecting) { renderVAB(); return; }
-                            if (selectedVabIndex > 0) selectedVabIndex--;
-                            renderVAB();
-                        } else if (key === "S") {
-                            if (isInspecting) { renderVAB(); return; }
-                            if (selectedVabIndex < vabInventory.length - 1) selectedVabIndex++;
-                            renderVAB();
-                        } else if (key === "E") {
-                            if (isInspecting) {
-                                renderVAB();
-                            } else {
-                                showVabInspection();
-                            }
-                        }
+                    renderRDLibrary();
+                } else if (key === "D") {
+                    if (isInspecting) { renderRDLibrary(); return; }
+                    if (selectedTierIndex < techMatrix.length - 1) {
+                        selectedTierIndex++;
+                        selectedCategoryIndex = 0;
                     }
-                } else {
-                    if (e.key === "Q" && inputEl.value === "") {
-                        rdInputFocus = false;
-                        updatePrompt();
-                        e.preventDefault();
-                        return;
-                    }
+                    renderRDLibrary();
+                } else if (key === "E") {
+                    if (!isInspecting) showCategoryInspection();
+                } else if (key === "Q") {
+                    if (isInspecting) renderRDLibrary();
                 }
             }
 
