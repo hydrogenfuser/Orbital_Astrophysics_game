@@ -184,6 +184,24 @@
             flex: 1;
         }
 
+        /* Graphical Canvas Canvas Container */
+        #probe-canvas-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        #probe-canvas {
+            border: 1px solid #ffb000;
+            background-color: #050300;
+            box-shadow: 0 0 8px rgba(255, 176, 0, 0.2);
+        }
+
         #output::-webkit-scrollbar {
             width: 6px;
         }
@@ -199,6 +217,9 @@
 
     <div id="terminal-screen">
         <div id="output"></div>
+        <div id="probe-canvas-container">
+            <canvas id="probe-canvas" width="460" height="340"></canvas>
+        </div>
         <div id="controls-info"></div>
         <div id="input-line">
             <span id="prompt">Command:</span>
@@ -235,6 +256,17 @@
         let pendingLoadSlot = "";
         let selectedTierIndex = 0;
         let selectedCategoryIndex = 0;
+
+        // Payload/Probe Designer State
+        let inPayloadDesigner = false;
+        let payloadStep = "SIZE";
+        let gridUnit = "dm3"; // "m3", "dm3", "cm3"
+        let payloadSpecs = {
+            sizeIVU: null,
+            shape: null,
+            purpose: null
+        };
+        let isRenderingCanvas = false;
 
         const vabApplications = [
             { id: "rocket", name: "Rocket Designer" },
@@ -283,6 +315,9 @@
         const promptEl = document.getElementById("prompt");
         const inputEl = document.getElementById("command-input");
         const controlsInfoEl = document.getElementById("controls-info");
+        const canvasContainerEl = document.getElementById("probe-canvas-container");
+        const probeCanvas = document.getElementById("probe-canvas");
+        const ctx = probeCanvas.getContext("2d");
 
         function print(text, type = "amber") {
             const div = document.createElement("div");
@@ -297,6 +332,17 @@
         }
 
         function updatePrompt() {
+            if (inPayloadDesigner) {
+                if (isRenderingCanvas) {
+                    setControlsBar("CONTROLS: Type 'grid m3', 'grid dm3', or 'grid cm3' to toggle scale | 'back' = Re-configure | 'terminate' = Exit");
+                    promptEl.textContent = `[VAB // PROBE DESIGN CANVAS]> `;
+                } else {
+                    setControlsBar("CONTROLS: Input selection number | 'back' = Return to VAB Menu | 'terminate' = Exit");
+                    promptEl.textContent = `[VAB // PAYLOAD CONFIG (${payloadStep})]> `;
+                }
+                return;
+            }
+
             if (inRDModule) {
                 if (isRDNavActive) {
                     setControlsBar("CONTROLS: WASD = Navigate Tree | E = Inspect Item | Q = Exit WASD Nav Mode | 'terminate' = Close Program");
@@ -419,6 +465,10 @@
             inRDModule = false;
             isRDNavActive = false;
             inVABModule = false;
+            inPayloadDesigner = false;
+            isRenderingCanvas = false;
+            canvasContainerEl.style.display = "none";
+            outputEl.style.display = "block";
             activeVABApp = null;
             updatePrompt();
             printMainMenuHelp();
@@ -498,7 +548,7 @@
             const steps = 30;
             const stepDelay = totalDurationMs / steps;
 
-            const willGetStuck = Math.random() < 0.25; // True 25% random chance
+            const willGetStuck = Math.random() < 0.25;
             const stuckStep = Math.floor(Math.random() * 10) + 10;
             const stuckDurationMs = 3000;
 
@@ -508,7 +558,6 @@
             for (let i = 1; i <= steps; i++) {
                 const percent = Math.floor((i / steps) * 100);
 
-                // Top Down ASCII rendering
                 const linesToShow = Math.max(1, Math.ceil((percent / 100) * logoLines.length));
                 let renderedTitle = "";
                 for (let l = 0; l < logoLines.length; l++) {
@@ -520,14 +569,12 @@
                 }
                 titleContainer.textContent = renderedTitle;
 
-                // Center ASCII Bar
                 const totalWidth = 34;
                 const filled = Math.floor((percent / 100) * totalWidth);
                 const empty = totalWidth - filled;
                 barStrEl.textContent = "[" + "█".repeat(filled) + "░".repeat(empty) + "]";
                 percentEl.textContent = `${percent}%`;
 
-                // Background Corner parsing
                 if (parseQueue.length > 0 && Math.random() < 0.45) {
                     const msg = parseQueue.shift();
                     if (msg) activeLogs.push(`> ${msg}`);
@@ -606,6 +653,10 @@
 
         function renderVABMenu() {
             outputEl.innerHTML = "";
+            canvasContainerEl.style.display = "none";
+            outputEl.style.display = "block";
+            inPayloadDesigner = false;
+            isRenderingCanvas = false;
             printVABHeader();
 
             print("AVAILABLE APPLICATIONS:", "title");
@@ -621,8 +672,135 @@
             updatePrompt();
         }
 
+        function renderPayloadDesignerCriteria() {
+            outputEl.innerHTML = "";
+            canvasContainerEl.style.display = "none";
+            outputEl.style.display = "block";
+            isRenderingCanvas = false;
+            printVABHeader();
+
+            print("STUDIO TOOLKIT: PAYLOAD / PROBE DESIGNER", "title");
+            print("================================================================================", "title");
+            print(`Size    : ${payloadSpecs.sizeIVU !== null ? payloadSpecs.sizeIVU + " IVU (m³)" : "(current IVU limits)"}`);
+            print(`Shape   : ${payloadSpecs.shape !== null ? payloadSpecs.shape : "(select shape criteria)"}`);
+            print(`Purpose : ${payloadSpecs.purpose !== null ? payloadSpecs.purpose : "(select operational purpose)"}`);
+            print("================================================================================", "title");
+            print("");
+
+            if (payloadStep === "SIZE") {
+                print("SELECT SIZE (IVU LIMITS):", "title");
+                print("  [1] 0.5 IVU (Sounding Micro-Probe)");
+                print("  [2] 1.0 IVU (Standard CubeSat Core)");
+                print("  [3] 2.0 IVU (Heavy Sounding Payload)");
+            } else if (payloadStep === "SHAPE") {
+                print("SELECT SHAPE:", "title");
+                print("  [1] Cubic");
+                print("  [2] Spherical");
+            } else if (payloadStep === "PURPOSE") {
+                print("SELECT PURPOSE:", "title");
+                print("  [1] Payload");
+            } else if (payloadStep === "CONFIRM") {
+                print("SPECIFICATION COMPLETE.", "title");
+                print("Start design sequence? (Type 'start' to generate probe chassis, or 'back' to reset)");
+            }
+            updatePrompt();
+        }
+
+        function renderProbeGraphicsCanvas() {
+            outputEl.style.display = "none";
+            canvasContainerEl.style.display = "flex";
+            isRenderingCanvas = true;
+
+            const w = probeCanvas.width;
+            const h = probeCanvas.height;
+            const centerX = w / 2;
+            const centerY = h / 2;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Background Grid Rendering based on unit (IVU = m3)
+            ctx.strokeStyle = "rgba(255, 176, 0, 0.15)";
+            ctx.lineWidth = 1;
+
+            let stepSize = 30; // dm3 default
+            if (gridUnit === "m3") stepSize = 90;
+            if (gridUnit === "cm3") stepSize = 10;
+
+            for (let x = 0; x < w; x += stepSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+            }
+            for (let y = 0; y < h; y += stepSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+
+            // Draw Vector Generated Shape Frame
+            ctx.strokeStyle = "#ffb000";
+            ctx.lineWidth = 2;
+            ctx.shadowColor = "#ffb000";
+            ctx.shadowBlur = 6;
+
+            const scaleFactor = Math.sqrt(payloadSpecs.sizeIVU || 1);
+            const baseDimension = 120 * scaleFactor;
+
+            if (payloadSpecs.shape === "Spherical") {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, baseDimension / 2, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Inner crosshairs / decimeter structural guide lines
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(centerX - baseDimension / 2, centerY);
+                ctx.lineTo(centerX + baseDimension / 2, centerY);
+                ctx.moveTo(centerX, centerY - baseDimension / 2);
+                ctx.lineTo(centerX, centerY + baseDimension / 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            } else {
+                // Cubic Shape
+                const half = baseDimension / 2;
+                ctx.strokeRect(centerX - half, centerY - half, baseDimension, baseDimension);
+
+                // Inner decimeter grid overlay
+                ctx.setLineDash([3, 3]);
+                ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
+                const subGrid = baseDimension / 4;
+                for (let i = 1; i < 4; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(centerX - half + (i * subGrid), centerY - half);
+                    ctx.lineTo(centerX - half + (i * subGrid), centerY + half);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(centerX - half, centerY - half + (i * subGrid));
+                    ctx.lineTo(centerX + half, centerY - half + (i * subGrid));
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
+            }
+
+            ctx.shadowBlur = 0;
+
+            // Canvas Text overlay header
+            ctx.fillStyle = "#ffb000";
+            ctx.font = "12px 'Courier New', monospace";
+            ctx.fillText(`PROBE CHASSIS: ${payloadSpecs.shape.toUpperCase()} [${payloadSpecs.sizeIVU} IVU / m³]`, 15, 25);
+            ctx.fillText(`GRID SCALE: ${gridUnit.toUpperCase()} (DECIMETER CORE)`, 15, 42);
+            ctx.fillText(`PURPOSE: ${payloadSpecs.purpose.toUpperCase()}`, 15, 59);
+
+            updatePrompt();
+        }
+
         function renderVABAppStudio(app) {
             outputEl.innerHTML = "";
+            canvasContainerEl.style.display = "none";
+            outputEl.style.display = "block";
             printVABHeader();
 
             const v = GameState.data.vessel;
@@ -666,7 +844,11 @@
                 inRDModule = false;
                 isRDNavActive = false;
                 inVABModule = false;
+                inPayloadDesigner = false;
+                isRenderingCanvas = false;
                 isInspecting = false;
+                canvasContainerEl.style.display = "none";
+                outputEl.style.display = "block";
                 activeVABApp = null;
                 outputEl.innerHTML = "";
                 print("[SYS] ACTIVE PROGRAM TERMINATED.");
@@ -674,6 +856,86 @@
                 printLoggedInHelp();
                 updatePrompt();
                 return;
+            }
+
+            if (inPayloadDesigner) {
+                if (isRenderingCanvas) {
+                    if (lowerInput === "grid m3") {
+                        gridUnit = "m3";
+                        renderProbeGraphicsCanvas();
+                        return;
+                    }
+                    if (lowerInput === "grid dm3") {
+                        gridUnit = "dm3";
+                        renderProbeGraphicsCanvas();
+                        return;
+                    }
+                    if (lowerInput === "grid cm3") {
+                        gridUnit = "cm3";
+                        renderProbeGraphicsCanvas();
+                        return;
+                    }
+                    if (lowerInput === "back") {
+                        payloadStep = "SIZE";
+                        payloadSpecs = { sizeIVU: null, shape: null, purpose: null };
+                        renderPayloadDesignerCriteria();
+                        return;
+                    }
+                    print("[SYS] Type 'grid m3', 'grid dm3', 'grid cm3', 'back', or 'terminate'.");
+                    return;
+                }
+
+                if (lowerInput === "back") {
+                    inPayloadDesigner = false;
+                    activeVABApp = null;
+                    renderVABMenu();
+                    return;
+                }
+
+                if (payloadStep === "SIZE") {
+                    if (lowerInput === "1") payloadSpecs.sizeIVU = 0.5;
+                    else if (lowerInput === "2") payloadSpecs.sizeIVU = 1.0;
+                    else if (lowerInput === "3") payloadSpecs.sizeIVU = 2.0;
+                    else {
+                        print("[SYS] Select size option 1, 2, or 3.");
+                        return;
+                    }
+                    payloadStep = "SHAPE";
+                    renderPayloadDesignerCriteria();
+                    return;
+                }
+
+                if (payloadStep === "SHAPE") {
+                    if (lowerInput === "1") payloadSpecs.shape = "Cubic";
+                    else if (lowerInput === "2") payloadSpecs.shape = "Spherical";
+                    else {
+                        print("[SYS] Select shape option 1 or 2.");
+                        return;
+                    }
+                    payloadStep = "PURPOSE";
+                    renderPayloadDesignerCriteria();
+                    return;
+                }
+
+                if (payloadStep === "PURPOSE") {
+                    if (lowerInput === "1") payloadSpecs.purpose = "Payload";
+                    else {
+                        print("[SYS] Select purpose option 1.");
+                        return;
+                    }
+                    payloadStep = "CONFIRM";
+                    renderPayloadDesignerCriteria();
+                    return;
+                }
+
+                if (payloadStep === "CONFIRM") {
+                    if (lowerInput === "start") {
+                        renderProbeGraphicsCanvas();
+                        return;
+                    }
+                    print("[SYS] Type 'start' to initialize design canvas, or 'back' to reset.");
+                    return;
+                }
             }
 
             if (inRDModule) {
@@ -738,6 +1000,13 @@
                     const option = parseInt(lowerInput, 10);
                     if (!isNaN(option) && option >= 1 && option <= vabApplications.length) {
                         activeVABApp = vabApplications[option - 1];
+                        if (activeVABApp.id === "payload") {
+                            inPayloadDesigner = true;
+                            payloadStep = "SIZE";
+                            payloadSpecs = { sizeIVU: null, shape: null, purpose: null };
+                            renderPayloadDesignerCriteria();
+                            return;
+                        }
                         renderVABAppStudio(activeVABApp);
                         return;
                     }
@@ -945,7 +1214,6 @@
             if (inRDModule && isRDNavActive) {
                 const key = e.key.toUpperCase();
                 
-                // Prevent WASD/E/Q from printing inside the command text input while using move mode
                 if (["W", "A", "S", "D", "E", "Q"].includes(key)) {
                     e.preventDefault();
                 }
