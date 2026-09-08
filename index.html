@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ORBITAL</title>
+    <title>ORBITAL v0.0.1</title>
     <style>
         * {
             box-sizing: border-box;
@@ -83,24 +83,26 @@
         }
 
         .entry-title {
-            font-size: 2.2rem;
+            font-size: 2.8rem;
             font-weight: bold;
-            letter-spacing: 4px;
+            letter-spacing: 6px;
             margin-bottom: 2px;
         }
 
         .entry-version {
-            font-size: 1rem;
+            font-size: 1.1rem;
             opacity: 0.85;
-            margin-bottom: 15px;
+            margin-bottom: 18px;
+            letter-spacing: 2px;
         }
 
         #controls-info {
-            border-top: 1px solid rgba(255, 176, 0, 0.3);
-            padding: 4px 0;
-            font-size: 0.85rem;
-            min-height: 1.5rem;
-            opacity: 0.9;
+            border-top: 1px solid rgba(255, 176, 0, 0.35);
+            padding: 6px 0;
+            font-size: 0.88rem;
+            min-height: 1.6rem;
+            opacity: 0.95;
+            font-weight: bold;
         }
 
         #input-line {
@@ -166,6 +168,7 @@
 
         let currentMode = "MAIN_MENU"; 
         let inRDModule = false;
+        let isRDNavActive = false;
         let inVABModule = false;
         let activeVABApp = null;
         let isExecutingProgram = false;
@@ -237,17 +240,21 @@
 
         function updatePrompt() {
             if (inRDModule) {
-                setControlsBar("CONTROLS: WASD = Navigate | E = Select / Inspect | Q = Back | 'terminate' = Close Program");
-                if (isInspecting) {
-                    promptEl.textContent = `[R&D // INSPECT]> `;
+                if (isRDNavActive) {
+                    setControlsBar("CONTROLS: WASD = Navigate Tree | E = Inspect Item | Q = Exit WASD Nav Mode | 'terminate' = Close Program");
+                    promptEl.textContent = `[R&D // WASD NAV ACTIVE]> `;
+                } else if (isInspecting) {
+                    setControlsBar("CONTROLS: WASD/Q = Return to Index | 'terminate' = Close Program");
+                    promptEl.textContent = `[R&D // INSPECTION VIEW]> `;
                 } else {
-                    promptEl.textContent = `[R&D // NAVIGATE]> `;
+                    setControlsBar("CONTROLS: Type 'move' to unlock WASD navigation | 'terminate' = Close Program");
+                    promptEl.textContent = `[R&D // COMMAND]> `;
                 }
                 return;
             }
 
             if (inVABModule) {
-                setControlsBar("CONTROLS: Enter Option # to Launch | 'back' = App List | 'terminate' = Close Program");
+                setControlsBar("CONTROLS: Enter Option # (1-7) | 'back' = App List | 'terminate' = Close Program");
                 if (activeVABApp) {
                     promptEl.textContent = `[VAB // ${activeVABApp.name.toUpperCase()} ]> `;
                 } else {
@@ -352,6 +359,7 @@
             showTitle();
             currentMode = "MAIN_MENU";
             inRDModule = false;
+            isRDNavActive = false;
             inVABModule = false;
             activeVABApp = null;
             updatePrompt();
@@ -369,78 +377,102 @@
             return saves;
         }
 
-        function renderRDBootScreen(percentage) {
+        function renderLoadingFrame(logoLines, percent, logs, moduleType) {
             outputEl.innerHTML = "";
-            print("██████▒   ▒▒▒   ██████▒ ", "title");
-            print("██▒  ██▒   █    ██▒  ██▒", "title");
-            print("██████▒   ▒█▒   ██▒  ██▒", "title");
-            print("██▒  ██▒   █    ██▒  ██▒", "title");
-            print("██▒  ██▒  ▒▒▒   ██████▒ ", "title");
-            print("================================================================================", "title");
-            print("INITIALIZING R&D DATABASE RELAYS...");
             
-            const totalBars = 35;
-            const filled = Math.floor((percentage / 100) * totalBars);
-            const empty = totalBars - filled;
-            const barStr = "[" + "█".repeat(filled) + "░".repeat(empty) + "]";
-            
-            print(`LOADING: ${barStr} ${percentage}%`, "title");
-            print("================================================================================", "title");
-            print("");
-        }
+            // Top-Down Stage Logo Rendering
+            const linesToShow = Math.max(1, Math.ceil((percent / 100) * logoLines.length));
+            for (let l = 0; l < logoLines.length; l++) {
+                if (l < linesToShow) {
+                    print(logoLines[l], "title");
+                } else {
+                    print("");
+                }
+            }
 
-        function renderVABBootScreen(percentage) {
-            outputEl.innerHTML = "";
-            print("██▒  ██▒  █████▒   ██████▒ ", "title");
-            print("██▒  ██▒ ██▒  ██▒  ██▒  ██▒", "title");
-            print("██▒  ██▒ ███████▒  ██████▒ ", "title");
-            print("██▒  ██▒ ██▒  ██▒  ██▒  ██▒", "title");
-            print(" █████▒  ██▒  ██▒  ██████▒ ", "title");
             print("================================================================================", "title");
-            print("MOUNTING VEHICLE ASSEMBLY BAY HARDWARE SUITE...");
-            
-            const totalBars = 35;
-            const filled = Math.floor((percentage / 100) * totalBars);
-            const empty = totalBars - filled;
-            const barStr = "[" + "█".repeat(filled) + "░".repeat(empty) + "]";
-            
-            print(`LOADING: ${barStr} ${percentage}%`, "title");
+            print(`MOUNTING SYSTEM MODULE: ${moduleType === "RD" ? "RESEARCH & DEVELOPMENT" : "VEHICLE ASSEMBLY BAY"}`, "title");
             print("================================================================================", "title");
             print("");
+
+            // Middle ASCII Progress Bar with centered percentage underneath
+            const totalWidth = 36;
+            const filled = Math.floor((percent / 100) * totalWidth);
+            const empty = totalWidth - filled;
+            const barStr = "[" + "█".repeat(filled) + "░".repeat(empty) + "]";
+            
+            print(`                      ${barStr}`, "title");
+            print(`                                 ${percent}%`, "title");
+            print("");
+            print("--------------------------------------------------------------------------------");
+            print("PARSING TELEMETRY & SYSTEM LOGS:", "title");
+            logs.forEach(log => {
+                print(` > ${log}`);
+            });
         }
 
         async function runModuleBootSequence(moduleType, onComplete) {
             isExecutingProgram = true;
             inputEl.disabled = true;
 
-            const totalDurationSec = 4.0 + Math.random() * 3.0; // 4 to 7 seconds total
-            const steps = 25;
-            const stepDelay = (totalDurationSec * 1000) / steps;
+            const totalDurationMs = (5.0 + Math.random() * 2.0) * 1000; // 5 to 7 seconds
+            const steps = 28;
+            const stepDelay = totalDurationMs / steps;
 
-            const isStuck = Math.random() < 0.25; // 25% chance
-            const stuckStep = Math.floor(Math.random() * 10) + 8;
-            const stuckDuration = 1000 + Math.random() * 1000; // 1 to 2 seconds hang
+            const willGetStuck = Math.random() < 0.25; // 25% chance of connection delay
+            const stuckStep = Math.floor(Math.random() * 10) + 10;
+            const stuckDurationMs = 3000; // 3 second hang
+
+            const parseQueue = [
+                "Authorizing user security credentials...",
+                "Establishing physical wire connection...",
+                "Routing telemetry data protocols...",
+                "Allocating local stack memory buffers...",
+                "Bypassing mainframe authentication proxy...",
+                "Initializing bus interface controllers...",
+                "Loading hardware specs and definitions...",
+                "Verifying hardware node parity keys..."
+            ];
+
+            const logoLines = (moduleType === "RD") ? [
+                "██████▒   ▒▒▒   ██████▒ ",
+                "██▒  ██▒   █    ██▒  ██▒",
+                "██████▒   ▒█▒   ██▒  ██▒",
+                "██▒  ██▒   █    ██▒  ██▒",
+                "██▒  ██▒  ▒▒▒   ██████▒ "
+            ] : [
+                "██▒  ██▒  █████▒   ██████▒ ",
+                "██▒  ██▒ ██▒  ██▒  ██▒  ██▒",
+                "██▒  ██▒ ███████▒  ██████▒ ",
+                "██▒  ██▒ ██▒  ██▒  ██▒  ██▒",
+                " █████▒  ██▒  ██▒  ██████▒ "
+            ];
+
+            let activeLogs = [];
+            let isStuckTriggered = false;
 
             for (let i = 1; i <= steps; i++) {
                 const percent = Math.floor((i / steps) * 100);
-                
-                if (moduleType === "RD") {
-                    renderRDBootScreen(percent);
-                } else {
-                    renderVABBootScreen(percent);
+
+                if (parseQueue.length > 0 && Math.random() < 0.4) {
+                    const msg = parseQueue.shift();
+                    if (msg) activeLogs.push(msg);
+                    if (activeLogs.length > 5) activeLogs.shift();
                 }
-                
-                if (isStuck && i === stuckStep) {
-                    print(`[WARN] SYSTEM BUS HANG DETECTED... RESOLVING BUFFER MEMORY...`, "amber");
-                    await new Promise(r => setTimeout(r, stuckDuration));
-                } else {
-                    await new Promise(r => setTimeout(r, stepDelay));
+
+                if (willGetStuck && i === stuckStep && !isStuckTriggered) {
+                    isStuckTriggered = true;
+                    activeLogs.push("[WARN] Connection interruption detected... Re-routing bus connection...");
+                    if (activeLogs.length > 5) activeLogs.shift();
+                    renderLoadingFrame(logoLines, percent, activeLogs, moduleType);
+                    await new Promise(r => setTimeout(r, stuckDurationMs));
                 }
+
+                renderLoadingFrame(logoLines, percent, activeLogs, moduleType);
+                await new Promise(r => setTimeout(r, stepDelay));
             }
 
-            print(`[SYS] BOOT COMPLETE.`);
-            await new Promise(r => setTimeout(r, 250));
-
+            outputEl.innerHTML = "";
             isExecutingProgram = false;
             inputEl.disabled = false;
             inputEl.focus();
@@ -557,6 +589,7 @@
 
             if (lowerInput === "terminate") {
                 inRDModule = false;
+                isRDNavActive = false;
                 inVABModule = false;
                 isInspecting = false;
                 activeVABApp = null;
@@ -569,47 +602,30 @@
             }
 
             if (inRDModule) {
-                if (lowerInput === "q") {
-                    if (isInspecting) {
+                if (lowerInput === "move") {
+                    isRDNavActive = true;
+                    updatePrompt();
+                    print("[SYS] WASD Navigation Unlocked. Use WASD keys to browse tree, 'E' to select/inspect, 'Q' to return to typing.");
+                    return;
+                }
+
+                if (isRDNavActive) {
+                    if (lowerInput === "q") {
+                        isRDNavActive = false;
+                        updatePrompt();
+                        print("[SYS] Exited WASD navigation mode. Type 'move' to enter again.");
+                        return;
+                    }
+                }
+
+                if (isInspecting) {
+                    if (lowerInput === "q" || lowerInput === "back") {
                         renderRDLibrary();
+                        return;
                     }
-                    return;
                 }
-                if (lowerInput === "w") {
-                    if (isInspecting) { renderRDLibrary(); return; }
-                    if (selectedCategoryIndex > 0) selectedCategoryIndex--;
-                    renderRDLibrary();
-                    return;
-                }
-                if (lowerInput === "s") {
-                    if (isInspecting) { renderRDLibrary(); return; }
-                    if (selectedCategoryIndex < techMatrix[selectedTierIndex].categories.length - 1) selectedCategoryIndex++;
-                    renderRDLibrary();
-                    return;
-                }
-                if (lowerInput === "a") {
-                    if (isInspecting) { renderRDLibrary(); return; }
-                    if (selectedTierIndex > 0) {
-                        selectedTierIndex--;
-                        selectedCategoryIndex = 0;
-                    }
-                    renderRDLibrary();
-                    return;
-                }
-                if (lowerInput === "d") {
-                    if (isInspecting) { renderRDLibrary(); return; }
-                    if (selectedTierIndex < techMatrix.length - 1) {
-                        selectedTierIndex++;
-                        selectedCategoryIndex = 0;
-                    }
-                    renderRDLibrary();
-                    return;
-                }
-                if (lowerInput === "e") {
-                    if (!isInspecting) showCategoryInspection();
-                    return;
-                }
-                print(`[SYS] R&D Navigation: Use WASD keys, 'E' to select, 'Q' for back, or 'terminate'.`);
+
+                print(`[SYS] R&D Command: Type 'move' to activate tree navigation, or 'terminate' to exit.`);
                 return;
             }
 
@@ -750,6 +766,7 @@
                 if ((cmd === "run" && subCmd === "r&d") || cmd === "r&d") {
                     runModuleBootSequence("RD", () => {
                         inRDModule = true;
+                        isRDNavActive = false;
                         renderRDLibrary();
                     });
                     return;
@@ -850,7 +867,7 @@
         window.addEventListener("keydown", (e) => {
             if (isExecutingProgram) return;
 
-            if (inRDModule) {
+            if (inRDModule && isRDNavActive) {
                 const key = e.key.toUpperCase();
                 if (key === "W") {
                     if (isInspecting) { renderRDLibrary(); return; }
@@ -877,7 +894,13 @@
                 } else if (key === "E") {
                     if (!isInspecting) showCategoryInspection();
                 } else if (key === "Q") {
-                    if (isInspecting) renderRDLibrary();
+                    if (isInspecting) {
+                        renderRDLibrary();
+                    } else {
+                        isRDNavActive = false;
+                        updatePrompt();
+                        print("[SYS] Exited WASD navigation mode.");
+                    }
                 }
             }
 
