@@ -18,6 +18,9 @@
             color: #ffb000;
             font-family: "Courier New", Courier, monospace;
             overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             position: relative;
         }
 
@@ -41,9 +44,14 @@
             flex-direction: column;
             width: 100%;
             height: 100%;
+            max-width: 100vw;
+            max-height: 100vh;
+            aspect-ratio: 16 / 9;
             padding: 20px;
             position: relative;
             z-index: 1;
+            overflow: hidden;
+            background-color: #080500;
         }
 
         #output {
@@ -54,6 +62,7 @@
             padding-right: 5px;
             line-height: 1.25;
             font-size: 0.95rem;
+            position: relative;
         }
 
         .line-amber, .line-title, #prompt, #command-input, #controls-info {
@@ -94,6 +103,55 @@
             opacity: 0.85;
             margin-bottom: 18px;
             letter-spacing: 2px;
+        }
+
+        /* Centered Loading Overlay */
+        #loading-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #080500;
+            z-index: 5;
+            padding: 20px;
+        }
+
+        #loading-title-container {
+            white-space: pre;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 25px;
+            line-height: 1.15;
+            min-height: 120px;
+        }
+
+        #loading-bar-container {
+            text-align: center;
+            font-weight: bold;
+        }
+
+        #loading-bar-str {
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        #loading-percent {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        #loading-corner-logs {
+            position: absolute;
+            bottom: 15px;
+            left: 20px;
+            font-size: 0.75rem;
+            opacity: 0.65;
+            line-height: 1.3;
+            max-width: 45%;
+            pointer-events: none;
         }
 
         #controls-info {
@@ -377,62 +435,39 @@
             return saves;
         }
 
-        function renderLoadingFrame(logoLines, percent, logs, moduleType) {
-            outputEl.innerHTML = "";
-            
-            // Top-Down Stage Logo Rendering
-            const linesToShow = Math.max(1, Math.ceil((percent / 100) * logoLines.length));
-            for (let l = 0; l < logoLines.length; l++) {
-                if (l < linesToShow) {
-                    print(logoLines[l], "title");
-                } else {
-                    print("");
-                }
-            }
-
-            print("================================================================================", "title");
-            print(`MOUNTING SYSTEM MODULE: ${moduleType === "RD" ? "RESEARCH & DEVELOPMENT" : "VEHICLE ASSEMBLY BAY"}`, "title");
-            print("================================================================================", "title");
-            print("");
-
-            // Middle ASCII Progress Bar with centered percentage underneath
-            const totalWidth = 36;
-            const filled = Math.floor((percent / 100) * totalWidth);
-            const empty = totalWidth - filled;
-            const barStr = "[" + "█".repeat(filled) + "░".repeat(empty) + "]";
-            
-            print(`                      ${barStr}`, "title");
-            print(`                                 ${percent}%`, "title");
-            print("");
-            print("--------------------------------------------------------------------------------");
-            print("PARSING TELEMETRY & SYSTEM LOGS:", "title");
-            logs.forEach(log => {
-                print(` > ${log}`);
-            });
-        }
-
         async function runModuleBootSequence(moduleType, onComplete) {
             isExecutingProgram = true;
             inputEl.disabled = true;
 
-            const totalDurationMs = (5.0 + Math.random() * 2.0) * 1000; // 5 to 7 seconds
-            const steps = 28;
-            const stepDelay = totalDurationMs / steps;
+            const overlay = document.createElement("div");
+            overlay.id = "loading-overlay";
 
-            const willGetStuck = Math.random() < 0.25; // 25% chance of connection delay
-            const stuckStep = Math.floor(Math.random() * 10) + 10;
-            const stuckDurationMs = 3000; // 3 second hang
+            const titleContainer = document.createElement("div");
+            titleContainer.id = "loading-title-container";
+            titleContainer.className = "line-title";
 
-            const parseQueue = [
-                "Authorizing user security credentials...",
-                "Establishing physical wire connection...",
-                "Routing telemetry data protocols...",
-                "Allocating local stack memory buffers...",
-                "Bypassing mainframe authentication proxy...",
-                "Initializing bus interface controllers...",
-                "Loading hardware specs and definitions...",
-                "Verifying hardware node parity keys..."
-            ];
+            const barContainer = document.createElement("div");
+            barContainer.id = "loading-bar-container";
+
+            const barStrEl = document.createElement("div");
+            barStrEl.id = "loading-bar-str";
+            barStrEl.className = "line-title";
+
+            const percentEl = document.createElement("div");
+            percentEl.id = "loading-percent";
+            percentEl.className = "line-amber";
+
+            barContainer.appendChild(barStrEl);
+            barContainer.appendChild(percentEl);
+
+            const cornerLogs = document.createElement("div");
+            cornerLogs.id = "loading-corner-logs";
+            cornerLogs.className = "line-amber";
+
+            overlay.appendChild(titleContainer);
+            overlay.appendChild(barContainer);
+            overlay.appendChild(cornerLogs);
+            document.getElementById("terminal-screen").appendChild(overlay);
 
             const logoLines = (moduleType === "RD") ? [
                 "██████▒   ▒▒▒   ██████▒ ",
@@ -448,30 +483,70 @@
                 " █████▒  ██▒  ██▒  ██████▒ "
             ];
 
+            const parseQueue = [
+                "Authorizing user security credentials...",
+                "Establishing physical wire connection...",
+                "Routing telemetry data protocols...",
+                "Allocating local stack memory buffers...",
+                "Bypassing mainframe authentication proxy...",
+                "Initializing bus interface controllers...",
+                "Loading hardware specs and definitions...",
+                "Verifying hardware node parity keys..."
+            ];
+
+            const totalDurationMs = (5.0 + Math.random() * 2.0) * 1000;
+            const steps = 30;
+            const stepDelay = totalDurationMs / steps;
+
+            const willGetStuck = Math.random() < 0.25; // True 25% random chance
+            const stuckStep = Math.floor(Math.random() * 10) + 10;
+            const stuckDurationMs = 3000;
+
             let activeLogs = [];
             let isStuckTriggered = false;
 
             for (let i = 1; i <= steps; i++) {
                 const percent = Math.floor((i / steps) * 100);
 
-                if (parseQueue.length > 0 && Math.random() < 0.4) {
+                // Top Down ASCII rendering
+                const linesToShow = Math.max(1, Math.ceil((percent / 100) * logoLines.length));
+                let renderedTitle = "";
+                for (let l = 0; l < logoLines.length; l++) {
+                    if (l < linesToShow) {
+                        renderedTitle += logoLines[l] + "\n";
+                    } else {
+                        renderedTitle += "\n";
+                    }
+                }
+                titleContainer.textContent = renderedTitle;
+
+                // Center ASCII Bar
+                const totalWidth = 34;
+                const filled = Math.floor((percent / 100) * totalWidth);
+                const empty = totalWidth - filled;
+                barStrEl.textContent = "[" + "█".repeat(filled) + "░".repeat(empty) + "]";
+                percentEl.textContent = `${percent}%`;
+
+                // Background Corner parsing
+                if (parseQueue.length > 0 && Math.random() < 0.45) {
                     const msg = parseQueue.shift();
-                    if (msg) activeLogs.push(msg);
-                    if (activeLogs.length > 5) activeLogs.shift();
+                    if (msg) activeLogs.push(`> ${msg}`);
+                    if (activeLogs.length > 4) activeLogs.shift();
                 }
 
                 if (willGetStuck && i === stuckStep && !isStuckTriggered) {
                     isStuckTriggered = true;
                     activeLogs.push("[WARN] Connection interruption detected... Re-routing bus connection...");
-                    if (activeLogs.length > 5) activeLogs.shift();
-                    renderLoadingFrame(logoLines, percent, activeLogs, moduleType);
+                    if (activeLogs.length > 4) activeLogs.shift();
+                    cornerLogs.innerHTML = activeLogs.join("<br>");
                     await new Promise(r => setTimeout(r, stuckDurationMs));
                 }
 
-                renderLoadingFrame(logoLines, percent, activeLogs, moduleType);
+                cornerLogs.innerHTML = activeLogs.join("<br>");
                 await new Promise(r => setTimeout(r, stepDelay));
             }
 
+            overlay.remove();
             outputEl.innerHTML = "";
             isExecutingProgram = false;
             inputEl.disabled = false;
@@ -552,7 +627,7 @@
 
             const v = GameState.data.vessel;
             const totalMass = v.mass_kg + Math.floor(v.fuelRatio * 4.2) + Math.floor(v.finArea * 1.5);
-            const thrust = 12.5; // kN
+            const thrust = 12.5;
             const twr = ((thrust * 1000) / (totalMass * 9.81)).toFixed(2);
             const estDV = Math.floor(1200 + (v.fuelRatio * 18) - (v.finArea * 5));
 
@@ -869,6 +944,12 @@
 
             if (inRDModule && isRDNavActive) {
                 const key = e.key.toUpperCase();
+                
+                // Prevent WASD/E/Q from printing inside the command text input while using move mode
+                if (["W", "A", "S", "D", "E", "Q"].includes(key)) {
+                    e.preventDefault();
+                }
+
                 if (key === "W") {
                     if (isInspecting) { renderRDLibrary(); return; }
                     if (selectedCategoryIndex > 0) selectedCategoryIndex--;
