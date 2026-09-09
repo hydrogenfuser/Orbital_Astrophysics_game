@@ -266,33 +266,15 @@
         let payloadSubMode = "LIST"; // "LIST", "DELETE_CONFIRM", "CRITERIA"
         let payloadDeleteTarget = "";
         let payloadStep = "NAME";
+        let gridUnit = "dm3"; // "m3", "dm3", "cm3"
         let payloadSpecs = {
             name: "",
             sizeIVU: null,
             shape: null,
             purpose: null,
-            ratio: "1:1",
-            modules: [],
-            pressurized: false
+            ratio: "1:1"
         };
         let isRenderingCanvas = false;
-
-        // Parts Library Definition
-        const PARTS_LIBRARY = {
-            "computer": { id: "computer", name: "Computer (Tier 0)", ivu: 0.25, watts: 8, heatGen: 10, heatDis: 0, capAh: 0, label: "CPU-T0" },
-            "fan": { id: "fan", name: "Computer Fan", ivu: 0.1, watts: 2, heatGen: 1, heatDis: 15, capAh: 0, label: "FAN" },
-            "small_battery": { id: "small_battery", name: "Small Battery (Ni/Cd)", ivu: 0.15, watts: 0, heatGen: 0, heatDis: 0, capAh: 40, label: "BAT-S" },
-            "battery": { id: "battery", name: "Battery (Ni/Cd)", ivu: 0.5, watts: 0, heatGen: 0, heatDis: 0, capAh: 180, label: "BAT-L" },
-            "thermometer": { id: "thermometer", name: "Thermometer", ivu: 0.05, watts: 0.5, heatGen: 0.2, heatDis: 0, capAh: 0, label: "THERM" },
-            "barometer": { id: "barometer", name: "Barometer", ivu: 0.05, watts: 0.5, heatGen: 0.2, heatDis: 0, capAh: 0, label: "BARO" },
-            "geiger": { id: "geiger", name: "Geiger Counter", ivu: 0.1, watts: 1.5, heatGen: 0.8, heatDis: 0, capAh: 0, label: "GEIGER" },
-            "amphibian": { id: "amphibian", name: "Amphibian Capsule", ivu: 1.0, watts: 4, heatGen: 6, heatDis: 0, capAh: 0, label: "FROG-CAP" }
-        };
-
-        // Sparks Particle System
-        let sparks = [];
-        let animFrameId = null;
-        let pressureGasOpacity = 0;
 
         const vabApplications = [
             { id: "rocket", name: "Rocket Designer" },
@@ -360,10 +342,10 @@
         function updatePrompt() {
             if (inPayloadDesigner) {
                 if (isRenderingCanvas) {
-                    setControlsBar("CONTROLS: add [part] | remove [part] | pressurize | depressurize | save | back | terminate");
+                    setControlsBar("CONTROLS: Type 'grid m3', 'grid dm3', or 'grid cm3' | 'save' = Save payload | 'back' = Re-configure | 'terminate' = Exit");
                     promptEl.textContent = `[VAB // PROBE DESIGN CANVAS]> `;
                 } else if (payloadSubMode === "LIST") {
-                    setControlsBar("CONTROLS: load [name] | new | delete [name] | back = VAB Menu | terminate = Exit");
+                    setControlsBar("CONTROLS: Type 'new' to design | Number [1-N] to load | 'delete [name]' = Remove payload | 'back' = VAB Menu | 'terminate' = Exit");
                     promptEl.textContent = `[VAB // PAYLOAD MANAGER]> `;
                 } else if (payloadSubMode === "DELETE_CONFIRM") {
                     setControlsBar("CONTROLS: Type 'yes' to confirm deletion | 'no' to cancel | 'terminate' = Exit");
@@ -491,7 +473,6 @@
         }
 
         function bootTerminal() {
-            stopCanvasLoop();
             outputEl.innerHTML = "";
             showTitle();
             currentMode = "MAIN_MENU";
@@ -685,7 +666,6 @@
         }
 
         function renderVABMenu() {
-            stopCanvasLoop();
             outputEl.innerHTML = "";
             canvasContainerEl.style.display = "none";
             outputEl.style.display = "block";
@@ -707,7 +687,6 @@
         }
 
         function renderPayloadListScreen() {
-            stopCanvasLoop();
             outputEl.innerHTML = "";
             canvasContainerEl.style.display = "none";
             outputEl.style.display = "block";
@@ -723,14 +702,13 @@
                 print("  (No stored payload designs found)");
             } else {
                 GameState.data.savedPayloads.forEach((p, i) => {
-                    const modCount = p.modules ? p.modules.length : 0;
-                    print(`  [${i + 1}] ${p.name.padEnd(18)} | Size: ${p.sizeIVU} IVU | Shape: ${p.shape} | Ratio: ${p.ratio} | Modules: ${modCount}`);
+                    print(`  [${i + 1}] ${p.name.padEnd(18)} | Size: ${p.sizeIVU} IVU | Shape: ${p.shape} | Ratio: ${p.ratio} | Purpose: ${p.purpose}`);
                 });
             }
 
             print("--------------------------------------------------------------------------------");
             print("ACTIONS:", "title");
-            print("  load [name]    - Load an existing payload into designer");
+            print("  [1-N]          - Load a saved probe design");
             print("  new            - Create a new probe design");
             print("  delete [name]  - Remove a saved probe design");
             print("  back           - Return to VAB application menu");
@@ -740,7 +718,6 @@
         }
 
         function renderPayloadDesignerCriteria() {
-            stopCanvasLoop();
             outputEl.innerHTML = "";
             canvasContainerEl.style.display = "none";
             outputEl.style.display = "block";
@@ -751,7 +728,7 @@
             print("STUDIO TOOLKIT: PAYLOAD / PROBE DESIGNER (SPECIFICATION)", "title");
             print("================================================================================", "title");
             print(`Name    : ${payloadSpecs.name !== "" ? payloadSpecs.name : "(enter payload name)"}`);
-            print(`Size    : ${payloadSpecs.sizeIVU !== null ? payloadSpecs.sizeIVU + " IVU" : "(current IVU limits)"}`);
+            print(`Size    : ${payloadSpecs.sizeIVU !== null ? payloadSpecs.sizeIVU + " IVU (m³)" : "(current IVU limits)"}`);
             print(`Shape   : ${payloadSpecs.shape !== null ? payloadSpecs.shape : "(select shape criteria)"}`);
             print(`Ratio   : ${payloadSpecs.ratio !== null ? payloadSpecs.ratio + " (Height:Width/Length)" : "(select dimensional ratio)"}`);
             print(`Purpose : ${payloadSpecs.purpose !== null ? payloadSpecs.purpose : "(select operational purpose)"}`);
@@ -794,359 +771,138 @@
             };
         }
 
-        function spawnSparks(originX, originY) {
-            for (let i = 0; i < 6; i++) {
-                sparks.push({
-                    x: originX,
-                    y: originY,
-                    vx: (Math.random() - 0.5) * 8,
-                    vy: (Math.random() - 0.8) * 6 - 2,
-                    gravity: 0.25,
-                    life: 1.0,
-                    decay: 0.03 + Math.random() * 0.03,
-                    size: 2 + Math.random() * 2
-                });
-            }
-        }
-
-        function updateSparks() {
-            for (let i = sparks.length - 1; i >= 0; i--) {
-                let s = sparks[i];
-                s.x += s.vx;
-                s.y += s.vy;
-                s.vy += s.gravity;
-                s.life -= s.decay;
-                if (s.life <= 0) {
-                    sparks.splice(i, 1);
-                }
-            }
-        }
-
-        function drawSparks(ctx) {
-            ctx.save();
-            sparks.forEach(s => {
-                ctx.fillStyle = `rgba(255, ${Math.floor(176 * s.life)}, 0, ${s.life})`;
-                ctx.shadowColor = "#ffb000";
-                ctx.shadowBlur = 6;
-                ctx.beginPath();
-                ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-                ctx.fill();
-            });
-            ctx.restore();
-        }
-
-        function startCanvasLoop() {
-            if (animFrameId) cancelAnimationFrame(animFrameId);
-            function loop() {
-                if (isRenderingCanvas) {
-                    renderProbeGraphicsCanvas();
-                    animFrameId = requestAnimationFrame(loop);
-                }
-            }
-            loop();
-        }
-
-        function stopCanvasLoop() {
-            if (animFrameId) {
-                cancelAnimationFrame(animFrameId);
-                animFrameId = null;
-            }
-        }
-
-        function calculatePayloadTotals() {
-            let usedIVU = 0;
-            let watts = 0;
-            let heatGen = 0;
-            let heatDis = 0;
-            let capAh = 0;
-
-            if (payloadSpecs.modules) {
-                payloadSpecs.modules.forEach(partKey => {
-                    const p = PARTS_LIBRARY[partKey];
-                    if (p) {
-                        usedIVU += p.ivu;
-                        watts += p.watts;
-                        heatGen += p.heatGen;
-                        heatDis += p.heatDis;
-                        capAh += p.capAh;
-                    }
-                });
-            }
-
-            const totalIVU = payloadSpecs.sizeIVU || 1.0;
-            const volts = 12;
-            let timeSec = 0;
-            if (watts > 0 && capAh > 0) {
-                const totalWattHours = capAh * volts;
-                timeSec = (totalWattHours / watts) * 3600;
-            } else if (capAh > 0 && watts === 0) {
-                timeSec = 99999;
-            }
-
-            return {
-                usedIVU,
-                totalIVU,
-                watts,
-                volts,
-                heatGen,
-                heatDis,
-                capAh,
-                timeSec
-            };
-        }
-
         function renderProbeGraphicsCanvas() {
             outputEl.style.display = "none";
             canvasContainerEl.style.display = "flex";
             isRenderingCanvas = true;
 
             const rect = canvasContainerEl.getBoundingClientRect();
-            probeCanvas.width = rect.width || 800;
-            probeCanvas.height = rect.height || 500;
+            probeCanvas.width = rect.width || 600;
+            probeCanvas.height = rect.height || 400;
 
             const w = probeCanvas.width;
             const h = probeCanvas.height;
+            const centerX = w / 2;
+            const centerY = h / 2;
 
             ctx.clearRect(0, 0, w, h);
 
             ctx.fillStyle = "#050300";
             ctx.fillRect(0, 0, w, h);
 
-            const totals = calculatePayloadTotals();
-
-            // Probe Body position: positioned strictly towards the left side & enlarged to fill space
-            const probeCenterX = w * 0.32;
-            const probeCenterY = h * 0.5;
-
+            const scaleFactor = Math.sqrt(payloadSpecs.sizeIVU || 1);
             const ratioObj = parseRatio(payloadSpecs.ratio);
-            const scaleFactor = Math.sqrt(payloadSpecs.sizeIVU || 1.0);
             
-            let baseW = 240 * scaleFactor;
+            let baseW = 140 * scaleFactor;
             let baseH = baseW * (ratioObj.h / ratioObj.w);
 
-            const maxAllowedH = h * 0.82;
-            const maxAllowedW = w * 0.52;
+            const maxAllowedH = h * 0.7;
+            const maxAllowedW = w * 0.7;
             if (baseH > maxAllowedH || baseW > maxAllowedW) {
                 const scale = Math.min(maxAllowedH / baseH, maxAllowedW / baseW);
                 baseW *= scale;
                 baseH *= scale;
             }
 
-            const left = probeCenterX - (baseW / 2);
-            const top = probeCenterY - (baseH / 2);
+            const left = centerX - (baseW / 2);
+            const top = centerY - (baseH / 2);
 
             // Path creation for bounding shape
             ctx.beginPath();
             if (payloadSpecs.shape === "Spherical") {
-                ctx.ellipse(probeCenterX, probeCenterY, baseW / 2, baseH / 2, 0, 0, Math.PI * 2);
+                ctx.ellipse(centerX, centerY, baseW / 2, baseH / 2, 0, 0, Math.PI * 2);
             } else {
                 ctx.rect(left, top, baseW, baseH);
             }
 
-            // Interior Clipping
+            // Clip grid strictly inside shape boundaries
             ctx.save();
             ctx.clip();
 
-            // Handle Pressurization Animation Visual Fill
-            const targetGasOpacity = payloadSpecs.pressurized ? 0.35 : 0.0;
-            pressureGasOpacity += (targetGasOpacity - pressureGasOpacity) * 0.1;
+            // Render 10 x 10 Labeled Number Grid strictly inside the shape boundary
+            const gridCols = 10;
+            const gridRows = 10;
+            const cellW = baseW / gridCols;
+            const cellH = baseH / gridRows;
 
-            if (pressureGasOpacity > 0.01) {
-                ctx.fillStyle = `rgba(255, 176, 0, ${pressureGasOpacity})`;
-                ctx.fillRect(left - 10, top - 10, baseW + 20, baseH + 20);
+            ctx.strokeStyle = "rgba(255, 176, 0, 0.35)";
+            ctx.lineWidth = 1;
+            ctx.fillStyle = "rgba(255, 176, 0, 0.7)";
+            ctx.font = `${Math.max(8, Math.floor(Math.min(cellW, cellH) * 0.32))}px 'Courier New', monospace`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
 
-                // Gas particles
-                ctx.fillStyle = `rgba(255, 210, 80, ${pressureGasOpacity * 1.5})`;
-                const time = Date.now() * 0.002;
-                for (let i = 0; i < 18; i++) {
-                    const gx = left + ((Math.sin(time + i * 1.7) + 1) / 2) * baseW;
-                    const gy = top + ((Math.cos(time * 0.8 + i * 2.3) + 1) / 2) * baseH;
-                    ctx.beginPath();
-                    ctx.arc(gx, gy, 2, 0, Math.PI * 2);
-                    ctx.fill();
+            for (let r = 0; r < gridRows; r++) {
+                for (let c = 0; c < gridCols; c++) {
+                    const cx = left + (c * cellW);
+                    const cy = top + (r * cellH);
+
+                    ctx.strokeRect(cx, cy, cellW, cellH);
+
+                    const gridNumber = (r * gridCols) + c + 1;
+                    ctx.fillText(gridNumber.toString(), cx + (cellW / 2), cy + (cellH / 2));
                 }
             }
 
-            // Modular Parts Layout inside Probe Shell
-            const modules = payloadSpecs.modules || [];
-            if (modules.length > 0) {
-                const innerMargin = 16;
-                const innerW = baseW - (innerMargin * 2);
-                const innerH = baseH - (innerMargin * 2);
-                const innerLeft = left + innerMargin;
-                const innerTop = top + innerMargin;
+            ctx.restore(); // Remove clip
 
-                let curX = innerLeft;
-                let curY = innerTop;
-                let maxHeightInRow = 0;
-
-                modules.forEach((modKey, idx) => {
-                    const p = PARTS_LIBRARY[modKey];
-                    if (!p) return;
-
-                    // Relative scale representation: 0.5 IVU = ~50% inner space relative
-                    const modRelArea = (p.ivu / totals.totalIVU) * (innerW * innerH);
-                    let mBoxW = Math.max(38, Math.sqrt(modRelArea * 1.3));
-                    let mBoxH = Math.max(28, modRelArea / mBoxW);
-
-                    if (mBoxW > innerW) mBoxW = innerW;
-                    if (mBoxH > innerH) mBoxH = innerH;
-
-                    if (curX + mBoxW > innerLeft + innerW) {
-                        curX = innerLeft;
-                        curY += maxHeightInRow + 6;
-                        maxHeightInRow = 0;
-                    }
-
-                    if (curY + mBoxH <= innerTop + innerH) {
-                        ctx.fillStyle = "rgba(255, 176, 0, 0.12)";
-                        ctx.fillRect(curX, curY, mBoxW, mBoxH);
-                        ctx.strokeStyle = "#ffb000";
-                        ctx.lineWidth = 1;
-                        ctx.strokeRect(curX, curY, mBoxW, mBoxH);
-
-                        ctx.fillStyle = "#ffb000";
-                        ctx.font = "10px 'Courier New', monospace";
-                        ctx.textAlign = "center";
-                        ctx.textBaseline = "middle";
-                        ctx.fillText(p.label, curX + (mBoxW / 2), curY + (mBoxH / 2));
-
-                        curX += mBoxW + 6;
-                        if (mBoxH > maxHeightInRow) maxHeightInRow = mBoxH;
-                    }
-                });
-            }
-
-            ctx.restore(); // Restore clip
-
-            // Outer Outer Shape Chassis Outline Frame
+            // Render Outer Shape Outline Glow Frame
             ctx.strokeStyle = "#ffb000";
             ctx.lineWidth = 2;
             ctx.shadowColor = "#ffb000";
-            ctx.shadowBlur = 6;
+            ctx.shadowBlur = 8;
 
             ctx.beginPath();
             if (payloadSpecs.shape === "Spherical") {
-                ctx.ellipse(probeCenterX, probeCenterY, baseW / 2, baseH / 2, 0, 0, Math.PI * 2);
+                ctx.ellipse(centerX, centerY, baseW / 2, baseH / 2, 0, 0, Math.PI * 2);
             } else {
                 ctx.rect(left, top, baseW, baseH);
             }
             ctx.stroke();
             ctx.shadowBlur = 0;
 
-            // Probe Header Title
+            // Overlay Metadata Text
             ctx.fillStyle = "#ffb000";
-            ctx.font = "13px 'Courier New', monospace";
+            ctx.font = "12px 'Courier New', monospace";
             ctx.textAlign = "left";
-            ctx.fillText(`PROBE: ${payloadSpecs.name.toUpperCase()} [${payloadSpecs.shape.toUpperCase()}]`, left, Math.max(20, top - 12));
+            ctx.textBaseline = "alphabetic";
+            ctx.fillText(`PROBE NAME  : ${payloadSpecs.name.toUpperCase()}`, 15, 25);
+            ctx.fillText(`CHASSIS TYPE: ${payloadSpecs.shape.toUpperCase()} [${payloadSpecs.sizeIVU} IVU / m³]`, 15, 42);
+            ctx.fillText(`GRID SCALE  : 10x10 NUMBERED MATRIX (${gridUnit.toUpperCase()})`, 15, 59);
+            ctx.fillText(`DIM RATIO   : ${payloadSpecs.ratio} (H:W)`, 15, 76);
+            ctx.fillText(`PURPOSE     : ${payloadSpecs.purpose.toUpperCase()}`, 15, 93);
 
-            // RIGHT SIDE PANEL: Installed Items & IVU Meter
-            const rightPanelX = w * 0.60;
-            const topPanelY = 30;
+            updatePrompt();
+        }
 
-            ctx.font = "bold 13px 'Courier New', monospace";
-            ctx.fillStyle = "#ffb000";
-            ctx.fillText(`${totals.usedIVU.toFixed(2)} / ${totals.totalIVU.toFixed(2)} IVU used`, rightPanelX, topPanelY);
+        function renderVABAppStudio(app) {
+            outputEl.innerHTML = "";
+            canvasContainerEl.style.display = "none";
+            outputEl.style.display = "block";
+            printVABHeader();
 
-            ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(rightPanelX, topPanelY + 8);
-            ctx.lineTo(w - 20, topPanelY + 8);
-            ctx.stroke();
+            const v = GameState.data.vessel;
+            const totalMass = v.mass_kg + Math.floor(v.fuelRatio * 4.2) + Math.floor(v.finArea * 1.5);
+            const thrust = 12.5;
+            const twr = ((thrust * 1000) / (totalMass * 9.81)).toFixed(2);
+            const estDV = Math.floor(1200 + (v.fuelRatio * 18) - (v.finArea * 5));
 
-            ctx.font = "11px 'Courier New', monospace";
-            let listY = topPanelY + 28;
-
-            if (modules.length === 0) {
-                ctx.fillStyle = "rgba(255, 176, 0, 0.5)";
-                ctx.fillText("  (No internal modules installed)", rightPanelX, listY);
-                listY += 20;
-            } else {
-                modules.forEach((modKey, idx) => {
-                    const p = PARTS_LIBRARY[modKey];
-                    if (p) {
-                        ctx.fillStyle = "#ffb000";
-                        ctx.fillText(` [${idx + 1}] ${p.name.padEnd(20)} (${p.ivu} IVU)`, rightPanelX, listY);
-                        listY += 18;
-                    }
-                });
-            }
-
-            // Catalog Quick Reference Legend
-            listY += 10;
-            ctx.fillStyle = "rgba(255, 176, 0, 0.7)";
-            ctx.fillText("PARTS LIST FOR 'add [name]':", rightPanelX, listY);
-            listY += 16;
-            ctx.font = "10px 'Courier New', monospace";
-            Object.keys(PARTS_LIBRARY).forEach(k => {
-                const item = PARTS_LIBRARY[k];
-                ctx.fillText(`  • ${item.id.padEnd(14)} (${item.ivu} IVU)`, rightPanelX, listY);
-                listY += 14;
-            });
-
-            // BOTTOM RIGHT CORNER: Electrical & Heat Readouts
-            const botPanelX = w * 0.58;
-            const botPanelY = h - 145;
-
-            // Border Box for Systems Telemetry
-            ctx.strokeStyle = "rgba(255, 176, 0, 0.5)";
-            ctx.strokeRect(botPanelX - 10, botPanelY - 10, w - botPanelX, 140);
-            ctx.fillStyle = "#080500";
-            ctx.fillRect(botPanelX - 9, botPanelY - 9, w - botPanelX - 2, 138);
-
-            // Electrical Section
-            ctx.font = "bold 12px 'Courier New', monospace";
-            ctx.fillStyle = "#ffb000";
-            ctx.fillText("ELECTRICAL SYSTEM:", botPanelX, botPanelY + 6);
-
-            ctx.font = "11px 'Courier New', monospace";
-            ctx.fillText(` Watts                 : ${totals.watts.toFixed(1)} W`, botPanelX, botPanelY + 22);
-            ctx.fillText(` Volts                 : ${totals.volts.toFixed(1)} V`, botPanelX, botPanelY + 36);
-
-            let powerTimeStr = "~ INF";
-            if (totals.watts > 0) {
-                if (totals.capAh === 0) {
-                    powerTimeStr = "0.0s (NO POWER)";
-                } else {
-                    const mins = Math.floor(totals.timeSec / 60);
-                    const secs = Math.floor(totals.timeSec % 60);
-                    powerTimeStr = `~ ${mins}m ${secs}s`;
-                }
-            }
-            ctx.fillText(` Time Until Power Loss : ${powerTimeStr}`, botPanelX, botPanelY + 50);
-
-            // Heat System Bars Section
-            ctx.font = "bold 12px 'Courier New', monospace";
-            ctx.fillText("THERMAL BALANCE:", botPanelX, botPanelY + 72);
-
-            ctx.font = "11px 'Courier New', monospace";
-
-            const maxHeatBarWidth = 12;
-            const genRatio = Math.min(1.0, totals.heatGen / 30);
-            const disRatio = Math.min(1.0, totals.heatDis / 30);
-
-            const genFilled = Math.floor(genRatio * maxHeatBarWidth);
-            const disFilled = Math.floor(disRatio * maxHeatBarWidth);
-
-            const genBar = "[" + "█".repeat(genFilled) + "░".repeat(maxHeatBarWidth - genFilled) + "]";
-            const disBar = "[" + "█".repeat(disFilled) + "░".repeat(maxHeatBarWidth - disFilled) + "]";
-
-            ctx.fillText(` Heat Generated  : ${genBar} ${totals.heatGen.toFixed(1)} W_th`, botPanelX, botPanelY + 88);
-            ctx.fillText(` Heat Dealt With : ${disBar} ${totals.heatDis.toFixed(1)} W_th`, botPanelX, botPanelY + 104);
-
-            if (totals.heatGen > totals.heatDis) {
-                ctx.fillStyle = "#ff4444";
-                ctx.fillText(" STATUS: OVERHEATING WARN (Output < Input)", botPanelX, botPanelY + 120);
-            } else {
-                ctx.fillStyle = "#55ff55";
-                ctx.fillText(" STATUS: THERMAL NOMINAL", botPanelX, botPanelY + 120);
-            }
-
-            // Render Sparks Particle Overlay
-            updateSparks();
-            drawSparks(ctx);
-
+            print(`ACTIVE STUDIO TOOLKIT: ${app.name.toUpperCase()}`, "title");
+            print(`TARGET CHASSIS: [ ${v.name} ]`);
+            print("--------------------------------------------------------------------------------");
+            print(" [TUNING & MODIFICATION MATRIX]", "title");
+            print(`  [1] Fuel Mixture Ratio  : [${"█".repeat(Math.floor(v.fuelRatio / 10))}${"░".repeat(10 - Math.floor(v.fuelRatio / 10))}] ${v.fuelRatio}% Kerosene`);
+            print(`  [2] Gimbal Limiter      : [${"█".repeat(Math.floor(v.gimbal / 10))}${"░".repeat(10 - Math.floor(v.gimbal / 10))}] ${v.gimbal}% Range`);
+            print(`  [3] Aero Fin Area       : [${"█".repeat(Math.floor(v.finArea / 2))}${"░".repeat(10 - Math.floor(v.finArea / 2))}] ${v.finArea} sq.m`);
+            print(`  [4] Stage Sep Delay     : [ ${v.sepDelay}s ]`);
+            print("--------------------------------------------------------------------------------");
+            print(" [DYNAMIC TELEMETRY CALCULATOR]", "title");
+            print(`  Calculated Wet Mass : ${totalMass} kg`);
+            print(`  Ground Thrust-to-Wt : ${twr} TWR`);
+            print(`  Estimated Delta-V   : ${estDV} m/s`);
+            print("--------------------------------------------------------------------------------");
+            print("Controls: Type '1'-'4' to adjust parameters. Type 'back' for VAB menu, or 'terminate'.");
+            print("================================================================================", "title");
             updatePrompt();
         }
 
@@ -1163,7 +919,6 @@
             }
 
             if (lowerInput === "terminate") {
-                stopCanvasLoop();
                 inRDModule = false;
                 isRDNavActive = false;
                 inVABModule = false;
@@ -1183,73 +938,39 @@
 
             if (inPayloadDesigner) {
                 if (isRenderingCanvas) {
-                    if (lowerInput === "pressurize") {
-                        payloadSpecs.pressurized = true;
+                    if (lowerInput === "grid m3") {
+                        gridUnit = "m3";
+                        renderProbeGraphicsCanvas();
                         return;
                     }
-                    if (lowerInput === "depressurize") {
-                        payloadSpecs.pressurized = false;
+                    if (lowerInput === "grid dm3") {
+                        gridUnit = "dm3";
+                        renderProbeGraphicsCanvas();
                         return;
                     }
-                    if (lowerInput.startsWith("add ")) {
-                        const partKey = lowerInput.substring(4).trim();
-                        const part = PARTS_LIBRARY[partKey];
-                        if (!part) {
-                            print(`[ERR] Unknown part key '${partKey}'. Check catalog on right side.`);
-                            return;
-                        }
-                        const totals = calculatePayloadTotals();
-                        if (totals.usedIVU + part.ivu > totals.totalIVU + 0.001) {
-                            print(`[ERR] Not enough available space! (${(totals.totalIVU - totals.usedIVU).toFixed(2)} IVU remaining)`);
-                            return;
-                        }
-                        if (!payloadSpecs.modules) payloadSpecs.modules = [];
-                        payloadSpecs.modules.push(part.id);
-
-                        // Trigger visual sparks flying off from item list region
-                        const rect = probeCanvas.getBoundingClientRect();
-                        spawnSparks(rect.width * 0.70, rect.height * 0.25);
-                        return;
-                    }
-                    if (lowerInput.startsWith("remove ")) {
-                        const arg = lowerInput.substring(7).trim();
-                        if (!payloadSpecs.modules || payloadSpecs.modules.length === 0) {
-                            print("[ERR] Probe interior is empty.");
-                            return;
-                        }
-                        const idx = parseInt(arg, 10);
-                        if (!isNaN(idx) && idx >= 1 && idx <= payloadSpecs.modules.length) {
-                            payloadSpecs.modules.splice(idx - 1, 1);
-                        } else {
-                            const foundIdx = payloadSpecs.modules.findIndex(m => m.toLowerCase() === arg.toLowerCase());
-                            if (foundIdx >= 0) {
-                                payloadSpecs.modules.splice(foundIdx, 1);
-                            } else {
-                                print(`[ERR] Module '${arg}' not found inside payload.`);
-                            }
-                        }
+                    if (lowerInput === "grid cm3") {
+                        gridUnit = "cm3";
+                        renderProbeGraphicsCanvas();
                         return;
                     }
                     if (lowerInput === "save") {
                         if (!GameState.data.savedPayloads) GameState.data.savedPayloads = [];
                         const existingIdx = GameState.data.savedPayloads.findIndex(p => p.name.toLowerCase() === payloadSpecs.name.toLowerCase());
                         if (existingIdx >= 0) {
-                            GameState.data.savedPayloads[existingIdx] = JSON.parse(JSON.stringify(payloadSpecs));
+                            GameState.data.savedPayloads[existingIdx] = { ...payloadSpecs };
                         } else {
-                            GameState.data.savedPayloads.push(JSON.parse(JSON.stringify(payloadSpecs)));
+                            GameState.data.savedPayloads.push({ ...payloadSpecs });
                         }
                         localStorage.setItem(`orbital_save_${GameState.activeSlot}`, JSON.stringify(GameState.data));
-                        stopCanvasLoop();
                         renderPayloadListScreen();
                         print(`[SYS] Payload design '${payloadSpecs.name}' successfully saved.`);
                         return;
                     }
                     if (lowerInput === "back") {
-                        stopCanvasLoop();
                         renderPayloadDesignerCriteria();
                         return;
                     }
-                    print("[SYS] Commands: add [part] | remove [part] | pressurize | depressurize | save | back | terminate");
+                    print("[SYS] Type 'grid m3', 'grid dm3', 'grid cm3', 'save', 'back', or 'terminate'.");
                     return;
                 }
 
@@ -1261,37 +982,41 @@
                         return;
                     }
                     if (lowerInput === "new") {
+                        payloadSubMode = "CRITERIA";
                         payloadStep = "NAME";
-                        payloadSpecs = { name: "", sizeIVU: null, shape: null, purpose: null, ratio: "1:1", modules: [], pressurized: false };
+                        payloadSpecs = { name: "", sizeIVU: null, shape: null, purpose: null, ratio: "1:1" };
                         renderPayloadDesignerCriteria();
                         return;
                     }
-                    if (lowerInput.startsWith("load")) {
-                        const targetName = trimmedInput.substring(4).trim();
-                        if (!targetName) {
-                            print("[SYS] Usage: load [payload name or index]");
-                            return;
-                        }
-                        let targetPayload = null;
-                        const targetIdx = parseInt(targetName, 10);
-                        if (!isNaN(targetIdx) && GameState.data.savedPayloads && GameState.data.savedPayloads[targetIdx - 1]) {
-                            targetPayload = GameState.data.savedPayloads[targetIdx - 1];
-                        } else if (GameState.data.savedPayloads) {
-                            targetPayload = GameState.data.savedPayloads.find(p => p.name.toLowerCase() === targetName.toLowerCase());
-                        }
 
-                        if (!targetPayload) {
-                            print(`[ERR] Saved payload '${targetName}' not found.`);
-                            return;
-                        }
-
-                        payloadSpecs = JSON.parse(JSON.stringify(targetPayload));
-                        if (!payloadSpecs.modules) payloadSpecs.modules = [];
-                        if (payloadSpecs.pressurized === undefined) payloadSpecs.pressurized = false;
-
-                        startCanvasLoop();
+                    // Check if selection is an index number to load a saved payload
+                    const selIdx = parseInt(lowerInput, 10);
+                    if (!isNaN(selIdx) && GameState.data.savedPayloads && selIdx >= 1 && selIdx <= GameState.data.savedPayloads.length) {
+                        payloadSpecs = { ...GameState.data.savedPayloads[selIdx - 1] };
+                        payloadSubMode = "CRITERIA";
+                        payloadStep = "CONFIRM";
+                        renderPayloadDesignerCriteria();
+                        print(`[SYS] Loaded saved payload design '${payloadSpecs.name}'.`);
                         return;
                     }
+
+                    // Check if selection is load [name]
+                    if (lowerInput.startsWith("load ")) {
+                        const targetName = trimmedInput.substring(5).trim();
+                        const foundPayload = GameState.data.savedPayloads ? GameState.data.savedPayloads.find(p => p.name.toLowerCase() === targetName.toLowerCase()) : null;
+                        if (foundPayload) {
+                            payloadSpecs = { ...foundPayload };
+                            payloadSubMode = "CRITERIA";
+                            payloadStep = "CONFIRM";
+                            renderPayloadDesignerCriteria();
+                            print(`[SYS] Loaded saved payload design '${payloadSpecs.name}'.`);
+                            return;
+                        } else {
+                            print(`[ERR] Payload '${targetName}' not found in registry.`);
+                            return;
+                        }
+                    }
+
                     if (lowerInput.startsWith("delete")) {
                         const targetName = trimmedInput.substring(6).trim();
                         if (!targetName) {
@@ -1309,7 +1034,7 @@
                         updatePrompt();
                         return;
                     }
-                    print("[SYS] Options: 'load [name]', 'new', 'delete [name]', 'back', or 'terminate'.");
+                    print("[SYS] Options: 'new', [1-N] to load, 'delete [name]', 'back', or 'terminate'.");
                     return;
                 }
 
@@ -1401,7 +1126,7 @@
 
                     if (payloadStep === "CONFIRM") {
                         if (lowerInput === "start") {
-                            startCanvasLoop();
+                            renderProbeGraphicsCanvas();
                             return;
                         }
                         print("[SYS] Type 'start' to initialize design canvas, or 'back' to return to list.");
@@ -1679,38 +1404,6 @@
                         break;
                 }
             }
-        }
-
-        function renderVABAppStudio(app) {
-            stopCanvasLoop();
-            outputEl.innerHTML = "";
-            canvasContainerEl.style.display = "none";
-            outputEl.style.display = "block";
-            printVABHeader();
-
-            const v = GameState.data.vessel;
-            const totalMass = v.mass_kg + Math.floor(v.fuelRatio * 4.2) + Math.floor(v.finArea * 1.5);
-            const thrust = 12.5;
-            const twr = ((thrust * 1000) / (totalMass * 9.81)).toFixed(2);
-            const estDV = Math.floor(1200 + (v.fuelRatio * 18) - (v.finArea * 5));
-
-            print(`ACTIVE STUDIO TOOLKIT: ${app.name.toUpperCase()}`, "title");
-            print(`TARGET CHASSIS: [ ${v.name} ]`);
-            print("--------------------------------------------------------------------------------");
-            print(" [TUNING & MODIFICATION MATRIX]", "title");
-            print(`  [1] Fuel Mixture Ratio  : [${"█".repeat(Math.floor(v.fuelRatio / 10))}${"░".repeat(10 - Math.floor(v.fuelRatio / 10))}] ${v.fuelRatio}% Kerosene`);
-            print(`  [2] Gimbal Limiter      : [${"█".repeat(Math.floor(v.gimbal / 10))}${"░".repeat(10 - Math.floor(v.gimbal / 10))}] ${v.gimbal}% Range`);
-            print(`  [3] Aero Fin Area       : [${"█".repeat(Math.floor(v.finArea / 2))}${"░".repeat(10 - Math.floor(v.finArea / 2))}] ${v.finArea} sq.m`);
-            print(`  [4] Stage Sep Delay     : [ ${v.sepDelay}s ]`);
-            print("--------------------------------------------------------------------------------");
-            print(" [DYNAMIC TELEMETRY CALCULATOR]", "title");
-            print(`  Calculated Wet Mass : ${totalMass} kg`);
-            print(`  Ground Thrust-to-Wt : ${twr} TWR`);
-            print(`  Estimated Delta-V   : ${estDV} m/s`);
-            print("--------------------------------------------------------------------------------");
-            print("Controls: Type '1'-'4' to adjust parameters. Type 'back' for VAB menu, or 'terminate'.");
-            print("================================================================================", "title");
-            updatePrompt();
         }
 
         window.addEventListener("resize", () => {
