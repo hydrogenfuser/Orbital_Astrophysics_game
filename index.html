@@ -184,7 +184,7 @@
             flex: 1;
         }
 
-        /* Graphical Canvas Canvas Container */
+        /* Graphical Canvas Container - Takes Terminal Workspace Space */
         #probe-canvas-container {
             display: none;
             flex-direction: column;
@@ -192,6 +192,7 @@
             justify-content: center;
             width: 100%;
             height: 100%;
+            flex: 1;
             margin-bottom: 10px;
             position: relative;
         }
@@ -200,6 +201,8 @@
             border: 1px solid #ffb000;
             background-color: #050300;
             box-shadow: 0 0 8px rgba(255, 176, 0, 0.2);
+            width: 100%;
+            height: 100%;
         }
 
         #output::-webkit-scrollbar {
@@ -218,7 +221,7 @@
     <div id="terminal-screen">
         <div id="output"></div>
         <div id="probe-canvas-container">
-            <canvas id="probe-canvas" width="460" height="340"></canvas>
+            <canvas id="probe-canvas"></canvas>
         </div>
         <div id="controls-info"></div>
         <div id="input-line">
@@ -241,7 +244,8 @@
                     gimbal: 100,
                     finArea: 10,
                     sepDelay: 1.5
-                }
+                },
+                savedPayloads: []
             }
         };
 
@@ -259,12 +263,16 @@
 
         // Payload/Probe Designer State
         let inPayloadDesigner = false;
-        let payloadStep = "SIZE";
+        let payloadSubMode = "LIST"; // "LIST", "DELETE_CONFIRM", "CRITERIA"
+        let payloadDeleteTarget = "";
+        let payloadStep = "NAME";
         let gridUnit = "dm3"; // "m3", "dm3", "cm3"
         let payloadSpecs = {
+            name: "",
             sizeIVU: null,
             shape: null,
-            purpose: null
+            purpose: null,
+            ratio: "1:1"
         };
         let isRenderingCanvas = false;
 
@@ -334,10 +342,16 @@
         function updatePrompt() {
             if (inPayloadDesigner) {
                 if (isRenderingCanvas) {
-                    setControlsBar("CONTROLS: Type 'grid m3', 'grid dm3', or 'grid cm3' to toggle scale | 'back' = Re-configure | 'terminate' = Exit");
+                    setControlsBar("CONTROLS: Type 'grid m3', 'grid dm3', or 'grid cm3' | 'save' = Save payload | 'back' = Re-configure | 'terminate' = Exit");
                     promptEl.textContent = `[VAB // PROBE DESIGN CANVAS]> `;
+                } else if (payloadSubMode === "LIST") {
+                    setControlsBar("CONTROLS: Type 'new' to design | 'delete [name]' = Remove payload | 'back' = VAB Menu | 'terminate' = Exit");
+                    promptEl.textContent = `[VAB // PAYLOAD MANAGER]> `;
+                } else if (payloadSubMode === "DELETE_CONFIRM") {
+                    setControlsBar("CONTROLS: Type 'yes' to confirm deletion | 'no' to cancel | 'terminate' = Exit");
+                    promptEl.textContent = `[VAB // CONFIRM DELETE]> `;
                 } else {
-                    setControlsBar("CONTROLS: Input selection number | 'back' = Return to VAB Menu | 'terminate' = Exit");
+                    setControlsBar("CONTROLS: Input selection/text | 'back' = Return to Payload List | 'terminate' = Exit");
                     promptEl.textContent = `[VAB // PAYLOAD CONFIG (${payloadStep})]> `;
                 }
                 return;
@@ -672,22 +686,58 @@
             updatePrompt();
         }
 
+        function renderPayloadListScreen() {
+            outputEl.innerHTML = "";
+            canvasContainerEl.style.display = "none";
+            outputEl.style.display = "block";
+            isRenderingCanvas = false;
+            payloadSubMode = "LIST";
+            printVABHeader();
+
+            print("STUDIO TOOLKIT: PAYLOAD / PROBE DESIGNER", "title");
+            print("================================================================================", "title");
+            print("EXISTING PAYLOAD DESIGNS:", "title");
+
+            if (!GameState.data.savedPayloads || GameState.data.savedPayloads.length === 0) {
+                print("  (No stored payload designs found)");
+            } else {
+                GameState.data.savedPayloads.forEach((p, i) => {
+                    print(`  [${i + 1}] ${p.name.padEnd(18)} | Size: ${p.sizeIVU} IVU | Shape: ${p.shape} | Ratio: ${p.ratio} | Purpose: ${p.purpose}`);
+                });
+            }
+
+            print("--------------------------------------------------------------------------------");
+            print("ACTIONS:", "title");
+            print("  new            - Create a new probe design");
+            print("  delete [name]  - Remove a saved probe design");
+            print("  back           - Return to VAB application menu");
+            print("================================================================================", "title");
+            print("");
+            updatePrompt();
+        }
+
         function renderPayloadDesignerCriteria() {
             outputEl.innerHTML = "";
             canvasContainerEl.style.display = "none";
             outputEl.style.display = "block";
             isRenderingCanvas = false;
+            payloadSubMode = "CRITERIA";
             printVABHeader();
 
-            print("STUDIO TOOLKIT: PAYLOAD / PROBE DESIGNER", "title");
+            print("STUDIO TOOLKIT: PAYLOAD / PROBE DESIGNER (SPECIFICATION)", "title");
             print("================================================================================", "title");
+            print(`Name    : ${payloadSpecs.name !== "" ? payloadSpecs.name : "(enter payload name)"}`);
             print(`Size    : ${payloadSpecs.sizeIVU !== null ? payloadSpecs.sizeIVU + " IVU (m³)" : "(current IVU limits)"}`);
             print(`Shape   : ${payloadSpecs.shape !== null ? payloadSpecs.shape : "(select shape criteria)"}`);
+            print(`Ratio   : ${payloadSpecs.ratio !== null ? payloadSpecs.ratio + " (Height:Width/Length)" : "(select dimensional ratio)"}`);
             print(`Purpose : ${payloadSpecs.purpose !== null ? payloadSpecs.purpose : "(select operational purpose)"}`);
             print("================================================================================", "title");
             print("");
 
-            if (payloadStep === "SIZE") {
+            if (payloadStep === "NAME") {
+                print("ENTER PAYLOAD NAME:", "title");
+                print("  Type a unique identifier name for this probe design.");
+            } else if (payloadStep === "SIZE") {
                 print("SELECT SIZE (IVU LIMITS):", "title");
                 print("  [1] 0.5 IVU (Sounding Micro-Probe)");
                 print("  [2] 1.0 IVU (Standard CubeSat Core)");
@@ -696,6 +746,11 @@
                 print("SELECT SHAPE:", "title");
                 print("  [1] Cubic");
                 print("  [2] Spherical");
+            } else if (payloadStep === "RATIO") {
+                print("SELECT RATIO (Height : Width/Length):", "title");
+                print("  [1] 1:1 (Equilateral / Standard Aspect)");
+                print("  [2] 2:1 (Elongated Cylinder / Rectangular)");
+                print("  [3] 1:2 (Flattened Disc / Wide Base)");
             } else if (payloadStep === "PURPOSE") {
                 print("SELECT PURPOSE:", "title");
                 print("  [1] Payload");
@@ -706,10 +761,23 @@
             updatePrompt();
         }
 
+        function parseRatio(ratioStr) {
+            if (!ratioStr || !ratioStr.includes(":")) return { h: 1, w: 1 };
+            const parts = ratioStr.split(":");
+            return {
+                h: parseFloat(parts[0]) || 1,
+                w: parseFloat(parts[1]) || 1
+            };
+        }
+
         function renderProbeGraphicsCanvas() {
             outputEl.style.display = "none";
             canvasContainerEl.style.display = "flex";
             isRenderingCanvas = true;
+
+            const rect = canvasContainerEl.getBoundingClientRect();
+            probeCanvas.width = rect.width || 600;
+            probeCanvas.height = rect.height || 400;
 
             const w = probeCanvas.width;
             const h = probeCanvas.height;
@@ -718,81 +786,90 @@
 
             ctx.clearRect(0, 0, w, h);
 
-            // Background Grid Rendering based on unit (IVU = m3)
-            ctx.strokeStyle = "rgba(255, 176, 0, 0.15)";
+            ctx.fillStyle = "#050300";
+            ctx.fillRect(0, 0, w, h);
+
+            const scaleFactor = Math.sqrt(payloadSpecs.sizeIVU || 1);
+            const ratioObj = parseRatio(payloadSpecs.ratio);
+            
+            let baseW = 140 * scaleFactor;
+            let baseH = baseW * (ratioObj.h / ratioObj.w);
+
+            const maxAllowedH = h * 0.7;
+            const maxAllowedW = w * 0.7;
+            if (baseH > maxAllowedH || baseW > maxAllowedW) {
+                const scale = Math.min(maxAllowedH / baseH, maxAllowedW / baseW);
+                baseW *= scale;
+                baseH *= scale;
+            }
+
+            const left = centerX - (baseW / 2);
+            const top = centerY - (baseH / 2);
+
+            // Path creation for bounding shape
+            ctx.beginPath();
+            if (payloadSpecs.shape === "Spherical") {
+                ctx.ellipse(centerX, centerY, baseW / 2, baseH / 2, 0, 0, Math.PI * 2);
+            } else {
+                ctx.rect(left, top, baseW, baseH);
+            }
+
+            // Clip grid strictly inside shape boundaries
+            ctx.save();
+            ctx.clip();
+
+            // Render 10 x 10 Labeled Number Grid strictly inside the shape boundary
+            const gridCols = 10;
+            const gridRows = 10;
+            const cellW = baseW / gridCols;
+            const cellH = baseH / gridRows;
+
+            ctx.strokeStyle = "rgba(255, 176, 0, 0.35)";
             ctx.lineWidth = 1;
+            ctx.fillStyle = "rgba(255, 176, 0, 0.7)";
+            ctx.font = `${Math.max(8, Math.floor(Math.min(cellW, cellH) * 0.32))}px 'Courier New', monospace`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
 
-            let stepSize = 30; // dm3 default
-            if (gridUnit === "m3") stepSize = 90;
-            if (gridUnit === "cm3") stepSize = 10;
+            for (let r = 0; r < gridRows; r++) {
+                for (let c = 0; c < gridCols; c++) {
+                    const cx = left + (c * cellW);
+                    const cy = top + (r * cellH);
 
-            for (let x = 0; x < w; x += stepSize) {
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, h);
-                ctx.stroke();
+                    ctx.strokeRect(cx, cy, cellW, cellH);
+
+                    const gridNumber = (r * gridCols) + c + 1;
+                    ctx.fillText(gridNumber.toString(), cx + (cellW / 2), cy + (cellH / 2));
+                }
             }
-            for (let y = 0; y < h; y += stepSize) {
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(w, y);
-                ctx.stroke();
-            }
 
-            // Draw Vector Generated Shape Frame
+            ctx.restore(); // Remove clip
+
+            // Render Outer Shape Outline Glow Frame
             ctx.strokeStyle = "#ffb000";
             ctx.lineWidth = 2;
             ctx.shadowColor = "#ffb000";
-            ctx.shadowBlur = 6;
+            ctx.shadowBlur = 8;
 
-            const scaleFactor = Math.sqrt(payloadSpecs.sizeIVU || 1);
-            const baseDimension = 120 * scaleFactor;
-
+            ctx.beginPath();
             if (payloadSpecs.shape === "Spherical") {
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, baseDimension / 2, 0, Math.PI * 2);
-                ctx.stroke();
-
-                // Inner crosshairs / decimeter structural guide lines
-                ctx.setLineDash([4, 4]);
-                ctx.beginPath();
-                ctx.moveTo(centerX - baseDimension / 2, centerY);
-                ctx.lineTo(centerX + baseDimension / 2, centerY);
-                ctx.moveTo(centerX, centerY - baseDimension / 2);
-                ctx.lineTo(centerX, centerY + baseDimension / 2);
-                ctx.stroke();
-                ctx.setLineDash([]);
+                ctx.ellipse(centerX, centerY, baseW / 2, baseH / 2, 0, 0, Math.PI * 2);
             } else {
-                // Cubic Shape
-                const half = baseDimension / 2;
-                ctx.strokeRect(centerX - half, centerY - half, baseDimension, baseDimension);
-
-                // Inner decimeter grid overlay
-                ctx.setLineDash([3, 3]);
-                ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
-                const subGrid = baseDimension / 4;
-                for (let i = 1; i < 4; i++) {
-                    ctx.beginPath();
-                    ctx.moveTo(centerX - half + (i * subGrid), centerY - half);
-                    ctx.lineTo(centerX - half + (i * subGrid), centerY + half);
-                    ctx.stroke();
-
-                    ctx.beginPath();
-                    ctx.moveTo(centerX - half, centerY - half + (i * subGrid));
-                    ctx.lineTo(centerX + half, centerY - half + (i * subGrid));
-                    ctx.stroke();
-                }
-                ctx.setLineDash([]);
+                ctx.rect(left, top, baseW, baseH);
             }
-
+            ctx.stroke();
             ctx.shadowBlur = 0;
 
-            // Canvas Text overlay header
+            // Overlay Metadata Text
             ctx.fillStyle = "#ffb000";
             ctx.font = "12px 'Courier New', monospace";
-            ctx.fillText(`PROBE CHASSIS: ${payloadSpecs.shape.toUpperCase()} [${payloadSpecs.sizeIVU} IVU / m³]`, 15, 25);
-            ctx.fillText(`GRID SCALE: ${gridUnit.toUpperCase()} (DECIMETER CORE)`, 15, 42);
-            ctx.fillText(`PURPOSE: ${payloadSpecs.purpose.toUpperCase()}`, 15, 59);
+            ctx.textAlign = "left";
+            ctx.textBaseline = "alphabetic";
+            ctx.fillText(`PROBE NAME  : ${payloadSpecs.name.toUpperCase()}`, 15, 25);
+            ctx.fillText(`CHASSIS TYPE: ${payloadSpecs.shape.toUpperCase()} [${payloadSpecs.sizeIVU} IVU / m³]`, 15, 42);
+            ctx.fillText(`GRID SCALE  : 10x10 NUMBERED MATRIX (${gridUnit.toUpperCase()})`, 15, 59);
+            ctx.fillText(`DIM RATIO   : ${payloadSpecs.ratio} (H:W)`, 15, 76);
+            ctx.fillText(`PURPOSE     : ${payloadSpecs.purpose.toUpperCase()}`, 15, 93);
 
             updatePrompt();
         }
@@ -875,66 +952,155 @@
                         renderProbeGraphicsCanvas();
                         return;
                     }
+                    if (lowerInput === "save") {
+                        if (!GameState.data.savedPayloads) GameState.data.savedPayloads = [];
+                        const existingIdx = GameState.data.savedPayloads.findIndex(p => p.name.toLowerCase() === payloadSpecs.name.toLowerCase());
+                        if (existingIdx >= 0) {
+                            GameState.data.savedPayloads[existingIdx] = { ...payloadSpecs };
+                        } else {
+                            GameState.data.savedPayloads.push({ ...payloadSpecs });
+                        }
+                        localStorage.setItem(`orbital_save_${GameState.activeSlot}`, JSON.stringify(GameState.data));
+                        renderPayloadListScreen();
+                        print(`[SYS] Payload design '${payloadSpecs.name}' successfully saved.`);
+                        return;
+                    }
                     if (lowerInput === "back") {
-                        payloadStep = "SIZE";
-                        payloadSpecs = { sizeIVU: null, shape: null, purpose: null };
                         renderPayloadDesignerCriteria();
                         return;
                     }
-                    print("[SYS] Type 'grid m3', 'grid dm3', 'grid cm3', 'back', or 'terminate'.");
+                    print("[SYS] Type 'grid m3', 'grid dm3', 'grid cm3', 'save', 'back', or 'terminate'.");
                     return;
                 }
 
-                if (lowerInput === "back") {
-                    inPayloadDesigner = false;
-                    activeVABApp = null;
-                    renderVABMenu();
-                    return;
-                }
-
-                if (payloadStep === "SIZE") {
-                    if (lowerInput === "1") payloadSpecs.sizeIVU = 0.5;
-                    else if (lowerInput === "2") payloadSpecs.sizeIVU = 1.0;
-                    else if (lowerInput === "3") payloadSpecs.sizeIVU = 2.0;
-                    else {
-                        print("[SYS] Select size option 1, 2, or 3.");
+                if (payloadSubMode === "LIST") {
+                    if (lowerInput === "back") {
+                        inPayloadDesigner = false;
+                        activeVABApp = null;
+                        renderVABMenu();
                         return;
                     }
-                    payloadStep = "SHAPE";
-                    renderPayloadDesignerCriteria();
+                    if (lowerInput === "new") {
+                        payloadStep = "NAME";
+                        payloadSpecs = { name: "", sizeIVU: null, shape: null, purpose: null, ratio: "1:1" };
+                        renderPayloadDesignerCriteria();
+                        return;
+                    }
+                    if (lowerInput.startsWith("delete")) {
+                        const targetName = trimmedInput.substring(6).trim();
+                        if (!targetName) {
+                            print("[SYS] Usage: delete [payload name]");
+                            return;
+                        }
+                        const exists = GameState.data.savedPayloads && GameState.data.savedPayloads.some(p => p.name.toLowerCase() === targetName.toLowerCase());
+                        if (!exists) {
+                            print(`[ERR] Payload '${targetName}' not found in registry.`);
+                            return;
+                        }
+                        payloadDeleteTarget = targetName;
+                        payloadSubMode = "DELETE_CONFIRM";
+                        print(`[WARN] Are you sure you want to permanently delete '${targetName}'? (type 'yes' or 'no')`, "title");
+                        updatePrompt();
+                        return;
+                    }
+                    print("[SYS] Options: 'new', 'delete [name]', 'back', or 'terminate'.");
                     return;
                 }
 
-                if (payloadStep === "SHAPE") {
-                    if (lowerInput === "1") payloadSpecs.shape = "Cubic";
-                    else if (lowerInput === "2") payloadSpecs.shape = "Spherical";
-                    else {
-                        print("[SYS] Select shape option 1 or 2.");
+                if (payloadSubMode === "DELETE_CONFIRM") {
+                    if (lowerInput === "yes" || lowerInput === "y") {
+                        GameState.data.savedPayloads = GameState.data.savedPayloads.filter(p => p.name.toLowerCase() !== payloadDeleteTarget.toLowerCase());
+                        localStorage.setItem(`orbital_save_${GameState.activeSlot}`, JSON.stringify(GameState.data));
+                        const removed = payloadDeleteTarget;
+                        payloadDeleteTarget = "";
+                        renderPayloadListScreen();
+                        print(`[SYS] Payload design '${removed}' deleted.`);
                         return;
                     }
-                    payloadStep = "PURPOSE";
-                    renderPayloadDesignerCriteria();
+                    if (lowerInput === "no" || lowerInput === "n" || lowerInput === "back") {
+                        payloadDeleteTarget = "";
+                        renderPayloadListScreen();
+                        print("[SYS] Deletion canceled.");
+                        return;
+                    }
+                    print("[SYS] Confirm deletion of payload? Type 'yes' or 'no'.");
                     return;
                 }
 
-                if (payloadStep === "PURPOSE") {
-                    if (lowerInput === "1") payloadSpecs.purpose = "Payload";
-                    else {
-                        print("[SYS] Select purpose option 1.");
+                if (payloadSubMode === "CRITERIA") {
+                    if (lowerInput === "back") {
+                        renderPayloadListScreen();
                         return;
                     }
-                    payloadStep = "CONFIRM";
-                    renderPayloadDesignerCriteria();
-                    return;
-                }
 
-                if (payloadStep === "CONFIRM") {
-                    if (lowerInput === "start") {
-                        renderProbeGraphicsCanvas();
+                    if (payloadStep === "NAME") {
+                        if (!trimmedInput) {
+                            print("[SYS] Please enter a valid payload name.");
+                            return;
+                        }
+                        payloadSpecs.name = trimmedInput;
+                        payloadStep = "SIZE";
+                        renderPayloadDesignerCriteria();
                         return;
                     }
-                    print("[SYS] Type 'start' to initialize design canvas, or 'back' to reset.");
-                    return;
+
+                    if (payloadStep === "SIZE") {
+                        if (lowerInput === "1") payloadSpecs.sizeIVU = 0.5;
+                        else if (lowerInput === "2") payloadSpecs.sizeIVU = 1.0;
+                        else if (lowerInput === "3") payloadSpecs.sizeIVU = 2.0;
+                        else {
+                            print("[SYS] Select size option 1, 2, or 3.");
+                            return;
+                        }
+                        payloadStep = "SHAPE";
+                        renderPayloadDesignerCriteria();
+                        return;
+                    }
+
+                    if (payloadStep === "SHAPE") {
+                        if (lowerInput === "1") payloadSpecs.shape = "Cubic";
+                        else if (lowerInput === "2") payloadSpecs.shape = "Spherical";
+                        else {
+                            print("[SYS] Select shape option 1 or 2.");
+                            return;
+                        }
+                        payloadStep = "RATIO";
+                        renderPayloadDesignerCriteria();
+                        return;
+                    }
+
+                    if (payloadStep === "RATIO") {
+                        if (lowerInput === "1") payloadSpecs.ratio = "1:1";
+                        else if (lowerInput === "2") payloadSpecs.ratio = "2:1";
+                        else if (lowerInput === "3") payloadSpecs.ratio = "1:2";
+                        else {
+                            print("[SYS] Select ratio option 1, 2, or 3.");
+                            return;
+                        }
+                        payloadStep = "PURPOSE";
+                        renderPayloadDesignerCriteria();
+                        return;
+                    }
+
+                    if (payloadStep === "PURPOSE") {
+                        if (lowerInput === "1") payloadSpecs.purpose = "Payload";
+                        else {
+                            print("[SYS] Select purpose option 1.");
+                            return;
+                        }
+                        payloadStep = "CONFIRM";
+                        renderPayloadDesignerCriteria();
+                        return;
+                    }
+
+                    if (payloadStep === "CONFIRM") {
+                        if (lowerInput === "start") {
+                            renderProbeGraphicsCanvas();
+                            return;
+                        }
+                        print("[SYS] Type 'start' to initialize design canvas, or 'back' to return to list.");
+                        return;
+                    }
                 }
             }
 
@@ -1002,9 +1168,7 @@
                         activeVABApp = vabApplications[option - 1];
                         if (activeVABApp.id === "payload") {
                             inPayloadDesigner = true;
-                            payloadStep = "SIZE";
-                            payloadSpecs = { sizeIVU: null, shape: null, purpose: null };
-                            renderPayloadDesignerCriteria();
+                            renderPayloadListScreen();
                             return;
                         }
                         renderVABAppStudio(activeVABApp);
@@ -1035,6 +1199,7 @@
                 GameState.data.user.name = tempName;
                 GameState.data.user.password = password;
                 GameState.data.timestamp = new Date().toISOString();
+                if (!GameState.data.savedPayloads) GameState.data.savedPayloads = [];
 
                 localStorage.setItem(`orbital_save_${slotName}`, JSON.stringify(GameState.data));
 
@@ -1081,6 +1246,7 @@
 
                 if (parsedData.user.password === trimmedInput) {
                     GameState.data = parsedData;
+                    if (!GameState.data.savedPayloads) GameState.data.savedPayloads = [];
                     GameState.activeSlot = pendingLoadSlot;
                     pendingLoadSlot = "";
                     currentMode = "LOGGED_IN";
@@ -1138,6 +1304,7 @@
                         print(`User: ${GameState.data.user.name}`);
                         print(`Vessel: ${GameState.data.vessel.name}`);
                         print(`Mass: ${GameState.data.vessel.mass_kg} kg`);
+                        print(`Saved Payloads: ${GameState.data.savedPayloads ? GameState.data.savedPayloads.length : 0}`);
                         break;
 
                     case "save":
@@ -1207,6 +1374,12 @@
                 }
             }
         }
+
+        window.addEventListener("resize", () => {
+            if (isRenderingCanvas) {
+                renderProbeGraphicsCanvas();
+            }
+        });
 
         window.addEventListener("keydown", (e) => {
             if (isExecutingProgram) return;
