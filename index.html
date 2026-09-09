@@ -229,16 +229,38 @@
     </div>
 
     <script>
-        const AVAILABLE_PARTS = [
-            { id: "computer", name: "Computer", ivu: 0.25, watts: 4, volts: 12, heatGen: 8, heatDiss: 0, capAh: 0 },
-            { id: "fan", name: "Computer Fan", ivu: 0.10, watts: 1.5, volts: 12, heatGen: 0, heatDiss: 10, capAh: 0 },
-            { id: "small_battery", name: "Small Battery", ivu: 0.15, watts: 0, volts: 12, heatGen: 0, heatDiss: 0, capAh: 2.5 },
-            { id: "battery", name: "Battery", ivu: 0.50, watts: 0, volts: 12, heatGen: 0, heatDiss: 0, capAh: 10.0 },
-            { id: "thermometer", name: "Thermometer", ivu: 0.05, watts: 0.2, volts: 5, heatGen: 0.5, heatDiss: 0, capAh: 0 },
-            { id: "barometer", name: "Barometer", ivu: 0.05, watts: 0.2, volts: 5, heatGen: 0.5, heatDiss: 0, capAh: 0 },
-            { id: "geiger", name: "Geiger Counter", ivu: 0.10, watts: 0.5, volts: 12, heatGen: 1.0, heatDiss: 0, capAh: 0 },
-            { id: "amphibian", name: "Amphibian", ivu: 1.00, watts: 2.0, volts: 12, heatGen: 3.0, heatDiss: 0, capAh: 0 }
+        const PART_CATEGORIES = [
+            {
+                catName: "ELECTRONICS",
+                parts: [
+                    { id: "computer", name: "Computer", ivu: 0.25, watts: 4, volts: 12, heatGen: 8, heatDiss: 0, capAh: 0, desc: "Central computer processing relay unit." },
+                    { id: "fan", name: "Computer Fan", ivu: 0.10, watts: 1.5, volts: 12, heatGen: 0, heatDiss: 10, capAh: 0, desc: "Active cooling fan for internal thermal convection." }
+                ]
+            },
+            {
+                catName: "POWER",
+                parts: [
+                    { id: "small_battery", name: "Small Battery", ivu: 0.15, watts: 0, volts: 12, heatGen: 0, heatDiss: 0, capAh: 2.5, desc: "Compact chemical power storage cell." },
+                    { id: "battery", name: "Battery", ivu: 0.50, watts: 0, volts: 12, heatGen: 0, heatDiss: 0, capAh: 10.0, desc: "Standard high-density battery cell." }
+                ]
+            },
+            {
+                catName: "SENSORS",
+                parts: [
+                    { id: "thermometer", name: "Thermometer", ivu: 0.05, watts: 0.2, volts: 5, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "Ambient temperature sensor telemetry unit." },
+                    { id: "barometer", name: "Barometer", ivu: 0.05, watts: 0.2, volts: 5, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "Atmospheric pressure gauge telemetry unit." },
+                    { id: "geiger", name: "Geiger Counter", ivu: 0.10, watts: 0.5, volts: 12, heatGen: 1.0, heatDiss: 0, capAh: 0, desc: "Ionizing radiation level detector." }
+                ]
+            },
+            {
+                catName: "PAYLOAD / BIO",
+                parts: [
+                    { id: "amphibian", name: "Amphibian", ivu: 1.00, watts: 2.0, volts: 12, heatGen: 3.0, heatDiss: 0, capAh: 0, desc: "Pressurized habitat module for biological specimen." }
+                ]
+            }
         ];
+
+        const AVAILABLE_PARTS = PART_CATEGORIES.flatMap(c => c.parts);
 
         let GameState = {
             activeSlot: "default_save",
@@ -285,6 +307,13 @@
         let isRenderingCanvas = false;
         let animFrameId = null;
         let sparkParticles = [];
+
+        let inPartPicker = false;
+        let selectedPartCatIndex = 0;
+        let selectedPartItemIndex = 0;
+
+        let pressurizeCurrent = 0.0;
+        let lastFrameTime = performance.now();
 
         const vabApplications = [
             { id: "rocket", name: "Rocket Designer" },
@@ -352,8 +381,13 @@
         function updatePrompt() {
             if (inPayloadDesigner) {
                 if (isRenderingCanvas) {
-                    setControlsBar("CONTROLS: 'add [item]', 'remove [item]', 'pressurize', 'depressurize', 'save', 'back', 'terminate'");
-                    promptEl.textContent = `[VAB // PROBE DESIGN CANVAS]> `;
+                    if (inPartPicker) {
+                        setControlsBar("PART SELECTOR: 'A'/'D' = Prev/Next Cat | 'W'/'S' = Up/Down Item | 'E' = Install | 'Q' = Exit");
+                        promptEl.textContent = `[VAB // PART SELECTOR (WASD)]> `;
+                    } else {
+                        setControlsBar("CONTROLS: 'add' (Parts Menu) | 'remove [item]' | 'pressurize' | 'depressurize' | 'save' | 'back' | 'terminate'");
+                        promptEl.textContent = `[VAB // PROBE DESIGN CANVAS]> `;
+                    }
                 } else if (payloadSubMode === "LIST") {
                     setControlsBar("CONTROLS: Type 'new' to design | Number [1-N] / 'load [name]' | 'delete [name]' | 'back' | 'terminate'");
                     promptEl.textContent = `[VAB // PAYLOAD MANAGER]> `;
@@ -492,6 +526,7 @@
             inVABModule = false;
             inPayloadDesigner = false;
             isRenderingCanvas = false;
+            inPartPicker = false;
             canvasContainerEl.style.display = "none";
             outputEl.style.display = "block";
             activeVABApp = null;
@@ -683,6 +718,7 @@
             outputEl.style.display = "block";
             inPayloadDesigner = false;
             isRenderingCanvas = false;
+            inPartPicker = false;
             printVABHeader();
 
             print("AVAILABLE APPLICATIONS:", "title");
@@ -704,6 +740,7 @@
             canvasContainerEl.style.display = "none";
             outputEl.style.display = "block";
             isRenderingCanvas = false;
+            inPartPicker = false;
             payloadSubMode = "LIST";
             printVABHeader();
 
@@ -738,6 +775,7 @@
             canvasContainerEl.style.display = "none";
             outputEl.style.display = "block";
             isRenderingCanvas = false;
+            inPartPicker = false;
             payloadSubMode = "CRITERIA";
             printVABHeader();
 
@@ -788,6 +826,10 @@
         function renderProbeGraphicsLoop() {
             if (!isRenderingCanvas) return;
 
+            const now = performance.now();
+            const dt = (now - lastFrameTime) / 1000;
+            lastFrameTime = now;
+
             const rect = canvasContainerEl.getBoundingClientRect();
             probeCanvas.width = rect.width || 700;
             probeCanvas.height = rect.height || 400;
@@ -799,16 +841,25 @@
             ctx.fillStyle = "#050300";
             ctx.fillRect(0, 0, w, h);
 
-            // Left side positioning for probe body so inside is clearly visible
-            const probeCenterX = w * 0.32;
+            // Left side positioning (Adjusted for 2.2x scale)
+            const probeCenterX = w * 0.30;
             const probeCenterY = h * 0.50;
 
             const scaleFactor = Math.sqrt(payloadSpecs.sizeIVU || 0.5);
-            const baseW = Math.min(w * 0.42, 220 * scaleFactor);
+            // Size bumped 2.2x (220 * 2.2 = 484 max base width)
+            const baseW = Math.min(w * 0.52, 484 * scaleFactor);
             const baseH = baseW;
 
             const left = probeCenterX - (baseW / 2);
             const top = probeCenterY - (baseH / 2);
+
+            // Calculate Pressurization Fill/Empty over 2 seconds
+            const pressTarget = payloadSpecs.isPressurized ? 1.0 : 0.0;
+            if (pressurizeCurrent < pressTarget) {
+                pressurizeCurrent = Math.min(pressTarget, pressurizeCurrent + dt / 2.0);
+            } else if (pressurizeCurrent > pressTarget) {
+                pressurizeCurrent = Math.max(pressTarget, pressurizeCurrent - dt / 2.0);
+            }
 
             // Set up shape clipping path
             ctx.save();
@@ -820,36 +871,39 @@
             }
             ctx.clip();
 
-            // Pressurization effect inside
-            if (payloadSpecs.isPressurized) {
-                const time = Date.now() * 0.002;
-                const alpha = 0.15 + Math.sin(time) * 0.05;
-                ctx.fillStyle = `rgba(0, 220, 255, ${alpha})`;
+            // Darker Orange Inside Pressurization Effect
+            if (pressurizeCurrent > 0.001) {
+                ctx.fillStyle = `rgba(180, 70, 0, ${0.55 * pressurizeCurrent})`;
                 ctx.fillRect(left - 20, top - 20, baseW + 40, baseH + 40);
-
-                ctx.fillStyle = "rgba(0, 255, 200, 0.25)";
-                for (let p = 0; p < 12; p++) {
-                    const px = left + Math.abs(Math.sin(time + p * 1.3)) * baseW;
-                    const py = top + Math.abs(Math.cos(time * 0.8 + p * 2.1)) * baseH;
-                    ctx.beginPath();
-                    ctx.arc(px, py, 2.5, 0, Math.PI * 2);
-                    ctx.fill();
-                }
             }
 
-            // Render installed modules bottom-up inside the probe body
+            // Render installed modules bottom-up inside usable inner bounds
             const modules = payloadSpecs.modules || [];
             const totalIVU = payloadSpecs.sizeIVU || 0.5;
-            let currentY = top + baseH - 8;
-            const availableHeight = baseH - 16;
-            const innerWidth = baseW - 16;
-            const innerLeft = left + 8;
+
+            let innerWidth, innerHeight, innerLeft, innerTop;
+
+            if (payloadSpecs.shape === "Spherical") {
+                // Inscribed square inside circle: side length = baseW / sqrt(2)
+                innerWidth = baseW / Math.SQRT2;
+                innerHeight = baseH / Math.SQRT2;
+                innerLeft = probeCenterX - (innerWidth / 2);
+                innerTop = probeCenterY - (innerHeight / 2);
+            } else {
+                innerWidth = baseW - 16;
+                innerHeight = baseH - 16;
+                innerLeft = left + 8;
+                innerTop = top + 8;
+            }
+
+            let currentY = innerTop + innerHeight;
+            const availableHeight = innerHeight;
 
             modules.forEach((mod) => {
                 const modHeight = (mod.ivu / totalIVU) * availableHeight;
                 currentY -= modHeight;
 
-                ctx.fillStyle = "rgba(255, 176, 0, 0.18)";
+                ctx.fillStyle = "rgba(255, 176, 0, 0.22)";
                 ctx.strokeStyle = "#ffb000";
                 ctx.lineWidth = 1.5;
 
@@ -857,7 +911,7 @@
                 ctx.strokeRect(innerLeft, currentY, innerWidth, modHeight - 2);
 
                 ctx.fillStyle = "#ffb000";
-                ctx.font = `${Math.max(9, Math.floor(Math.min(modHeight, 14)))}px 'Courier New', monospace`;
+                ctx.font = `${Math.max(9, Math.floor(Math.min(modHeight * 0.5, 15)))}px 'Courier New', monospace`;
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
                 ctx.fillText(`${mod.name.toUpperCase()} (${mod.ivu} IVU)`, innerLeft + innerWidth / 2, currentY + (modHeight / 2));
@@ -865,10 +919,19 @@
 
             ctx.restore(); // Restore from clip
 
+            // Spherical Inscribed Box Debug Outline ( subtle hint for user bounds )
+            if (payloadSpecs.shape === "Spherical") {
+                ctx.strokeStyle = "rgba(255, 176, 0, 0.25)";
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
+                ctx.strokeRect(innerLeft, innerTop, innerWidth, innerHeight);
+                ctx.setLineDash([]);
+            }
+
             // Outer Frame Glow Outline
-            ctx.strokeStyle = payloadSpecs.isPressurized ? "#00e5ff" : "#ffb000";
+            ctx.strokeStyle = payloadSpecs.isPressurized ? "#ff6600" : "#ffb000";
             ctx.lineWidth = 2.5;
-            ctx.shadowColor = payloadSpecs.isPressurized ? "#00e5ff" : "#ffb000";
+            ctx.shadowColor = payloadSpecs.isPressurized ? "#ff6600" : "#ffb000";
             ctx.shadowBlur = 10;
             ctx.beginPath();
             if (payloadSpecs.shape === "Spherical") {
@@ -889,7 +952,7 @@
             ctx.textBaseline = "top";
 
             ctx.fillText(`CHASSIS: ${payloadSpecs.name.toUpperCase()} [${payloadSpecs.shape.toUpperCase()}]`, rightX, 15);
-            ctx.fillText(`ATMOSPHERE: ${payloadSpecs.isPressurized ? "PRESSURIZED (GAS)" : "VACUUM"}`, rightX, 32);
+            ctx.fillText(`ATMOSPHERE: ${pressurizeCurrent > 0.01 ? `PRESSURIZING (${Math.floor(pressurizeCurrent * 100)}%)` : "VACUUM"}`, rightX, 32);
 
             ctx.fillStyle = usedIVU > totalIVU ? "#ff3333" : "#ffca42";
             ctx.fillText(`USAGE: ${usedIVU.toFixed(2)} / ${totalIVU.toFixed(2)} IVU used`, rightX, 55);
@@ -906,20 +969,13 @@
 
             if (modules.length === 0) {
                 ctx.fillStyle = "rgba(255, 176, 0, 0.5)";
-                ctx.fillText("  (No modules installed - type 'add [item]')", rightX, 98);
+                ctx.fillText("  (No modules installed - type 'add' to open parts)", rightX, 98);
             } else {
                 modules.forEach((mod, idx) => {
                     ctx.fillStyle = "#ffb000";
                     ctx.fillText(`  ${idx + 1}. ${mod.name.padEnd(16)} [${mod.ivu.toFixed(2)} IVU]`, rightX, 98 + (idx * 16));
                 });
             }
-
-            // Available catalog reference
-            const catY = Math.max(180, 110 + (modules.length * 16));
-            ctx.fillStyle = "rgba(255, 176, 0, 0.7)";
-            ctx.font = "bold 10px 'Courier New', monospace";
-            ctx.fillText("PARTS CATALOG: Computer (0.25), Fan (0.1), Small Battery (0.15),", rightX, catY);
-            ctx.fillText("Battery (0.5), Thermometer (0.05), Barometer (0.05), Geiger (0.1), Amphibian (1.0)", rightX, catY + 12);
 
             // Bottom Right HUD: Electrical & Heat
             let totalWatts = modules.reduce((a, m) => a + m.watts, 0);
@@ -989,6 +1045,128 @@
                 ctx.fill();
             }
 
+            // Interactive Part Selector WASD Overlay
+            if (inPartPicker) {
+                const modalW = w * 0.88;
+                const modalH = h * 0.82;
+                const modalX = (w - modalW) / 2;
+                const modalY = (h - modalH) / 2;
+
+                ctx.fillStyle = "rgba(8, 5, 0, 0.94)";
+                ctx.fillRect(modalX, modalY, modalW, modalH);
+                ctx.strokeStyle = "#ffb000";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(modalX, modalY, modalW, modalH);
+
+                // Top Modal Banner
+                ctx.fillStyle = "#ffb000";
+                ctx.font = "bold 14px 'Courier New', monospace";
+                ctx.textAlign = "center";
+                ctx.fillText("=== HARDWARE PARTS CATALOG [WASD TO NAVIGATE] ===", w / 2, modalY + 18);
+
+                // Categories Row (A / D)
+                let catStartX = modalX + 20;
+                ctx.textAlign = "left";
+                ctx.font = "bold 11px 'Courier New', monospace";
+
+                PART_CATEGORIES.forEach((cat, idx) => {
+                    const isSelected = (idx === selectedPartCatIndex);
+                    if (isSelected) {
+                        ctx.fillStyle = "#ffb000";
+                        ctx.fillText(`► [${cat.catName}] ◄`, catStartX, modalY + 42);
+                        catStartX += ctx.measureText(`► [${cat.catName}] ◄`).width + 15;
+                    } else {
+                        ctx.fillStyle = "rgba(255, 176, 0, 0.5)";
+                        ctx.fillText(`  ${cat.catName}  `, catStartX, modalY + 42);
+                        catStartX += ctx.measureText(`  ${cat.catName}  `).width + 15;
+                    }
+                });
+
+                ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(modalX + 15, modalY + 56);
+                ctx.lineTo(modalX + modalW - 15, modalY + 56);
+                ctx.stroke();
+
+                // Left Column: Items List (W / S)
+                const currentCat = PART_CATEGORIES[selectedPartCatIndex];
+                const listX = modalX + 25;
+                let listY = modalY + 75;
+
+                ctx.font = "bold 12px 'Courier New', monospace";
+                ctx.fillStyle = "#ffb000";
+                ctx.fillText(`CATEGORY: ${currentCat.catName}`, listX, listY);
+                listY += 20;
+
+                currentCat.parts.forEach((p, idx) => {
+                    const isHovered = (idx === selectedPartItemIndex);
+                    if (isHovered) {
+                        ctx.fillStyle = "#ffca42";
+                        ctx.fillText(` ► ${p.name.padEnd(18)} (${p.ivu} IVU)`, listX, listY);
+                    } else {
+                        ctx.fillStyle = "rgba(255, 176, 0, 0.6)";
+                        ctx.fillText(`   ${p.name.padEnd(18)} (${p.ivu} IVU)`, listX, listY);
+                    }
+                    listY += 22;
+                });
+
+                // Right Column: Active Part Specs & Description
+                const hoveredPart = currentCat.parts[selectedPartItemIndex];
+                const specX = modalX + modalW * 0.48;
+                let specY = modalY + 75;
+
+                ctx.strokeStyle = "rgba(255, 176, 0, 0.3)";
+                ctx.beginPath();
+                ctx.moveTo(specX - 15, modalY + 65);
+                ctx.lineTo(specX - 15, modalY + modalH - 45);
+                ctx.stroke();
+
+                if (hoveredPart) {
+                    ctx.fillStyle = "#ffb000";
+                    ctx.font = "bold 13px 'Courier New', monospace";
+                    ctx.fillText(`SPECIFICATIONS: ${hoveredPart.name.toUpperCase()}`, specX, specY);
+                    specY += 22;
+
+                    ctx.font = "11px 'Courier New', monospace";
+                    ctx.fillText(`  Volume Size     : ${hoveredPart.ivu} IVU`, specX, specY); specY += 16;
+                    ctx.fillText(`  Power Draw      : ${hoveredPart.watts} Watts @ ${hoveredPart.volts} Volts`, specX, specY); specY += 16;
+                    ctx.fillText(`  Battery Capacity: ${hoveredPart.capAh} Ah`, specX, specY); specY += 16;
+                    ctx.fillText(`  Heat Generation : ${hoveredPart.heatGen} W`, specX, specY); specY += 16;
+                    ctx.fillText(`  Heat Dissipation: ${hoveredPart.heatDiss} W`, specX, specY); specY += 22;
+
+                    ctx.fillStyle = "#ffca42";
+                    ctx.fillText(`DESCRIPTION:`, specX, specY); specY += 16;
+                    ctx.fillStyle = "rgba(255, 176, 0, 0.85)";
+                    
+                    // Simple description line wrap
+                    const words = hoveredPart.desc.split(" ");
+                    let line = "  ";
+                    words.forEach(w => {
+                        if ((line + w).length > 32) {
+                            ctx.fillText(line, specX, specY);
+                            specY += 15;
+                            line = "  " + w + " ";
+                        } else {
+                            line += w + " ";
+                        }
+                    });
+                    if (line.trim()) ctx.fillText(line, specX, specY);
+                }
+
+                // Bottom Overlay Controls Footer
+                ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
+                ctx.beginPath();
+                ctx.moveTo(modalX + 15, modalY + modalH - 35);
+                ctx.lineTo(modalX + modalW - 15, modalY + modalH - 35);
+                ctx.stroke();
+
+                ctx.fillStyle = "#ffb000";
+                ctx.font = "bold 11px 'Courier New', monospace";
+                ctx.textAlign = "center";
+                ctx.fillText("[A / D] Category | [W / S] Highlight | [E] Install Module | [Q] Exit", w / 2, modalY + modalH - 15);
+            }
+
             animFrameId = requestAnimationFrame(renderProbeGraphicsLoop);
         }
 
@@ -1011,6 +1189,7 @@
                 inVABModule = false;
                 inPayloadDesigner = false;
                 isRenderingCanvas = false;
+                inPartPicker = false;
                 isInspecting = false;
                 canvasContainerEl.style.display = "none";
                 outputEl.style.display = "block";
@@ -1025,21 +1204,28 @@
 
             if (inPayloadDesigner) {
                 if (isRenderingCanvas) {
+                    if (lowerInput === "add") {
+                        inPartPicker = true;
+                        selectedPartCatIndex = 0;
+                        selectedPartItemIndex = 0;
+                        updatePrompt();
+                        return;
+                    }
                     if (lowerInput === "pressurize") {
                         payloadSpecs.isPressurized = true;
-                        print("[SYS] Payload interior pressurized with inert gas.");
+                        print("[SYS] Initialized payload pressurization process (2.0 sec).");
                         return;
                     }
                     if (lowerInput === "depressurize") {
                         payloadSpecs.isPressurized = false;
-                        print("[SYS] Payload interior depressurized to hard vacuum.");
+                        print("[SYS] Initialized payload depressurization process (2.0 sec).");
                         return;
                     }
                     if (lowerInput.startsWith("add ")) {
                         const search = lowerInput.substring(4).trim();
                         const part = AVAILABLE_PARTS.find(p => p.id === search || p.name.toLowerCase() === search);
                         if (!part) {
-                            print(`[ERR] Unknown module '${search}'. Options: computer, fan, small battery, battery, thermometer, barometer, geiger, amphibian.`);
+                            print(`[ERR] Unknown module '${search}'. Type 'add' to open the interactive part menu.`);
                             return;
                         }
 
@@ -1052,11 +1238,8 @@
                         payloadSpecs.modules.push({ ...part });
                         print(`[SYS] Installed '${part.name}' into chassis.`);
 
-                        // Gravity spark explosion off list position
                         const rect = canvasContainerEl.getBoundingClientRect();
-                        const listX = (rect.width || 700) * 0.65;
-                        const listY = 120;
-                        spawnSparks(listX, listY);
+                        spawnSparks((rect.width || 700) * 0.30, (rect.height || 400) * 0.50);
                         return;
                     }
 
@@ -1091,7 +1274,7 @@
                         return;
                     }
 
-                    print("[SYS] Canvas Commands: 'add [item]', 'remove [item]', 'pressurize', 'depressurize', 'save', 'back', 'terminate'.");
+                    print("[SYS] Canvas Commands: 'add' (Parts Menu), 'remove [item]', 'pressurize', 'depressurize', 'save', 'back', 'terminate'.");
                     return;
                 }
 
@@ -1117,7 +1300,6 @@
                         return;
                     }
 
-                    // Check index load
                     const selIdx = parseInt(lowerInput, 10);
                     if (!isNaN(selIdx) && GameState.data.savedPayloads && selIdx >= 1 && selIdx <= GameState.data.savedPayloads.length) {
                         payloadSpecs = JSON.parse(JSON.stringify(GameState.data.savedPayloads[selIdx - 1]));
@@ -1129,7 +1311,6 @@
                         return;
                     }
 
-                    // Check string load
                     if (lowerInput.startsWith("load ")) {
                         const targetName = trimmedInput.substring(5).trim();
                         const foundPayload = GameState.data.savedPayloads ? GameState.data.savedPayloads.find(p => p.name.toLowerCase() === targetName.toLowerCase()) : null;
@@ -1246,6 +1427,7 @@
                             outputEl.style.display = "none";
                             canvasContainerEl.style.display = "flex";
                             isRenderingCanvas = true;
+                            lastFrameTime = performance.now();
                             updatePrompt();
                             renderProbeGraphicsLoop();
                             return;
@@ -1530,6 +1712,47 @@
         window.addEventListener("keydown", (e) => {
             if (isExecutingProgram) return;
 
+            // Interactive Part Selector Keyboard WASD Listener
+            if (inPayloadDesigner && isRenderingCanvas && inPartPicker) {
+                const k = e.key.toUpperCase();
+                if (["W", "A", "S", "D", "E", "Q"].includes(k)) {
+                    e.preventDefault();
+                }
+
+                if (k === "A") {
+                    selectedPartCatIndex = (selectedPartCatIndex - 1 + PART_CATEGORIES.length) % PART_CATEGORIES.length;
+                    selectedPartItemIndex = 0;
+                } else if (k === "D") {
+                    selectedPartCatIndex = (selectedPartCatIndex + 1) % PART_CATEGORIES.length;
+                    selectedPartItemIndex = 0;
+                } else if (k === "W") {
+                    const catLen = PART_CATEGORIES[selectedPartCatIndex].parts.length;
+                    selectedPartItemIndex = (selectedPartItemIndex - 1 + catLen) % catLen;
+                } else if (k === "S") {
+                    const catLen = PART_CATEGORIES[selectedPartCatIndex].parts.length;
+                    selectedPartItemIndex = (selectedPartItemIndex + 1) % catLen;
+                } else if (k === "E") {
+                    const activeCat = PART_CATEGORIES[selectedPartCatIndex];
+                    const part = activeCat.parts[selectedPartItemIndex];
+                    const currentIVU = payloadSpecs.modules.reduce((a, m) => a + m.ivu, 0);
+
+                    if (currentIVU + part.ivu > payloadSpecs.sizeIVU + 0.001) {
+                        print(`[ERR] Cannot install '${part.name}' (${part.ivu} IVU). Exceeds capacity limit (${payloadSpecs.sizeIVU} IVU).`);
+                    } else {
+                        payloadSpecs.modules.push({ ...part });
+                        print(`[SYS] Installed '${part.name}' into chassis.`);
+                        const rect = canvasContainerEl.getBoundingClientRect();
+                        spawnSparks((rect.width || 700) * 0.30, (rect.height || 400) * 0.50);
+                    }
+                } else if (k === "Q") {
+                    inPartPicker = false;
+                    updatePrompt();
+                    print("[SYS] Exited Part Selector.");
+                }
+                return;
+            }
+
+            // Research & Development Tree WASD Listener
             if (inRDModule && isRDNavActive) {
                 const key = e.key.toUpperCase();
                 
