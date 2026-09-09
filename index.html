@@ -234,7 +234,8 @@
                 catName: "ELECTRONICS",
                 parts: [
                     { id: "computer", name: "Computer", ivu: 0.25, watts: 4, volts: 12, heatGen: 8, heatDiss: 0, capAh: 0, desc: "Central computer processing relay unit." },
-                    { id: "fan", name: "Computer Fan", ivu: 0.10, watts: 1.5, volts: 12, heatGen: 0, heatDiss: 10, capAh: 0, desc: "Active cooling fan for internal thermal convection." }
+                    { id: "fan", name: "Computer Fan", ivu: 0.10, watts: 1.5, volts: 12, heatGen: 0, heatDiss: 10, capAh: 0, desc: "Active cooling fan for internal thermal convection. Requires pressure." },
+                    { id: "small_fan", name: "Small Computer Fan", ivu: 0.05, watts: 0.75, volts: 12, heatGen: 0, heatDiss: 5, capAh: 0, desc: "Compact active cooling fan. Requires atmospheric pressure." }
                 ]
             },
             {
@@ -250,6 +251,13 @@
                     { id: "thermometer", name: "Thermometer", ivu: 0.05, watts: 0.2, volts: 5, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "Ambient temperature sensor telemetry unit." },
                     { id: "barometer", name: "Barometer", ivu: 0.05, watts: 0.2, volts: 5, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "Atmospheric pressure gauge telemetry unit." },
                     { id: "geiger", name: "Geiger Counter", ivu: 0.10, watts: 0.5, volts: 12, heatGen: 1.0, heatDiss: 0, capAh: 0, desc: "Ionizing radiation level detector." }
+                ]
+            },
+            {
+                catName: "COMMS",
+                parts: [
+                    { id: "dipole", name: "Dipole Antenna", ivu: 0.05, watts: 0.5, volts: 5, heatGen: 0.2, heatDiss: 0, capAh: 0, desc: "Omnidirectional whip antenna mounted to external top frame.", mount: "top" },
+                    { id: "helical", name: "Helical Antenna", ivu: 0.10, watts: 1.0, volts: 12, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "High-gain directional helical antenna mounted to external top frame.", mount: "top" }
                 ]
             },
             {
@@ -841,12 +849,11 @@
             ctx.fillStyle = "#050300";
             ctx.fillRect(0, 0, w, h);
 
-            // Left side positioning (Adjusted for 2.2x scale)
+            // Left side positioning (2.2x scale)
             const probeCenterX = w * 0.30;
             const probeCenterY = h * 0.50;
 
             const scaleFactor = Math.sqrt(payloadSpecs.sizeIVU || 0.5);
-            // Size bumped 2.2x (220 * 2.2 = 484 max base width)
             const baseW = Math.min(w * 0.52, 484 * scaleFactor);
             const baseH = baseW;
 
@@ -861,6 +868,41 @@
                 pressurizeCurrent = Math.max(pressTarget, pressurizeCurrent - dt / 2.0);
             }
 
+            // Top-mounted antenna rendering (Comms parts mounted on probe top)
+            const modules = payloadSpecs.modules || [];
+            const topAntennas = modules.filter(m => m.mount === "top");
+
+            if (topAntennas.length > 0) {
+                const antennaSpacing = baseW / (topAntennas.length + 1);
+                topAntennas.forEach((ant, idx) => {
+                    const antX = left + antennaSpacing * (idx + 1);
+                    const antStartY = payloadSpecs.shape === "Spherical" ? probeCenterY - Math.sqrt(Math.max(0, (baseW / 2) ** 2 - (antX - probeCenterX) ** 2)) : top;
+                    
+                    ctx.strokeStyle = "#ffca42";
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+
+                    if (ant.id === "dipole") {
+                        // Dipole Antenna line with T-bar
+                        ctx.moveTo(antX, antStartY);
+                        ctx.lineTo(antX, antStartY - 40);
+                        ctx.moveTo(antX - 12, antStartY - 40);
+                        ctx.lineTo(antX + 12, antStartY - 40);
+                        ctx.stroke();
+                    } else if (ant.id === "helical") {
+                        // Helical Antenna coil
+                        ctx.moveTo(antX, antStartY);
+                        let curY = antStartY;
+                        for (let c = 0; c < 5; c++) {
+                            const offset = (c % 2 === 0) ? 8 : -8;
+                            curY -= 8;
+                            ctx.lineTo(antX + offset, curY);
+                        }
+                        ctx.stroke();
+                    }
+                });
+            }
+
             // Set up shape clipping path
             ctx.save();
             ctx.beginPath();
@@ -871,14 +913,14 @@
             }
             ctx.clip();
 
-            // Darker Orange Inside Pressurization Effect
+            // Lighter Amber Hue Pressurization Effect
             if (pressurizeCurrent > 0.001) {
-                ctx.fillStyle = `rgba(180, 70, 0, ${0.55 * pressurizeCurrent})`;
+                ctx.fillStyle = `rgba(255, 200, 80, ${0.30 * pressurizeCurrent})`;
                 ctx.fillRect(left - 20, top - 20, baseW + 40, baseH + 40);
             }
 
-            // Render installed modules bottom-up inside usable inner bounds
-            const modules = payloadSpecs.modules || [];
+            // Render installed internal modules bottom-up inside usable inner bounds
+            const internalModules = modules.filter(m => m.mount !== "top");
             const totalIVU = payloadSpecs.sizeIVU || 0.5;
 
             let innerWidth, innerHeight, innerLeft, innerTop;
@@ -899,7 +941,7 @@
             let currentY = innerTop + innerHeight;
             const availableHeight = innerHeight;
 
-            modules.forEach((mod) => {
+            internalModules.forEach((mod) => {
                 const modHeight = (mod.ivu / totalIVU) * availableHeight;
                 currentY -= modHeight;
 
@@ -919,7 +961,7 @@
 
             ctx.restore(); // Restore from clip
 
-            // Spherical Inscribed Box Debug Outline ( subtle hint for user bounds )
+            // Spherical Inscribed Box Debug Outline
             if (payloadSpecs.shape === "Spherical") {
                 ctx.strokeStyle = "rgba(255, 176, 0, 0.25)";
                 ctx.lineWidth = 1;
@@ -929,9 +971,9 @@
             }
 
             // Outer Frame Glow Outline
-            ctx.strokeStyle = payloadSpecs.isPressurized ? "#ff6600" : "#ffb000";
+            ctx.strokeStyle = pressurizeCurrent > 0.01 ? "#ffca42" : "#ffb000";
             ctx.lineWidth = 2.5;
-            ctx.shadowColor = payloadSpecs.isPressurized ? "#ff6600" : "#ffb000";
+            ctx.shadowColor = pressurizeCurrent > 0.01 ? "#ffca42" : "#ffb000";
             ctx.shadowBlur = 10;
             ctx.beginPath();
             if (payloadSpecs.shape === "Spherical") {
@@ -973,16 +1015,24 @@
             } else {
                 modules.forEach((mod, idx) => {
                     ctx.fillStyle = "#ffb000";
-                    ctx.fillText(`  ${idx + 1}. ${mod.name.padEnd(16)} [${mod.ivu.toFixed(2)} IVU]`, rightX, 98 + (idx * 16));
+                    ctx.fillText(`  ${idx + 1}. ${mod.name.padEnd(18)} [${mod.ivu.toFixed(2)} IVU]`, rightX, 98 + (idx * 16));
                 });
             }
 
-            // Bottom Right HUD: Electrical & Heat
+            // Bottom Right HUD: Electrical & Heat (Brighter text, word telemetry removed, no box)
             let totalWatts = modules.reduce((a, m) => a + m.watts, 0);
             let totalVolts = modules.some(m => m.volts === 12) ? 12 : (modules.some(m => m.volts === 5) ? 5 : 0);
             let totalCapAh = modules.reduce((a, m) => a + m.capAh, 0);
             let heatGen = modules.reduce((a, m) => a + m.heatGen, 0);
-            let heatDiss = modules.reduce((a, m) => a + m.heatDiss, 0);
+            
+            // Cooling fans ONLY dissipate heat if probe atmosphere is pressurized
+            let heatDiss = modules.reduce((a, m) => {
+                let diss = m.heatDiss;
+                if ((m.id === "fan" || m.id === "small_fan") && pressurizeCurrent < 0.5) {
+                    diss = 0;
+                }
+                return a + diss;
+            }, 0);
 
             let timeStr = "0h 00m";
             if (totalWatts > 0 && totalCapAh > 0) {
@@ -998,14 +1048,13 @@
             }
 
             const hudY = h - 110;
-            ctx.fillStyle = "rgba(255, 176, 0, 0.2)";
-            ctx.fillRect(rightX - 5, hudY - 5, w - rightX - 10, 105);
-            ctx.strokeStyle = "#ffb000";
-            ctx.strokeRect(rightX - 5, hudY - 5, w - rightX - 10, 105);
 
-            ctx.fillStyle = "#ffb000";
-            ctx.font = "bold 11px 'Courier New', monospace";
-            ctx.fillText(`ELECTRICAL TELEMETRY:`, rightX, hudY);
+            // Brighter text rendering without background box
+            ctx.fillStyle = "#ffe066";
+            ctx.font = "bold 12px 'Courier New', monospace";
+            ctx.fillText(`ELECTRICAL:`, rightX, hudY);
+            
+            ctx.fillStyle = "#ffca42";
             ctx.font = "11px 'Courier New', monospace";
             ctx.fillText(`  Watts                 : ${totalWatts.toFixed(1)} W`, rightX, hudY + 15);
             ctx.fillText(`  Volts                 : ${totalVolts} V`, rightX, hudY + 28);
@@ -1020,18 +1069,23 @@
             const dissBar = "[" + "█".repeat(dissFilled) + "░".repeat(maxBar - dissFilled) + "]";
 
             const heatWarning = heatGen > heatDiss;
-            ctx.fillStyle = heatWarning ? "#ff3333" : "#ffb000";
-            ctx.fillText(`HEAT TELEMETRY ${heatWarning ? "[OVERHEAT RISK!]" : "[STABLE]"}`, rightX, hudY + 58);
+            ctx.fillStyle = heatWarning ? "#ff4444" : "#ffe066";
+            ctx.font = "bold 12px 'Courier New', monospace";
+            ctx.fillText(`HEAT ${heatWarning ? "[OVERHEAT RISK!]" : "[STABLE]"}`, rightX, hudY + 58);
+            
+            ctx.fillStyle = "#ffca42";
+            ctx.font = "11px 'Courier New', monospace";
             ctx.fillText(`  Heat Generated: ${genBar} ${heatGen.toFixed(1)}W`, rightX, hudY + 71);
-            ctx.fillStyle = "#ffb000";
-            ctx.fillText(`  Heat Dealt With: ${dissBar} ${heatDiss.toFixed(1)}W`, rightX, hudY + 84);
+            
+            const fanInactivatedNote = modules.some(m => m.id === "fan" || m.id === "small_fan") && pressurizeCurrent < 0.5 ? " (Fan inactive in vacuum)" : "";
+            ctx.fillText(`  Heat Dealt With: ${dissBar} ${heatDiss.toFixed(1)}W${fanInactivatedNote}`, rightX, hudY + 84);
 
             // Physics update and render gravity spark particles
             for (let i = sparkParticles.length - 1; i >= 0; i--) {
                 const sp = sparkParticles[i];
                 sp.x += sp.vx;
                 sp.y += sp.vy;
-                sp.vy += 0.25; // gravity pull downwards
+                sp.vy += 0.25;
                 sp.life -= 0.03;
 
                 if (sp.life <= 0) {
@@ -1065,7 +1119,7 @@
                 ctx.fillText("=== HARDWARE PARTS CATALOG [WASD TO NAVIGATE] ===", w / 2, modalY + 18);
 
                 // Categories Row (A / D)
-                let catStartX = modalX + 20;
+                let catStartX = modalX + 15;
                 ctx.textAlign = "left";
                 ctx.font = "bold 11px 'Courier New', monospace";
 
@@ -1074,11 +1128,11 @@
                     if (isSelected) {
                         ctx.fillStyle = "#ffb000";
                         ctx.fillText(`► [${cat.catName}] ◄`, catStartX, modalY + 42);
-                        catStartX += ctx.measureText(`► [${cat.catName}] ◄`).width + 15;
+                        catStartX += ctx.measureText(`► [${cat.catName}] ◄`).width + 10;
                     } else {
                         ctx.fillStyle = "rgba(255, 176, 0, 0.5)";
                         ctx.fillText(`  ${cat.catName}  `, catStartX, modalY + 42);
-                        catStartX += ctx.measureText(`  ${cat.catName}  `).width + 15;
+                        catStartX += ctx.measureText(`  ${cat.catName}  `).width + 10;
                     }
                 });
 
@@ -1139,7 +1193,6 @@
                     ctx.fillText(`DESCRIPTION:`, specX, specY); specY += 16;
                     ctx.fillStyle = "rgba(255, 176, 0, 0.85)";
                     
-                    // Simple description line wrap
                     const words = hoveredPart.desc.split(" ");
                     let line = "  ";
                     words.forEach(w => {
