@@ -63,6 +63,7 @@
             line-height: 1.25;
             font-size: 0.95rem;
             position: relative;
+            color: #ffb000;
         }
 
         .line-amber, .line-title, #prompt, #command-input, #controls-info {
@@ -89,6 +90,7 @@
 
         .line-title { 
             font-weight: bold; 
+            color: #ffca42;
         }
 
         .entry-title {
@@ -96,6 +98,7 @@
             font-weight: bold;
             letter-spacing: 6px;
             margin-bottom: 2px;
+            color: #ffb000;
         }
 
         .entry-version {
@@ -103,6 +106,7 @@
             opacity: 0.85;
             margin-bottom: 18px;
             letter-spacing: 2px;
+            color: #ffb000;
         }
 
         #loading-overlay {
@@ -115,6 +119,7 @@
             background-color: #080500;
             z-index: 5;
             padding: 20px;
+            color: #ffb000;
         }
 
         #loading-title-container {
@@ -124,22 +129,26 @@
             margin-bottom: 25px;
             line-height: 1.15;
             min-height: 120px;
+            color: #ffca42;
         }
 
         #loading-bar-container {
             text-align: center;
             font-weight: bold;
+            color: #ffb000;
         }
 
         #loading-bar-str {
             font-size: 1.1rem;
             letter-spacing: 1px;
             margin-bottom: 6px;
+            color: #ffca42;
         }
 
         #loading-percent {
             font-size: 1rem;
             opacity: 0.9;
+            color: #ffb000;
         }
 
         #loading-corner-logs {
@@ -147,10 +156,11 @@
             bottom: 15px;
             left: 20px;
             font-size: 0.75rem;
-            opacity: 0.65;
+            opacity: 0.85;
             line-height: 1.3;
             max-width: 45%;
             pointer-events: none;
+            color: #ffb000;
         }
 
         #controls-info {
@@ -160,6 +170,7 @@
             min-height: 1.6rem;
             opacity: 0.95;
             font-weight: bold;
+            color: #ffb000;
         }
 
         #input-line {
@@ -172,6 +183,7 @@
         #prompt {
             margin-right: 8px;
             font-weight: bold;
+            color: #ffb000;
         }
 
         #command-input {
@@ -181,6 +193,7 @@
             font-family: inherit;
             font-size: 1rem;
             flex: 1;
+            color: #ffb000;
         }
 
         #probe-canvas-container {
@@ -300,7 +313,9 @@
         let payloadStep = "NAME";
         let payloadSpecs = {
             name: "",
-            maxArea: 0.50,
+            maxArea: 0.25,
+            sideX: 0.50,
+            sideY: 0.50,
             shape: "Cubic",
             purpose: "Payload",
             isPressurized: false,
@@ -332,7 +347,7 @@
                 tier: 0,
                 tierName: "TIER 0: FOUNDATION TECH",
                 categories: [
-                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny 2D footprint payloads (0.25 - 1.0 m² area). Used for sub-orbital vertical hops." },
+                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny 2D footprint payloads (0.5m x 0.5m = 0.25 m² area limit). Used for sub-orbital vertical hops." },
                     { cat: "Computers", name: "Mechanical / Analog Relays", desc: "Computers are analog and slow, operating purely via direct electronic relay execution." },
                     { cat: "Lifting Bodies", name: "Unpressurized Sounding Rockets", desc: "Solid/liquid rockets for potential energy testing." },
                     { cat: "Fuels", name: "Kerosene & Solid Propellants", desc: "Volatile mixtures with higher failure risks." },
@@ -741,8 +756,10 @@
                 GameState.data.savedPayloads.forEach((p, i) => {
                     const modCount = p.modules ? p.modules.length : 0;
                     const usedArea = p.modules ? p.modules.reduce((a, m) => a + (m.dimX * m.dimY), 0).toFixed(3) : "0.000";
-                    const maxArea = p.maxArea || 0.50;
-                    print(`  [${i + 1}] ${p.name.padEnd(18)} | Max Area: ${maxArea.toFixed(2)} m² | Used: ${usedArea} m² | Parts: ${modCount} | Shape: ${p.shape}`);
+                    const maxArea = p.maxArea || 0.25;
+                    const sideX = p.sideX || 0.50;
+                    const sideY = p.sideY || 0.50;
+                    print(`  [${i + 1}] ${p.name.padEnd(18)} | Chassis: ${sideX}x${sideY}m (${maxArea.toFixed(2)} m²) | Used: ${usedArea} m² | Parts: ${modCount} | Shape: ${p.shape}`);
                 });
             }
 
@@ -770,7 +787,7 @@
             print("STUDIO TOOLKIT: PAYLOAD / PROBE DESIGNER (SPECIFICATION)", "title");
             print("================================================================================", "title");
             print(`Name    : ${payloadSpecs.name !== "" ? payloadSpecs.name : "(enter payload name)"}`);
-            print(`Footprint Area Limit: ${payloadSpecs.maxArea !== null ? payloadSpecs.maxArea.toFixed(2) + " m²" : "(current area limit)"}`);
+            print(`Dimensions: ${(payloadSpecs.sideX || 0.50).toFixed(2)}m x ${(payloadSpecs.sideY || 0.50).toFixed(2)}m  [Max Footprint: ${(payloadSpecs.maxArea || 0.25).toFixed(2)} m²]`);
             print(`Shape   : ${payloadSpecs.shape !== null ? payloadSpecs.shape : "(select shape criteria)"}`);
             print(`Purpose : ${payloadSpecs.purpose !== null ? payloadSpecs.purpose : "(select operational purpose)"}`);
             print("================================================================================", "title");
@@ -780,10 +797,10 @@
                 print("ENTER PAYLOAD NAME:", "title");
                 print("  Type a unique identifier name for this probe design.");
             } else if (payloadStep === "SIZE") {
-                print("SELECT CHASSIS FOOTPRINT AREA LIMIT:", "title");
-                print("  [1] 0.25 m² (Micro Sounding Probe Chassis)");
-                print("  [2] 0.50 m² (Standard Sounding Core)");
-                print("  [3] 1.00 m² (Expanded Payload Chassis)");
+                print("SELECT CHASSIS FOOTPRINT AREA & SIDE LENGTHS:", "title");
+                print("  [1] 0.5m x 0.5m (0.25 m² Standard Sounding Core)");
+                print("  [2] 0.5m x 1.0m (0.50 m² Medium Extended Core)");
+                print("  [3] 1.0m x 1.0m (1.00 m² Large Structural Core)");
             } else if (payloadStep === "SHAPE") {
                 print("SELECT SHAPE:", "title");
                 print("  [1] Cubic");
@@ -811,21 +828,21 @@
             }
         }
 
-        // Calculates 2D shelf-layout positions for internal parts
-        function compute2DLayout(modules) {
+        // Compute 2D shelf placement inside normalized (0.5m x 0.5m) probe chassis coordinates
+        function compute2DLayout(modules, probeSideX = 0.50, probeSideY = 0.50) {
             let curX = 0;
             let curY = 0;
             let rowH = 0;
 
             return modules.map(mod => {
                 if (mod.mount === "top") {
-                    return { ...mod, posX: 0, posY: 0, relW: 0, relH: 0 };
+                    return { ...mod, posX: 0, posY: 0, relW: 0, relH: 0, relX: 0, relY: 0 };
                 }
 
-                let pw = mod.dimX;
-                let ph = mod.dimY;
+                let pw = mod.dimX / probeSideX; // normalized relative to chassis width (0.5m = 1.0)
+                let ph = mod.dimY / probeSideY; // normalized relative to chassis height (0.5m = 1.0)
 
-                if (curX + pw > 1.001) {
+                if (curX + pw > 1.0001) {
                     curX = 0;
                     curY += rowH;
                     rowH = 0;
@@ -836,7 +853,9 @@
                     posX: curX,
                     posY: curY,
                     relW: pw,
-                    relH: ph
+                    relH: ph,
+                    relX: curX * probeSideX,
+                    relY: curY * probeSideY
                 };
 
                 curX += pw;
@@ -846,7 +865,6 @@
             });
         }
 
-        // Checks if a fan unit is touching any computer in 2D space directly
         function isFanTouchingComputer(fanItem, placedModules) {
             const computers = placedModules.filter(m => m.id === "analog_computer");
             if (computers.length === 0) return false;
@@ -856,7 +874,7 @@
             const fX2 = fanItem.posX + fanItem.relW;
             const fY2 = fanItem.posY + fanItem.relH;
 
-            const eps = 0.02; // Small tolerance threshold for 2D edge contact
+            const eps = 0.02;
 
             for (let c of computers) {
                 const cX1 = c.posX;
@@ -880,7 +898,7 @@
             const dt = (now - lastFrameTime) / 1000;
             lastFrameTime = now;
 
-            const flashVal = 0.5 + 0.5 * Math.sin(now * 0.008); // Uniform amber flashing alpha
+            const flashVal = 0.5 + 0.5 * Math.sin(now * 0.008);
             const flashAmber = `rgba(255, 202, 66, ${0.35 + 0.65 * flashVal})`;
 
             const rect = canvasContainerEl.getBoundingClientRect();
@@ -894,13 +912,17 @@
             ctx.fillStyle = "#050300";
             ctx.fillRect(0, 0, w, h);
 
-            // Probe placement layout
+            // Side lengths of probe chassis (Default 0.5m x 0.5m)
+            const sideX = payloadSpecs.sideX || 0.50;
+            const sideY = payloadSpecs.sideY || 0.50;
+
             const probeCenterX = w * 0.30;
             const probeCenterY = h * 0.52;
 
-            const scaleFactor = Math.sqrt(payloadSpecs.maxArea || 0.50);
-            const baseW = Math.min(w * 0.52, 380 * scaleFactor);
-            const baseH = baseW;
+            // Scale factor relative to 0.5m dimensions
+            const scalePx = Math.min(w * 0.48, 360); 
+            const baseW = scalePx * (sideX / 0.50);
+            const baseH = scalePx * (sideY / 0.50);
 
             const left = probeCenterX - (baseW / 2);
             const top = probeCenterY - (baseH / 2);
@@ -914,70 +936,102 @@
             }
 
             const modules = payloadSpecs.modules || [];
-            const placedModules = compute2DLayout(modules);
+            const placedModules = compute2DLayout(modules, sideX, sideY);
 
-            // Top-mounted antennas
+            // Render Antennas on Top of probe shell
             const topAntennas = placedModules.filter(m => m.mount === "top");
 
             if (topAntennas.length > 0) {
                 const antennaSpacing = baseW / (topAntennas.length + 1);
                 topAntennas.forEach((ant, idx) => {
                     const antX = left + antennaSpacing * (idx + 1);
-                    const antStartY = payloadSpecs.shape === "Spherical" ? probeCenterY - Math.sqrt(Math.max(0, (baseW / 2) ** 2 - (antX - probeCenterX) ** 2)) : top;
+                    const antStartY = payloadSpecs.shape === "Spherical" 
+                        ? probeCenterY - Math.sqrt(Math.max(0, (baseW / 2) ** 2 - (antX - probeCenterX) ** 2)) 
+                        : top;
                     
                     ctx.strokeStyle = "#ffca42";
                     ctx.fillStyle = "#ffca42";
-                    ctx.lineWidth = 2.5;
+                    ctx.lineWidth = 2.0;
 
                     if (ant.id === "dipole") {
-                        // Large dual-branching top Dipole Antenna
-                        ctx.beginPath();
-                        ctx.fillRect(antX - 8, antStartY - 4, 16, 5); // Antenna mount block
-                        ctx.moveTo(antX, antStartY - 4);
-                        ctx.lineTo(antX, antStartY - 20); // Central stem
+                        // High-detail Dipole Antenna
+                        ctx.fillRect(antX - 10, antStartY - 6, 20, 6); // Heavy Base Block
+                        ctx.fillRect(antX - 4, antStartY - 18, 8, 12); // Central Feeder Balun
 
-                        // Two big branching antennas
-                        ctx.lineTo(antX - 35, antStartY - 70); // Left branch
-                        ctx.moveTo(antX, antStartY - 20);
-                        ctx.lineTo(antX + 35, antStartY - 70); // Right branch
+                        // Vertical Mast
+                        ctx.beginPath();
+                        ctx.moveTo(antX, antStartY - 18);
+                        ctx.lineTo(antX, antStartY - 45);
                         ctx.stroke();
 
-                        // Branching end tip caps
+                        // Central Junction
+                        ctx.fillRect(antX - 6, antStartY - 50, 12, 6);
+
+                        // Dual Large Branching Horizontal Arms
+                        ctx.lineWidth = 2.5;
                         ctx.beginPath();
-                        ctx.arc(antX - 35, antStartY - 70, 3, 0, Math.PI * 2);
-                        ctx.arc(antX + 35, antStartY - 70, 3, 0, Math.PI * 2);
+                        ctx.moveTo(antX - 6, antStartY - 47);
+                        ctx.lineTo(antX - 65, antStartY - 68); // Left Branch
+
+                        ctx.moveTo(antX + 6, antStartY - 47);
+                        ctx.lineTo(antX + 65, antStartY - 68); // Right Branch
+                        ctx.stroke();
+
+                        // Dipole Loading Coils / Tip End Caps
+                        ctx.fillRect(antX - 42, antStartY - 64, 8, 8);
+                        ctx.fillRect(antX + 34, antStartY - 64, 8, 8);
+
+                        ctx.beginPath();
+                        ctx.arc(antX - 65, antStartY - 68, 4, 0, Math.PI * 2);
+                        ctx.arc(antX + 65, antStartY - 68, 4, 0, Math.PI * 2);
                         ctx.fill();
 
                     } else if (ant.id === "helical") {
-                        // Large Helical Antenna with central axial line and top connector
-                        ctx.beginPath();
-                        ctx.fillRect(antX - 10, antStartY - 4, 20, 5); // Antenna mount block
+                        // True 3D Spiral Coiled Helical Antenna
+                        ctx.fillRect(antX - 12, antStartY - 6, 24, 6); // Mounting flange
                         
-                        // Central line going through coil
-                        const coilHeight = 75;
+                        const coilHeight = 90;
+                        const coilRadius = 18;
+                        const turns = 7;
                         const topY = antStartY - coilHeight;
-                        ctx.moveTo(antX, antStartY - 4);
+
+                        // Central axial line going straight through middle
+                        ctx.lineWidth = 1.5;
+                        ctx.strokeStyle = "rgba(255, 202, 66, 0.7)";
+                        ctx.beginPath();
+                        ctx.moveTo(antX, antStartY - 6);
                         ctx.lineTo(antX, topY);
                         ctx.stroke();
 
-                        // Winding coil loops
-                        ctx.lineWidth = 2;
+                        // Draw continuous realistic 3D spiral coil
+                        ctx.lineWidth = 2.5;
+                        ctx.strokeStyle = "#ffca42";
                         ctx.beginPath();
-                        ctx.moveTo(antX, antStartY - 4);
-                        const turns = 6;
-                        for (let c = 0; c <= turns; c++) {
-                            const curY = antStartY - 4 - (c * (coilHeight / turns));
-                            const offset = (c % 2 === 0) ? 14 : -14;
-                            ctx.lineTo(antX + offset, curY);
+                        const pointsPerTurn = 20;
+                        const totalPoints = turns * pointsPerTurn;
+
+                        for (let p = 0; p <= totalPoints; p++) {
+                            const angle = (p / pointsPerTurn) * Math.PI * 2;
+                            const curY = (antStartY - 6) - (p / totalPoints) * (coilHeight - 10);
+                            const curX = antX + Math.sin(angle) * coilRadius;
+
+                            if (p === 0) ctx.moveTo(curX, curY);
+                            else ctx.lineTo(curX, curY);
                         }
                         ctx.stroke();
 
-                        // Connect coil top to central line at top with a straight line
-                        const lastOffset = (turns % 2 === 0) ? 14 : -14;
+                        // Top connector line connecting end of coil back to the central axial line
+                        const lastAngle = (totalPoints / pointsPerTurn) * Math.PI * 2;
+                        const lastX = antX + Math.sin(lastAngle) * coilRadius;
+                        const lastY = (antStartY - 6) - (coilHeight - 10);
+
                         ctx.beginPath();
-                        ctx.moveTo(antX + lastOffset, topY);
-                        ctx.lineTo(antX, topY); // Straight connecting horizontal line
+                        ctx.moveTo(lastX, lastY);
+                        ctx.lineTo(antX, topY); // Straight connecting wire to top central feed
                         ctx.stroke();
+
+                        // Top cap reflector disc
+                        ctx.fillRect(antX - 8, topY - 3, 16, 4);
                     }
                 });
             }
@@ -998,7 +1052,6 @@
                 ctx.fillRect(left - 20, top - 20, baseW + 40, baseH + 40);
             }
 
-            // Usable 2D internal rectangle
             let innerWidth, innerHeight, innerLeft, innerTop;
 
             if (payloadSpecs.shape === "Spherical") {
@@ -1013,7 +1066,7 @@
                 innerTop = top + 8;
             }
 
-            // Render 2D Modules placed inside chassis
+            // Draw 2D Internal Modules
             placedModules.forEach((mod) => {
                 if (mod.mount === "top") return;
 
@@ -1035,7 +1088,6 @@
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
 
-                // Clean truncated part label inside 2D box
                 let shortName = mod.name.replace("Analog ", "").replace(" battery", "");
                 if (mW < 35) shortName = shortName.substring(0, 3);
                 ctx.fillText(shortName, mX + mW / 2, mY + mH / 2);
@@ -1065,41 +1117,43 @@
             ctx.stroke();
             ctx.shadowBlur = 0;
 
-            // Right HUD: Specs & 2D Area Usage
+            // Right HUD: Area calculation and specs
             const rightX = w * 0.58;
             const usedArea = modules.reduce((acc, m) => acc + (m.dimX * m.dimY), 0);
-            const totalArea = payloadSpecs.maxArea || 0.50;
+            const maxArea = payloadSpecs.maxArea || 0.25;
+            const remainingArea = Math.max(0, maxArea - usedArea);
 
-            ctx.fillStyle = "#ffb000";
+            ctx.fillStyle = "#ffca42";
             ctx.font = "bold 13px 'Courier New', monospace";
             ctx.textAlign = "left";
             ctx.textBaseline = "top";
 
-            ctx.fillText(`CHASSIS: ${payloadSpecs.name.toUpperCase()} [${payloadSpecs.shape.toUpperCase()}]`, rightX, 15);
+            ctx.fillText(`CHASSIS: ${payloadSpecs.name.toUpperCase()} [${sideX}m x ${sideY}m ${payloadSpecs.shape.toUpperCase()}]`, rightX, 15);
             ctx.fillText(`ATMOSPHERE: ${pressurizeCurrent > 0.01 ? `PRESSURIZING (${Math.floor(pressurizeCurrent * 100)}%)` : "VACUUM"}`, rightX, 32);
 
-            const areaExceeded = usedArea > totalArea + 0.0001;
+            const areaExceeded = usedArea > maxArea + 0.0001;
             ctx.fillStyle = areaExceeded ? flashAmber : "#ffca42";
-            ctx.fillText(`FOOTPRINT AREA: ${usedArea.toFixed(3)} / ${totalArea.toFixed(2)} m² used`, rightX, 55);
+            ctx.fillText(`FOOTPRINT AREA: ${usedArea.toFixed(3)} / ${maxArea.toFixed(2)} m² used`, rightX, 55);
+            ctx.fillText(`REMAINING AREA: ${remainingArea.toFixed(3)} m² left`, rightX, 70);
 
             ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
             ctx.beginPath();
-            ctx.moveTo(rightX, 72);
-            ctx.lineTo(w - 15, 72);
+            ctx.moveTo(rightX, 88);
+            ctx.lineTo(w - 15, 88);
             ctx.stroke();
 
-            ctx.fillStyle = "#ffb000";
+            ctx.fillStyle = "#ffca42";
             ctx.font = "bold 11px 'Courier New', monospace";
-            ctx.fillText("INSTALLED 2D MODULES:", rightX, 80);
+            ctx.fillText("INSTALLED 2D MODULES:", rightX, 96);
 
             if (modules.length === 0) {
-                ctx.fillStyle = "rgba(255, 176, 0, 0.5)";
-                ctx.fillText("  (No modules installed - type 'add' to open parts menu)", rightX, 98);
+                ctx.fillStyle = "rgba(255, 176, 0, 0.7)";
+                ctx.fillText("  (No modules installed - type 'add' to open parts menu)", rightX, 114);
             } else {
                 modules.forEach((mod, idx) => {
                     ctx.fillStyle = "#ffb000";
                     const dimStr = mod.mount === "top" ? "[TOP MOUNT]" : `[${mod.dimX}x${mod.dimY}m]`;
-                    ctx.fillText(`  ${idx + 1}. ${mod.name.padEnd(20)} ${dimStr}`, rightX, 98 + (idx * 16));
+                    ctx.fillText(`  ${idx + 1}. ${mod.name.padEnd(20)} ${dimStr}`, rightX, 114 + (idx * 16));
                 });
             }
 
@@ -1109,17 +1163,16 @@
             let totalCapAh = modules.reduce((a, m) => a + m.capAh, 0);
             let heatGen = modules.reduce((a, m) => a + m.heatGen, 0);
             
-            // Fans dissipate heat ONLY IF probe is pressurized AND touching computer directly
             let isolatedFanCount = 0;
             let heatDiss = placedModules.reduce((a, m) => {
                 if (m.id === "single_fan" || m.id === "fan_array") {
                     const isTouching = isFanTouchingComputer(m, placedModules);
                     if (!isTouching) {
                         isolatedFanCount++;
-                        return a; // 0 heat diss if not touching computer
+                        return a;
                     }
                     if (pressurizeCurrent < 0.5) {
-                        return a; // 0 heat diss in vacuum
+                        return a;
                     }
                     return a + m.heatDiss;
                 }
@@ -1141,7 +1194,6 @@
 
             const hudY = h - 110;
 
-            // Electrical & Heat Telemetry HUD
             ctx.fillStyle = "#ffca42";
             ctx.font = "bold 12px 'Courier New', monospace";
             ctx.fillText(`ELECTRICAL:`, rightX, hudY);
@@ -1381,8 +1433,8 @@
 
                         const currentArea = payloadSpecs.modules.reduce((a, m) => a + (m.dimX * m.dimY), 0);
                         const addedArea = part.dimX * part.dimY;
-                        if (currentArea + addedArea > payloadSpecs.maxArea + 0.0001) {
-                            print(`[ERR] Cannot install '${part.name}' (${addedArea.toFixed(3)} m²). Exceeds footprint area limit (${payloadSpecs.maxArea.toFixed(2)} m²).`);
+                        if (currentArea + addedArea > (payloadSpecs.maxArea || 0.25) + 0.0001) {
+                            print(`[ERR] Cannot install '${part.name}' (${addedArea.toFixed(3)} m²). Exceeds footprint limit (${(payloadSpecs.maxArea || 0.25).toFixed(2)} m²).`);
                             return;
                         }
 
@@ -1441,7 +1493,9 @@
                         payloadStep = "NAME";
                         payloadSpecs = {
                             name: "",
-                            maxArea: 0.50,
+                            maxArea: 0.25,
+                            sideX: 0.50,
+                            sideY: 0.50,
                             shape: "Cubic",
                             purpose: "Payload",
                             isPressurized: false,
@@ -1538,10 +1592,13 @@
                     }
 
                     if (payloadStep === "SIZE") {
-                        if (lowerInput === "1") payloadSpecs.maxArea = 0.25;
-                        else if (lowerInput === "2") payloadSpecs.maxArea = 0.50;
-                        else if (lowerInput === "3") payloadSpecs.maxArea = 1.00;
-                        else {
+                        if (lowerInput === "1") {
+                            payloadSpecs.sideX = 0.50; payloadSpecs.sideY = 0.50; payloadSpecs.maxArea = 0.25;
+                        } else if (lowerInput === "2") {
+                            payloadSpecs.sideX = 0.50; payloadSpecs.sideY = 1.00; payloadSpecs.maxArea = 0.50;
+                        } else if (lowerInput === "3") {
+                            payloadSpecs.sideX = 1.00; payloadSpecs.sideY = 1.00; payloadSpecs.maxArea = 1.00;
+                        } else {
                             print("[SYS] Select size option 1, 2, or 3.");
                             return;
                         }
@@ -1887,8 +1944,2022 @@
                     const currentArea = payloadSpecs.modules.reduce((a, m) => a + (m.dimX * m.dimY), 0);
                     const addedArea = part.dimX * part.dimY;
 
-                    if (currentArea + addedArea > payloadSpecs.maxArea + 0.0001) {
-                        print(`[ERR] Cannot install '${part.name}' (${addedArea.toFixed(3)} m²). Exceeds footprint limit (${payloadSpecs.maxArea.toFixed(2)} m²).`);
+                    if (currentArea + addedArea > (payloadSpecs.maxArea || 0.25) + 0.0001) {
+                        print(`[ERR] Cannot install '${part.name}' (${addedArea.toFixed(3)} m²). Exceeds footprint limit (${(payloadSpecs.maxArea || 0.25).toFixed(2)} m²).`);
+                    } else {
+                        payloadSpecs.modules.push({ ...part });
+                        print(`[SYS] Installed '${part.name}' into chassis.`);
+                        const rect = canvasContainerEl.getBoundingClientRect();
+                        spawnSparks((rect.width || 700) * 0.30, (rect.height || 400) * 0.50);
+                    }
+                } else if (k === "Q") {
+                    inPartPicker = false;
+                    updatePrompt();
+                    print("[SYS] Exited Part Selector.");
+                }
+                return;
+            }
+
+            if (inRDModule && isRDNavActive) {
+                const key = e.key.toUpperCase();
+                
+                if (["W", "A", "S", "D", "E", "Q"].includes(key)) {
+                    e.preventDefault();
+                }
+
+                if (key === "W") {
+                    if (isInspecting) { renderRDLibrary(); return; }
+                    if (selectedCategoryIndex > 0) selectedCategoryIndex--;
+                    renderRDLibrary();
+                } else if (key === "S") {
+                    if (isInspecting) { renderRDLibrary(); return; }
+                    if (selectedCategoryIndex < techMatrix[selectedTierIndex].categories.length - 1) selectedCategoryIndex++;
+                    renderRDLibrary();
+                } else if (key === "A") {
+                    if (isInspecting) { renderRDLibrary(); return; }
+                    if (selectedTierIndex > 0) {
+                        selectedTierIndex--;
+                        selectedCategoryIndex = 0;
+                    }
+                    renderRDLibrary();
+                } else if (key === "D") {
+                    if (isInspecting) { renderRDLibrary(); return; }
+                    if (selectedTierIndex < techMatrix.length - 1) {
+                        selectedTierIndex++;
+                        selectedCategoryIndex = 0;
+                    }
+                    renderRDLibrary();
+                } else if (key === "E") {
+                    if (!isInspecting) showCategoryInspection();
+                } else if (key === "Q") {
+                    if (isInspecting) {
+                        renderRDLibrary();
+                    } else {
+                        isRDNavActive = false;
+                        updatePrompt();
+                        print("[SYS] Exited WASD navigation mode.");
+                    }
+                }
+            }
+
+            if (e.key === "Enter") {
+                const input = inputEl.value;
+                inputEl.value = "";
+                processCommand(input);
+            }
+        });
+
+        bootTerminal();
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORBITAL v0.0.1</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            background-color: #080500;
+            color: #ffb000;
+            font-family: "Courier New", Courier, monospace;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        body::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(
+                rgba(0, 0, 0, 0) 50%, 
+                rgba(0, 0, 0, 0.65) 50%
+            );
+            background-size: 100% 2px;
+            pointer-events: none;
+            z-index: 9;
+            opacity: 0.85;
+        }
+
+        #terminal-screen {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            max-width: 100vw;
+            max-height: 100vh;
+            aspect-ratio: 16 / 9;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+            background-color: #080500;
+        }
+
+        #output {
+            flex: 1;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-bottom: 10px;
+            padding-right: 5px;
+            line-height: 1.25;
+            font-size: 0.95rem;
+            position: relative;
+            color: #ffb000;
+        }
+
+        .line-amber, .line-title, #prompt, #command-input, #controls-info {
+            color: #ffb000;
+            text-shadow: 0 0 1.5px rgba(255, 176, 0, 0.4);
+        }
+
+        .line-amber, .line-title {
+            animation: generate-scan 0.08s ease-out forwards;
+        }
+
+        @keyframes generate-scan {
+            0% {
+                background-color: rgba(255, 176, 0, 0.12);
+                color: #ffca42;
+                text-shadow: 0 0 3px rgba(255, 176, 0, 0.6);
+            }
+            100% {
+                background-color: transparent;
+                color: #ffb000;
+                text-shadow: 0 0 1.5px rgba(255, 176, 0, 0.4);
+            }
+        }
+
+        .line-title { 
+            font-weight: bold; 
+            color: #ffca42;
+        }
+
+        .entry-title {
+            font-size: 2.8rem;
+            font-weight: bold;
+            letter-spacing: 6px;
+            margin-bottom: 2px;
+            color: #ffb000;
+        }
+
+        .entry-version {
+            font-size: 1.1rem;
+            opacity: 0.85;
+            margin-bottom: 18px;
+            letter-spacing: 2px;
+            color: #ffb000;
+        }
+
+        #loading-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #080500;
+            z-index: 5;
+            padding: 20px;
+            color: #ffb000;
+        }
+
+        #loading-title-container {
+            white-space: pre;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 25px;
+            line-height: 1.15;
+            min-height: 120px;
+            color: #ffca42;
+        }
+
+        #loading-bar-container {
+            text-align: center;
+            font-weight: bold;
+            color: #ffb000;
+        }
+
+        #loading-bar-str {
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+            color: #ffca42;
+        }
+
+        #loading-percent {
+            font-size: 1rem;
+            opacity: 0.9;
+            color: #ffb000;
+        }
+
+        #loading-corner-logs {
+            position: absolute;
+            bottom: 15px;
+            left: 20px;
+            font-size: 0.75rem;
+            opacity: 0.85;
+            line-height: 1.3;
+            max-width: 45%;
+            pointer-events: none;
+            color: #ffb000;
+        }
+
+        #controls-info {
+            border-top: 1px solid rgba(255, 176, 0, 0.35);
+            padding: 6px 0;
+            font-size: 0.88rem;
+            min-height: 1.6rem;
+            opacity: 0.95;
+            font-weight: bold;
+            color: #ffb000;
+        }
+
+        #input-line {
+            display: flex;
+            align-items: center;
+            border-top: 1px solid rgba(255, 176, 0, 0.5);
+            padding-top: 8px;
+        }
+
+        #prompt {
+            margin-right: 8px;
+            font-weight: bold;
+            color: #ffb000;
+        }
+
+        #command-input {
+            background: transparent;
+            border: none;
+            outline: none;
+            font-family: inherit;
+            font-size: 1rem;
+            flex: 1;
+            color: #ffb000;
+        }
+
+        #probe-canvas-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            flex: 1;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        #probe-canvas {
+            border: 1px solid #ffb000;
+            background-color: #050300;
+            box-shadow: 0 0 8px rgba(255, 176, 0, 0.2);
+            width: 100%;
+            height: 100%;
+        }
+
+        #output::-webkit-scrollbar {
+            width: 6px;
+        }
+        #output::-webkit-scrollbar-thumb {
+            background: rgba(255, 176, 0, 0.6);
+        }
+        #output::-webkit-scrollbar-track {
+            background: #080500;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="terminal-screen">
+        <div id="output"></div>
+        <div id="probe-canvas-container">
+            <canvas id="probe-canvas"></canvas>
+        </div>
+        <div id="controls-info"></div>
+        <div id="input-line">
+            <span id="prompt">Command:</span>
+            <input type="text" id="command-input" autofocus autocomplete="off" spellcheck="false">
+        </div>
+    </div>
+
+    <script>
+        const PART_CATEGORIES = [
+            {
+                catName: "ELECTRONICS",
+                parts: [
+                    { id: "analog_computer", name: "Analog Computer", dimX: 0.45, dimY: 0.10, watts: 10, volts: 12, heatGen: 10, heatDiss: 0, capAh: 0, desc: "Analog computing logic system. Generates 10W heat." },
+                    { id: "single_fan", name: "Single Fan", dimX: 0.05, dimY: 0.10, watts: 1.0, volts: 12, heatGen: 0, heatDiss: 10, capAh: 0, desc: "Compact cooling fan. Cools 10W heat. Must touch a computer directly and requires atmospheric pressure." },
+                    { id: "fan_array", name: "Fan Array", dimX: 0.05, dimY: 0.30, watts: 3.0, volts: 12, heatGen: 0, heatDiss: 30, capAh: 0, desc: "Triple active cooling array. Cools 30W heat. Must touch a computer directly and requires atmospheric pressure." }
+                ]
+            },
+            {
+                catName: "POWER",
+                parts: [
+                    { id: "small_battery_nicd", name: "Small battery Ni/Cd", dimX: 0.15, dimY: 0.40, watts: 0, volts: 12, heatGen: 0, heatDiss: 0, capAh: 2.5, desc: "Compact Nickel-Cadmium energy storage cell." },
+                    { id: "battery_nicd", name: "Battery Ni/Cd", dimX: 0.50, dimY: 0.20, watts: 0, volts: 12, heatGen: 0, heatDiss: 0, capAh: 10.0, desc: "High-density Nickel-Cadmium battery module." }
+                ]
+            },
+            {
+                catName: "SENSORS",
+                parts: [
+                    { id: "thermometer", name: "Thermometer", dimX: 0.05, dimY: 0.10, watts: 0.2, volts: 5, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "Ambient temperature sensor telemetry unit." },
+                    { id: "barometer", name: "Barometer", dimX: 0.05, dimY: 0.10, watts: 0.2, volts: 5, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "Atmospheric pressure gauge telemetry unit." },
+                    { id: "geiger", name: "Geiger Counter", dimX: 0.25, dimY: 0.10, watts: 0.5, volts: 12, heatGen: 1.0, heatDiss: 0, capAh: 0, desc: "Ionizing radiation level detector." }
+                ]
+            },
+            {
+                catName: "COMMS",
+                parts: [
+                    { id: "dipole", name: "Dipole Antenna", dimX: 0, dimY: 0, watts: 0.5, volts: 5, heatGen: 0.2, heatDiss: 0, capAh: 0, desc: "Large dual-branching top antenna. Excellent broad transmission/reception.", mount: "top" },
+                    { id: "helical", name: "Helical Antenna", dimX: 0, dimY: 0, watts: 1.0, volts: 12, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "Large directional coil antenna with central axial feed line mounted to top shell.", mount: "top" }
+                ]
+            }
+        ];
+
+        const AVAILABLE_PARTS = PART_CATEGORIES.flatMap(c => c.parts);
+
+        let GameState = {
+            activeSlot: "default_save",
+            data: {
+                user: { name: "Operator", password: "" },
+                saveName: "default_save",
+                timestamp: null,
+                vessel: { 
+                    name: "Sounder-Mk1", 
+                    mass_kg: 580, 
+                    fuelRatio: 65,
+                    gimbal: 100,
+                    finArea: 10,
+                    sepDelay: 1.5
+                },
+                savedPayloads: []
+            }
+        };
+
+        let currentMode = "MAIN_MENU"; 
+        let inRDModule = false;
+        let isRDNavActive = false;
+        let inVABModule = false;
+        let activeVABApp = null;
+        let isExecutingProgram = false;
+        let isInspecting = false;
+        let tempName = "";
+        let pendingLoadSlot = "";
+        let selectedTierIndex = 0;
+        let selectedCategoryIndex = 0;
+
+        let inPayloadDesigner = false;
+        let payloadSubMode = "LIST";
+        let payloadDeleteTarget = "";
+        let payloadStep = "NAME";
+        let payloadSpecs = {
+            name: "",
+            maxArea: 0.25,
+            sideX: 0.50,
+            sideY: 0.50,
+            shape: "Cubic",
+            purpose: "Payload",
+            isPressurized: false,
+            modules: []
+        };
+        let isRenderingCanvas = false;
+        let animFrameId = null;
+        let sparkParticles = [];
+
+        let inPartPicker = false;
+        let selectedPartCatIndex = 0;
+        let selectedPartItemIndex = 0;
+
+        let pressurizeCurrent = 0.0;
+        let lastFrameTime = performance.now();
+
+        const vabApplications = [
+            { id: "rocket", name: "Rocket Designer" },
+            { id: "payload", name: "Payload Designer" },
+            { id: "rover", name: "Rover Simulator" },
+            { id: "lander", name: "Lander Simulator" },
+            { id: "drone", name: "Drone Simulator" },
+            { id: "docking", name: "Docking Computer Simulator" },
+            { id: "station", name: "Space Station Computer Simulator" }
+        ];
+
+        const techMatrix = [
+            {
+                tier: 0,
+                tierName: "TIER 0: FOUNDATION TECH",
+                categories: [
+                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny 2D footprint payloads (0.5m x 0.5m = 0.25 m² area limit). Used for sub-orbital vertical hops." },
+                    { cat: "Computers", name: "Mechanical / Analog Relays", desc: "Computers are analog and slow, operating purely via direct electronic relay execution." },
+                    { cat: "Lifting Bodies", name: "Unpressurized Sounding Rockets", desc: "Solid/liquid rockets for potential energy testing." },
+                    { cat: "Fuels", name: "Kerosene & Solid Propellants", desc: "Volatile mixtures with higher failure risks." },
+                    { cat: "RCS", name: "Cold Gas Thrusters", desc: "Pressurized Nitrogen systems for simple attitude holds." },
+                    { cat: "Power", name: "Primary Silver-Zinc & Ni/Cd Batteries", desc: "Rechargeable and primary energy cells." },
+                    { cat: "Heat", name: "Convection Fans & Fins", desc: "Active cooling units requiring pressure contact." },
+                    { cat: "Comms", name: "Dipole & Helical Antennas", desc: "Large directional and omnidirectional top-mounted antenna arrays." },
+                    { cat: "Science", name: "Basic Sounding Suite", desc: "Thermometers, Barometers, and Geiger counters." }
+                ]
+            }
+        ];
+
+        const outputEl = document.getElementById("output");
+        const promptEl = document.getElementById("prompt");
+        const inputEl = document.getElementById("command-input");
+        const controlsInfoEl = document.getElementById("controls-info");
+        const canvasContainerEl = document.getElementById("probe-canvas-container");
+        const probeCanvas = document.getElementById("probe-canvas");
+        const ctx = probeCanvas.getContext("2d");
+
+        function print(text, type = "amber") {
+            const div = document.createElement("div");
+            div.className = `line-${type}`;
+            div.textContent = text;
+            outputEl.appendChild(div);
+            outputEl.scrollTop = outputEl.scrollHeight;
+        }
+
+        function setControlsBar(text) {
+            controlsInfoEl.textContent = text;
+        }
+
+        function updatePrompt() {
+            if (inPayloadDesigner) {
+                if (isRenderingCanvas) {
+                    if (inPartPicker) {
+                        setControlsBar("PART SELECTOR: 'A'/'D' = Prev/Next Cat | 'W'/'S' = Up/Down Item | 'E' = Install | 'Q' = Exit");
+                        promptEl.textContent = `[VAB // PART SELECTOR (WASD)]> `;
+                    } else {
+                        setControlsBar("CONTROLS: 'add' (Parts Menu) | 'remove [item]' | 'pressurize' | 'depressurize' | 'save' | 'back' | 'terminate'");
+                        promptEl.textContent = `[VAB // PROBE DESIGN CANVAS]> `;
+                    }
+                } else if (payloadSubMode === "LIST") {
+                    setControlsBar("CONTROLS: Type 'new' to design | Number [1-N] / 'load [name]' | 'delete [name]' | 'back' | 'terminate'");
+                    promptEl.textContent = `[VAB // PAYLOAD MANAGER]> `;
+                } else if (payloadSubMode === "DELETE_CONFIRM") {
+                    setControlsBar("CONTROLS: Type 'yes' to confirm deletion | 'no' to cancel | 'terminate' = Exit");
+                    promptEl.textContent = `[VAB // CONFIRM DELETE]> `;
+                } else {
+                    setControlsBar("CONTROLS: Input selection/text | 'back' = Return | 'terminate' = Exit");
+                    promptEl.textContent = `[VAB // PAYLOAD CONFIG (${payloadStep})]> `;
+                }
+                return;
+            }
+
+            if (inRDModule) {
+                if (isRDNavActive) {
+                    setControlsBar("CONTROLS: WASD = Navigate Tree | E = Inspect Item | Q = Exit WASD Nav Mode | 'terminate'");
+                    promptEl.textContent = `[R&D // WASD NAV ACTIVE]> `;
+                } else if (isInspecting) {
+                    setControlsBar("CONTROLS: WASD/Q = Return to Index | 'terminate'");
+                    promptEl.textContent = `[R&D // INSPECTION VIEW]> `;
+                } else {
+                    setControlsBar("CONTROLS: Type 'move' to unlock WASD navigation | 'terminate'");
+                    promptEl.textContent = `[R&D // COMMAND]> `;
+                }
+                return;
+            }
+
+            if (inVABModule) {
+                setControlsBar("CONTROLS: Enter Option # (1-7) | 'back' = App List | 'terminate'");
+                if (activeVABApp) {
+                    promptEl.textContent = `[VAB // ${activeVABApp.name.toUpperCase()} ]> `;
+                } else {
+                    promptEl.textContent = `[VAB // MENU]> `;
+                }
+                return;
+            }
+
+            setControlsBar("SYSTEM READY // Enter command.");
+
+            switch (currentMode) {
+                case "LOGGED_IN":
+                    promptEl.textContent = `[${GameState.activeSlot}]> Command:`;
+                    break;
+                case "NEW_NAME":
+                    promptEl.textContent = "Name?:";
+                    break;
+                case "NEW_PASS":
+                case "LOAD_PASS":
+                    promptEl.textContent = "Password?:";
+                    break;
+                case "LOAD_SELECT":
+                    promptEl.textContent = "Select Save File:";
+                    break;
+                default:
+                    promptEl.textContent = "Command:";
+                    break;
+            }
+        }
+
+        function showTitle() {
+            const titleDiv = document.createElement("div");
+            titleDiv.className = "entry-title line-title";
+            titleDiv.textContent = "ORBITAL";
+            
+            const versionDiv = document.createElement("div");
+            versionDiv.className = "entry-version line-amber";
+            versionDiv.textContent = "v0.0.1";
+
+            outputEl.appendChild(titleDiv);
+            outputEl.appendChild(versionDiv);
+            print("");
+        }
+
+        function printRDHeader() {
+            print("██████▒   ▒▒▒   ██████▒ ", "title");
+            print("██▒  ██▒   █    ██▒  ██▒", "title");
+            print("██████▒   ▒█▒   ██▒  ██▒", "title");
+            print("██▒  ██▒   █    ██▒  ██▒", "title");
+            print("██▒  ██▒  ▒▒▒   ██████▒ ", "title");
+            print("================================================================================", "title");
+            print("                    RESEARCH & DEVELOPMENT LABORATORY                           ", "title");
+            print("================================================================================", "title");
+            print("");
+        }
+
+        function printVABHeader() {
+            print("██▒  ██▒  █████▒   ██████▒ ", "title");
+            print("██▒  ██▒ ██▒  ██▒  ██▒  ██▒", "title");
+            print("██▒  ██▒ ███████▒  ██████▒ ", "title");
+            print("██▒  ██▒ ██▒  ██▒  ██▒  ██▒", "title");
+            print(" █████▒  ██▒  ██▒  ██████▒ ", "title");
+            print("================================================================================", "title");
+            print("                   VEHICLE ASSEMBLY BUILDING SYSTEM                             ", "title");
+            print("================================================================================", "title");
+            print("");
+        }
+
+        function printProgramTree() {
+            print("ORBITAL OS // SYSTEM DIRECTORY", "title");
+            print("└── System Programs");
+            print("    ├── VAB");
+            print("    ├── Hangars");
+            print("    ├── R&D");
+            print("    ├── Astronaut Complex");
+            print("    ├── Contractors");
+            print("    ├── Flight");
+            print("    └── DSN");
+            print("");
+        }
+
+        function printMainMenuHelp() {
+            print("Available commands:");
+            print("  new             - Create a new profile and start session");
+            print("  load            - View save files and login");
+            print("  saves           - List available save files");
+            print("  clear           - Clear terminal screen");
+        }
+
+        function printLoggedInHelp() {
+            print("Available commands:");
+            print("  run [program]   - Execute system program (e.g. 'run r&d', 'run vab')");
+            print("  programs        - Display system program tree");
+            print("  status          - Display vessel parameters");
+            print("  save            - Save current progress");
+            print("  logout          - Exit current session");
+            print("  clear           - Clear terminal screen");
+        }
+
+        function bootTerminal() {
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            outputEl.innerHTML = "";
+            showTitle();
+            currentMode = "MAIN_MENU";
+            inRDModule = false;
+            isRDNavActive = false;
+            inVABModule = false;
+            inPayloadDesigner = false;
+            isRenderingCanvas = false;
+            inPartPicker = false;
+            canvasContainerEl.style.display = "none";
+            outputEl.style.display = "block";
+            activeVABApp = null;
+            updatePrompt();
+            printMainMenuHelp();
+        }
+
+        function getSaveList() {
+            const saves = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith("orbital_save_")) {
+                    saves.push(key.replace("orbital_save_", ""));
+                }
+            }
+            return saves;
+        }
+
+        async function runModuleBootSequence(moduleType, onComplete) {
+            isExecutingProgram = true;
+            inputEl.disabled = true;
+
+            const overlay = document.createElement("div");
+            overlay.id = "loading-overlay";
+
+            const titleContainer = document.createElement("div");
+            titleContainer.id = "loading-title-container";
+            titleContainer.className = "line-title";
+
+            const barContainer = document.createElement("div");
+            barContainer.id = "loading-bar-container";
+
+            const barStrEl = document.createElement("div");
+            barStrEl.id = "loading-bar-str";
+            barStrEl.className = "line-title";
+
+            const percentEl = document.createElement("div");
+            percentEl.id = "loading-percent";
+            percentEl.className = "line-amber";
+
+            barContainer.appendChild(barStrEl);
+            barContainer.appendChild(percentEl);
+
+            const cornerLogs = document.createElement("div");
+            cornerLogs.id = "loading-corner-logs";
+            cornerLogs.className = "line-amber";
+
+            overlay.appendChild(titleContainer);
+            overlay.appendChild(barContainer);
+            overlay.appendChild(cornerLogs);
+            document.getElementById("terminal-screen").appendChild(overlay);
+
+            const logoLines = (moduleType === "RD") ? [
+                "██████▒   ▒▒▒   ██████▒ ",
+                "██▒  ██▒   █    ██▒  ██▒",
+                "██████▒   ▒█▒   ██▒  ██▒",
+                "██▒  ██▒   █    ██▒  ██▒",
+                "██▒  ██▒  ▒▒▒   ██████▒ "
+            ] : [
+                "██▒  ██▒  █████▒   ██████▒ ",
+                "██▒  ██▒ ██▒  ██▒  ██▒  ██▒",
+                "██▒  ██▒ ███████▒  ██████▒ ",
+                "██▒  ██▒ ██▒  ██▒  ██▒  ██▒",
+                " █████▒  ██▒  ██▒  ██████▒ "
+            ];
+
+            const parseQueue = [
+                "Authorizing user security credentials...",
+                "Establishing physical wire connection...",
+                "Routing telemetry data protocols...",
+                "Allocating local stack memory buffers...",
+                "Bypassing mainframe authentication proxy...",
+                "Initializing bus interface controllers...",
+                "Loading hardware specs and definitions...",
+                "Verifying hardware node parity keys..."
+            ];
+
+            const totalDurationMs = (5.0 + Math.random() * 2.0) * 1000;
+            const steps = 30;
+            const stepDelay = totalDurationMs / steps;
+
+            const willGetStuck = Math.random() < 0.25;
+            const stuckStep = Math.floor(Math.random() * 10) + 10;
+            const stuckDurationMs = 3000;
+
+            let activeLogs = [];
+            let isStuckTriggered = false;
+
+            for (let i = 1; i <= steps; i++) {
+                const percent = Math.floor((i / steps) * 100);
+
+                const linesToShow = Math.max(1, Math.ceil((percent / 100) * logoLines.length));
+                let renderedTitle = "";
+                for (let l = 0; l < logoLines.length; l++) {
+                    if (l < linesToShow) {
+                        renderedTitle += logoLines[l] + "\n";
+                    } else {
+                        renderedTitle += "\n";
+                    }
+                }
+                titleContainer.textContent = renderedTitle;
+
+                const totalWidth = 34;
+                const filled = Math.floor((percent / 100) * totalWidth);
+                const empty = totalWidth - filled;
+                barStrEl.textContent = "[" + "█".repeat(filled) + "░".repeat(empty) + "]";
+                percentEl.textContent = `${percent}%`;
+
+                if (parseQueue.length > 0 && Math.random() < 0.45) {
+                    const msg = parseQueue.shift();
+                    if (msg) activeLogs.push(`> ${msg}`);
+                    if (activeLogs.length > 4) activeLogs.shift();
+                }
+
+                if (willGetStuck && i === stuckStep && !isStuckTriggered) {
+                    isStuckTriggered = true;
+                    activeLogs.push("[WARN] Connection interruption detected... Re-routing bus connection...");
+                    if (activeLogs.length > 4) activeLogs.shift();
+                    cornerLogs.innerHTML = activeLogs.join("<br>");
+                    await new Promise(r => setTimeout(r, stuckDurationMs));
+                }
+
+                cornerLogs.innerHTML = activeLogs.join("<br>");
+                await new Promise(r => setTimeout(r, stepDelay));
+            }
+
+            overlay.remove();
+            outputEl.innerHTML = "";
+            isExecutingProgram = false;
+            inputEl.disabled = false;
+            inputEl.focus();
+            onComplete();
+        }
+
+        function renderRDLibrary() {
+            outputEl.innerHTML = "";
+            isInspecting = false;
+            printRDHeader();
+
+            const activeTier = techMatrix[selectedTierIndex];
+            const activeCategory = activeTier.categories[selectedCategoryIndex];
+
+            print(`ACTIVE TIER: ${activeTier.tierName}`, "title");
+            print("--------------------------------------------------------------------------------");
+
+            for (let i = 0; i < activeTier.categories.length; i++) {
+                const item = activeTier.categories[i];
+                const isSelected = (i === selectedCategoryIndex);
+                
+                let lineStr = isSelected 
+                    ? ` ►► [UNLOCKED] ${item.cat.toUpperCase().padEnd(15)} : ${item.name} ◄◄` 
+                    : `    [UNLOCKED] ${item.cat.toUpperCase().padEnd(15)} : ${item.name}`;
+
+                print(lineStr, isSelected ? "title" : "amber");
+            }
+
+            print("--------------------------------------------------------------------------------");
+            print(`CURRENTLY HIGHLIGHTED: [${activeCategory.cat.toUpperCase()}] -> ${activeCategory.name}`, "title");
+            print(`BRIEF: ${activeCategory.desc}`);
+            print("================================================================================", "title");
+            updatePrompt();
+        }
+
+        function showCategoryInspection() {
+            outputEl.innerHTML = "";
+            isInspecting = true;
+            printRDHeader();
+
+            const activeTier = techMatrix[selectedTierIndex];
+            const item = activeTier.categories[selectedCategoryIndex];
+
+            print(`SPECIFICATION LEDGER // ${item.cat.toUpperCase()}`, "title");
+            print("--------------------------------------------------------------------------------");
+            print(`ITEM NAME:   ${item.name}`);
+            print(`TIER LEVEL:  ${activeTier.tierName}`);
+            print(`STATUS:      UNLOCKED & AVAILABLE`);
+            print("--------------------------------------------------------------------------------");
+            print("HARDWARE OVERVIEW:", "title");
+            print(`  ${item.desc}`);
+            print("--------------------------------------------------------------------------------");
+            print("================================================================================", "title");
+            updatePrompt();
+        }
+
+        function renderVABMenu() {
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            outputEl.innerHTML = "";
+            canvasContainerEl.style.display = "none";
+            outputEl.style.display = "block";
+            inPayloadDesigner = false;
+            isRenderingCanvas = false;
+            inPartPicker = false;
+            printVABHeader();
+
+            print("AVAILABLE APPLICATIONS:", "title");
+            print("--------------------------------------------------------------------------------");
+
+            vabApplications.forEach((app, idx) => {
+                const line = `  [${idx + 1}] ${app.name}`;
+                print(line, "amber");
+            });
+
+            print("--------------------------------------------------------------------------------");
+            print("================================================================================", "title");
+            updatePrompt();
+        }
+
+        function renderPayloadListScreen() {
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            outputEl.innerHTML = "";
+            canvasContainerEl.style.display = "none";
+            outputEl.style.display = "block";
+            isRenderingCanvas = false;
+            inPartPicker = false;
+            payloadSubMode = "LIST";
+            printVABHeader();
+
+            print("STUDIO TOOLKIT: PAYLOAD / PROBE DESIGNER", "title");
+            print("================================================================================", "title");
+            print("EXISTING PAYLOAD DESIGNS:", "title");
+
+            if (!GameState.data.savedPayloads || GameState.data.savedPayloads.length === 0) {
+                print("  (No stored payload designs found)");
+            } else {
+                GameState.data.savedPayloads.forEach((p, i) => {
+                    const modCount = p.modules ? p.modules.length : 0;
+                    const usedArea = p.modules ? p.modules.reduce((a, m) => a + (m.dimX * m.dimY), 0).toFixed(3) : "0.000";
+                    const maxArea = p.maxArea || 0.25;
+                    const sideX = p.sideX || 0.50;
+                    const sideY = p.sideY || 0.50;
+                    print(`  [${i + 1}] ${p.name.padEnd(18)} | Chassis: ${sideX}x${sideY}m (${maxArea.toFixed(2)} m²) | Used: ${usedArea} m² | Parts: ${modCount} | Shape: ${p.shape}`);
+                });
+            }
+
+            print("--------------------------------------------------------------------------------");
+            print("ACTIONS:", "title");
+            print("  [1-N] / load [name] - Load a saved probe design");
+            print("  new                 - Create a new probe design");
+            print("  delete [name]       - Remove a saved probe design");
+            print("  back                - Return to VAB application menu");
+            print("================================================================================", "title");
+            print("");
+            updatePrompt();
+        }
+
+        function renderPayloadDesignerCriteria() {
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            outputEl.innerHTML = "";
+            canvasContainerEl.style.display = "none";
+            outputEl.style.display = "block";
+            isRenderingCanvas = false;
+            inPartPicker = false;
+            payloadSubMode = "CRITERIA";
+            printVABHeader();
+
+            print("STUDIO TOOLKIT: PAYLOAD / PROBE DESIGNER (SPECIFICATION)", "title");
+            print("================================================================================", "title");
+            print(`Name    : ${payloadSpecs.name !== "" ? payloadSpecs.name : "(enter payload name)"}`);
+            print(`Dimensions: ${(payloadSpecs.sideX || 0.50).toFixed(2)}m x ${(payloadSpecs.sideY || 0.50).toFixed(2)}m  [Max Footprint: ${(payloadSpecs.maxArea || 0.25).toFixed(2)} m²]`);
+            print(`Shape   : ${payloadSpecs.shape !== null ? payloadSpecs.shape : "(select shape criteria)"}`);
+            print(`Purpose : ${payloadSpecs.purpose !== null ? payloadSpecs.purpose : "(select operational purpose)"}`);
+            print("================================================================================", "title");
+            print("");
+
+            if (payloadStep === "NAME") {
+                print("ENTER PAYLOAD NAME:", "title");
+                print("  Type a unique identifier name for this probe design.");
+            } else if (payloadStep === "SIZE") {
+                print("SELECT CHASSIS FOOTPRINT AREA & SIDE LENGTHS:", "title");
+                print("  [1] 0.5m x 0.5m (0.25 m² Standard Sounding Core)");
+                print("  [2] 0.5m x 1.0m (0.50 m² Medium Extended Core)");
+                print("  [3] 1.0m x 1.0m (1.00 m² Large Structural Core)");
+            } else if (payloadStep === "SHAPE") {
+                print("SELECT SHAPE:", "title");
+                print("  [1] Cubic");
+                print("  [2] Spherical");
+            } else if (payloadStep === "PURPOSE") {
+                print("SELECT PURPOSE:", "title");
+                print("  [1] Payload");
+            } else if (payloadStep === "CONFIRM") {
+                print("SPECIFICATION COMPLETE.", "title");
+                print("Start design sequence? (Type 'start' to open interactive chassis, or 'back' to return)");
+            }
+            updatePrompt();
+        }
+
+        function spawnSparks(x, y) {
+            for (let i = 0; i < 6; i++) {
+                sparkParticles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 1.2) * 4,
+                    life: 1.0,
+                    size: Math.random() * 3 + 2
+                });
+            }
+        }
+
+        // Compute 2D shelf placement inside normalized (0.5m x 0.5m) probe chassis coordinates
+        function compute2DLayout(modules, probeSideX = 0.50, probeSideY = 0.50) {
+            let curX = 0;
+            let curY = 0;
+            let rowH = 0;
+
+            return modules.map(mod => {
+                if (mod.mount === "top") {
+                    return { ...mod, posX: 0, posY: 0, relW: 0, relH: 0, relX: 0, relY: 0 };
+                }
+
+                let pw = mod.dimX / probeSideX; // normalized relative to chassis width (0.5m = 1.0)
+                let ph = mod.dimY / probeSideY; // normalized relative to chassis height (0.5m = 1.0)
+
+                if (curX + pw > 1.0001) {
+                    curX = 0;
+                    curY += rowH;
+                    rowH = 0;
+                }
+
+                const item = {
+                    ...mod,
+                    posX: curX,
+                    posY: curY,
+                    relW: pw,
+                    relH: ph,
+                    relX: curX * probeSideX,
+                    relY: curY * probeSideY
+                };
+
+                curX += pw;
+                if (ph > rowH) rowH = ph;
+
+                return item;
+            });
+        }
+
+        function isFanTouchingComputer(fanItem, placedModules) {
+            const computers = placedModules.filter(m => m.id === "analog_computer");
+            if (computers.length === 0) return false;
+
+            const fX1 = fanItem.posX;
+            const fY1 = fanItem.posY;
+            const fX2 = fanItem.posX + fanItem.relW;
+            const fY2 = fanItem.posY + fanItem.relH;
+
+            const eps = 0.02;
+
+            for (let c of computers) {
+                const cX1 = c.posX;
+                const cY1 = c.posY;
+                const cX2 = c.posX + c.relW;
+                const cY2 = c.posY + c.relH;
+
+                const touchX = (fX1 <= cX2 + eps) && (fX2 >= cX1 - eps);
+                const touchY = (fY1 <= cY2 + eps) && (fY2 >= cY1 - eps);
+
+                if (touchX && touchY) return true;
+            }
+
+            return false;
+        }
+
+        function renderProbeGraphicsLoop() {
+            if (!isRenderingCanvas) return;
+
+            const now = performance.now();
+            const dt = (now - lastFrameTime) / 1000;
+            lastFrameTime = now;
+
+            const flashVal = 0.5 + 0.5 * Math.sin(now * 0.008);
+            const flashAmber = `rgba(255, 202, 66, ${0.35 + 0.65 * flashVal})`;
+
+            const rect = canvasContainerEl.getBoundingClientRect();
+            probeCanvas.width = rect.width || 700;
+            probeCanvas.height = rect.height || 400;
+
+            const w = probeCanvas.width;
+            const h = probeCanvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = "#050300";
+            ctx.fillRect(0, 0, w, h);
+
+            // Side lengths of probe chassis (Default 0.5m x 0.5m)
+            const sideX = payloadSpecs.sideX || 0.50;
+            const sideY = payloadSpecs.sideY || 0.50;
+
+            const probeCenterX = w * 0.30;
+            const probeCenterY = h * 0.52;
+
+            // Scale factor relative to 0.5m dimensions
+            const scalePx = Math.min(w * 0.48, 360); 
+            const baseW = scalePx * (sideX / 0.50);
+            const baseH = scalePx * (sideY / 0.50);
+
+            const left = probeCenterX - (baseW / 2);
+            const top = probeCenterY - (baseH / 2);
+
+            // Calculate Pressurization status
+            const pressTarget = payloadSpecs.isPressurized ? 1.0 : 0.0;
+            if (pressurizeCurrent < pressTarget) {
+                pressurizeCurrent = Math.min(pressTarget, pressurizeCurrent + dt / 2.0);
+            } else if (pressurizeCurrent > pressTarget) {
+                pressurizeCurrent = Math.max(pressTarget, pressurizeCurrent - dt / 2.0);
+            }
+
+            const modules = payloadSpecs.modules || [];
+            const placedModules = compute2DLayout(modules, sideX, sideY);
+
+            // Render Antennas on Top of probe shell
+            const topAntennas = placedModules.filter(m => m.mount === "top");
+
+            if (topAntennas.length > 0) {
+                const antennaSpacing = baseW / (topAntennas.length + 1);
+                topAntennas.forEach((ant, idx) => {
+                    const antX = left + antennaSpacing * (idx + 1);
+                    const antStartY = payloadSpecs.shape === "Spherical" 
+                        ? probeCenterY - Math.sqrt(Math.max(0, (baseW / 2) ** 2 - (antX - probeCenterX) ** 2)) 
+                        : top;
+                    
+                    ctx.strokeStyle = "#ffca42";
+                    ctx.fillStyle = "#ffca42";
+                    ctx.lineWidth = 2.0;
+
+                    if (ant.id === "dipole") {
+                        // High-detail Dipole Antenna
+                        ctx.fillRect(antX - 10, antStartY - 6, 20, 6); // Heavy Base Block
+                        ctx.fillRect(antX - 4, antStartY - 18, 8, 12); // Central Feeder Balun
+
+                        // Vertical Mast
+                        ctx.beginPath();
+                        ctx.moveTo(antX, antStartY - 18);
+                        ctx.lineTo(antX, antStartY - 45);
+                        ctx.stroke();
+
+                        // Central Junction
+                        ctx.fillRect(antX - 6, antStartY - 50, 12, 6);
+
+                        // Dual Large Branching Horizontal Arms
+                        ctx.lineWidth = 2.5;
+                        ctx.beginPath();
+                        ctx.moveTo(antX - 6, antStartY - 47);
+                        ctx.lineTo(antX - 65, antStartY - 68); // Left Branch
+
+                        ctx.moveTo(antX + 6, antStartY - 47);
+                        ctx.lineTo(antX + 65, antStartY - 68); // Right Branch
+                        ctx.stroke();
+
+                        // Dipole Loading Coils / Tip End Caps
+                        ctx.fillRect(antX - 42, antStartY - 64, 8, 8);
+                        ctx.fillRect(antX + 34, antStartY - 64, 8, 8);
+
+                        ctx.beginPath();
+                        ctx.arc(antX - 65, antStartY - 68, 4, 0, Math.PI * 2);
+                        ctx.arc(antX + 65, antStartY - 68, 4, 0, Math.PI * 2);
+                        ctx.fill();
+
+                    } else if (ant.id === "helical") {
+                        // True 3D Spiral Coiled Helical Antenna
+                        ctx.fillRect(antX - 12, antStartY - 6, 24, 6); // Mounting flange
+                        
+                        const coilHeight = 90;
+                        const coilRadius = 18;
+                        const turns = 7;
+                        const topY = antStartY - coilHeight;
+
+                        // Central axial line going straight through middle
+                        ctx.lineWidth = 1.5;
+                        ctx.strokeStyle = "rgba(255, 202, 66, 0.7)";
+                        ctx.beginPath();
+                        ctx.moveTo(antX, antStartY - 6);
+                        ctx.lineTo(antX, topY);
+                        ctx.stroke();
+
+                        // Draw continuous realistic 3D spiral coil
+                        ctx.lineWidth = 2.5;
+                        ctx.strokeStyle = "#ffca42";
+                        ctx.beginPath();
+                        const pointsPerTurn = 20;
+                        const totalPoints = turns * pointsPerTurn;
+
+                        for (let p = 0; p <= totalPoints; p++) {
+                            const angle = (p / pointsPerTurn) * Math.PI * 2;
+                            const curY = (antStartY - 6) - (p / totalPoints) * (coilHeight - 10);
+                            const curX = antX + Math.sin(angle) * coilRadius;
+
+                            if (p === 0) ctx.moveTo(curX, curY);
+                            else ctx.lineTo(curX, curY);
+                        }
+                        ctx.stroke();
+
+                        // Top connector line connecting end of coil back to the central axial line
+                        const lastAngle = (totalPoints / pointsPerTurn) * Math.PI * 2;
+                        const lastX = antX + Math.sin(lastAngle) * coilRadius;
+                        const lastY = (antStartY - 6) - (coilHeight - 10);
+
+                        ctx.beginPath();
+                        ctx.moveTo(lastX, lastY);
+                        ctx.lineTo(antX, topY); // Straight connecting wire to top central feed
+                        ctx.stroke();
+
+                        // Top cap reflector disc
+                        ctx.fillRect(antX - 8, topY - 3, 16, 4);
+                    }
+                });
+            }
+
+            // Internal Bounds Clipping
+            ctx.save();
+            ctx.beginPath();
+            if (payloadSpecs.shape === "Spherical") {
+                ctx.ellipse(probeCenterX, probeCenterY, baseW / 2, baseH / 2, 0, 0, Math.PI * 2);
+            } else {
+                ctx.rect(left, top, baseW, baseH);
+            }
+            ctx.clip();
+
+            // Amber Pressurization Hue Background
+            if (pressurizeCurrent > 0.001) {
+                ctx.fillStyle = `rgba(255, 200, 80, ${0.28 * pressurizeCurrent})`;
+                ctx.fillRect(left - 20, top - 20, baseW + 40, baseH + 40);
+            }
+
+            let innerWidth, innerHeight, innerLeft, innerTop;
+
+            if (payloadSpecs.shape === "Spherical") {
+                innerWidth = baseW / Math.SQRT2;
+                innerHeight = baseH / Math.SQRT2;
+                innerLeft = probeCenterX - (innerWidth / 2);
+                innerTop = probeCenterY - (innerHeight / 2);
+            } else {
+                innerWidth = baseW - 16;
+                innerHeight = baseH - 16;
+                innerLeft = left + 8;
+                innerTop = top + 8;
+            }
+
+            // Draw 2D Internal Modules
+            placedModules.forEach((mod) => {
+                if (mod.mount === "top") return;
+
+                const mX = innerLeft + mod.posX * innerWidth;
+                const mY = innerTop + mod.posY * innerHeight;
+                const mW = mod.relW * innerWidth;
+                const mH = mod.relH * innerHeight;
+
+                ctx.fillStyle = "rgba(255, 176, 0, 0.22)";
+                ctx.strokeStyle = "#ffb000";
+                ctx.lineWidth = 1.5;
+
+                ctx.fillRect(mX, mY, mW - 1, mH - 1);
+                ctx.strokeRect(mX, mY, mW - 1, mH - 1);
+
+                ctx.fillStyle = "#ffca42";
+                const fontSize = Math.max(8, Math.min(12, Math.floor(mH * 0.45)));
+                ctx.font = `${fontSize}px 'Courier New', monospace`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                let shortName = mod.name.replace("Analog ", "").replace(" battery", "");
+                if (mW < 35) shortName = shortName.substring(0, 3);
+                ctx.fillText(shortName, mX + mW / 2, mY + mH / 2);
+            });
+
+            ctx.restore();
+
+            // Outline of chassis
+            if (payloadSpecs.shape === "Spherical") {
+                ctx.strokeStyle = "rgba(255, 176, 0, 0.25)";
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
+                ctx.strokeRect(innerLeft, innerTop, innerWidth, innerHeight);
+                ctx.setLineDash([]);
+            }
+
+            ctx.strokeStyle = pressurizeCurrent > 0.01 ? "#ffca42" : "#ffb000";
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = "#ffb000";
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            if (payloadSpecs.shape === "Spherical") {
+                ctx.ellipse(probeCenterX, probeCenterY, baseW / 2, baseH / 2, 0, 0, Math.PI * 2);
+            } else {
+                ctx.rect(left, top, baseW, baseH);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Right HUD: Area calculation and specs
+            const rightX = w * 0.58;
+            const usedArea = modules.reduce((acc, m) => acc + (m.dimX * m.dimY), 0);
+            const maxArea = payloadSpecs.maxArea || 0.25;
+            const remainingArea = Math.max(0, maxArea - usedArea);
+
+            ctx.fillStyle = "#ffca42";
+            ctx.font = "bold 13px 'Courier New', monospace";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "top";
+
+            ctx.fillText(`CHASSIS: ${payloadSpecs.name.toUpperCase()} [${sideX}m x ${sideY}m ${payloadSpecs.shape.toUpperCase()}]`, rightX, 15);
+            ctx.fillText(`ATMOSPHERE: ${pressurizeCurrent > 0.01 ? `PRESSURIZING (${Math.floor(pressurizeCurrent * 100)}%)` : "VACUUM"}`, rightX, 32);
+
+            const areaExceeded = usedArea > maxArea + 0.0001;
+            ctx.fillStyle = areaExceeded ? flashAmber : "#ffca42";
+            ctx.fillText(`FOOTPRINT AREA: ${usedArea.toFixed(3)} / ${maxArea.toFixed(2)} m² used`, rightX, 55);
+            ctx.fillText(`REMAINING AREA: ${remainingArea.toFixed(3)} m² left`, rightX, 70);
+
+            ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
+            ctx.beginPath();
+            ctx.moveTo(rightX, 88);
+            ctx.lineTo(w - 15, 88);
+            ctx.stroke();
+
+            ctx.fillStyle = "#ffca42";
+            ctx.font = "bold 11px 'Courier New', monospace";
+            ctx.fillText("INSTALLED 2D MODULES:", rightX, 96);
+
+            if (modules.length === 0) {
+                ctx.fillStyle = "rgba(255, 176, 0, 0.7)";
+                ctx.fillText("  (No modules installed - type 'add' to open parts menu)", rightX, 114);
+            } else {
+                modules.forEach((mod, idx) => {
+                    ctx.fillStyle = "#ffb000";
+                    const dimStr = mod.mount === "top" ? "[TOP MOUNT]" : `[${mod.dimX}x${mod.dimY}m]`;
+                    ctx.fillText(`  ${idx + 1}. ${mod.name.padEnd(20)} ${dimStr}`, rightX, 114 + (idx * 16));
+                });
+            }
+
+            // Heat & Electrical Telemetry Logic
+            let totalWatts = modules.reduce((a, m) => a + m.watts, 0);
+            let totalVolts = modules.some(m => m.volts === 12) ? 12 : (modules.some(m => m.volts === 5) ? 5 : 0);
+            let totalCapAh = modules.reduce((a, m) => a + m.capAh, 0);
+            let heatGen = modules.reduce((a, m) => a + m.heatGen, 0);
+            
+            let isolatedFanCount = 0;
+            let heatDiss = placedModules.reduce((a, m) => {
+                if (m.id === "single_fan" || m.id === "fan_array") {
+                    const isTouching = isFanTouchingComputer(m, placedModules);
+                    if (!isTouching) {
+                        isolatedFanCount++;
+                        return a;
+                    }
+                    if (pressurizeCurrent < 0.5) {
+                        return a;
+                    }
+                    return a + m.heatDiss;
+                }
+                return a + m.heatDiss;
+            }, 0);
+
+            let timeStr = "0h 00m";
+            if (totalWatts > 0 && totalCapAh > 0) {
+                const totalWattHours = totalCapAh * totalVolts;
+                const hours = totalWattHours / totalWatts;
+                const h = Math.floor(hours);
+                const m = Math.floor((hours - h) * 60);
+                timeStr = `${h}h ${m}m`;
+            } else if (totalWatts === 0 && totalCapAh > 0) {
+                timeStr = "∞ (No Load)";
+            } else {
+                timeStr = "0m (No Power)";
+            }
+
+            const hudY = h - 110;
+
+            ctx.fillStyle = "#ffca42";
+            ctx.font = "bold 12px 'Courier New', monospace";
+            ctx.fillText(`ELECTRICAL:`, rightX, hudY);
+            
+            ctx.fillStyle = "#ffb000";
+            ctx.font = "11px 'Courier New', monospace";
+            ctx.fillText(`  Watts                 : ${totalWatts.toFixed(1)} W`, rightX, hudY + 15);
+            ctx.fillText(`  Volts                 : ${totalVolts} V`, rightX, hudY + 28);
+            ctx.fillText(`  Time until power loss : ~${timeStr}`, rightX, hudY + 41);
+
+            // Heat Telemetry
+            const maxBar = 22;
+            const genFilled = Math.min(maxBar, Math.floor((heatGen / 30) * maxBar));
+            const genBar = "[" + "█".repeat(genFilled) + "░".repeat(maxBar - genFilled) + "]";
+            
+            const dissFilled = Math.min(maxBar, Math.floor((heatDiss / 30) * maxBar));
+            const dissBar = "[" + "█".repeat(dissFilled) + "░".repeat(maxBar - dissFilled) + "]";
+
+            const heatWarning = heatGen > heatDiss;
+            ctx.fillStyle = heatWarning ? flashAmber : "#ffca42";
+            ctx.font = "bold 12px 'Courier New', monospace";
+            ctx.fillText(`HEAT ${heatWarning ? "[OVERHEAT RISK!]" : "[STABLE]"}`, rightX, hudY + 58);
+            
+            ctx.fillStyle = "#ffb000";
+            ctx.font = "11px 'Courier New', monospace";
+            ctx.fillText(`  Heat Generated: ${genBar} ${heatGen.toFixed(1)}W`, rightX, hudY + 71);
+            
+            let fanStatusNote = "";
+            if (isolatedFanCount > 0) {
+                fanStatusNote = " (Fan detached - must touch computer)";
+            } else if (modules.some(m => m.id === "single_fan" || m.id === "fan_array") && pressurizeCurrent < 0.5) {
+                fanStatusNote = " (Fan inactive in vacuum)";
+            }
+
+            ctx.fillStyle = (isolatedFanCount > 0 || (modules.some(m => m.id.includes("fan")) && pressurizeCurrent < 0.5)) ? flashAmber : "#ffb000";
+            ctx.fillText(`  Heat Dealt With: ${dissBar} ${heatDiss.toFixed(1)}W${fanStatusNote}`, rightX, hudY + 84);
+
+            // Spark particles
+            for (let i = sparkParticles.length - 1; i >= 0; i--) {
+                const sp = sparkParticles[i];
+                sp.x += sp.vx;
+                sp.y += sp.vy;
+                sp.vy += 0.25;
+                sp.life -= 0.03;
+
+                if (sp.life <= 0) {
+                    sparkParticles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.fillStyle = `rgba(255, ${Math.floor(200 * sp.life)}, 0, ${sp.life})`;
+                ctx.beginPath();
+                ctx.arc(sp.x, sp.y, sp.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Interactive Part Selector WASD Modal
+            if (inPartPicker) {
+                const modalW = w * 0.88;
+                const modalH = h * 0.82;
+                const modalX = (w - modalW) / 2;
+                const modalY = (h - modalH) / 2;
+
+                ctx.fillStyle = "rgba(8, 5, 0, 0.95)";
+                ctx.fillRect(modalX, modalY, modalW, modalH);
+                ctx.strokeStyle = "#ffb000";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(modalX, modalY, modalW, modalH);
+
+                ctx.fillStyle = "#ffca42";
+                ctx.font = "bold 14px 'Courier New', monospace";
+                ctx.textAlign = "center";
+                ctx.fillText("=== HARDWARE PARTS CATALOG [WASD TO NAVIGATE] ===", w / 2, modalY + 18);
+
+                let catStartX = modalX + 15;
+                ctx.textAlign = "left";
+                ctx.font = "bold 11px 'Courier New', monospace";
+
+                PART_CATEGORIES.forEach((cat, idx) => {
+                    const isSelected = (idx === selectedPartCatIndex);
+                    if (isSelected) {
+                        ctx.fillStyle = "#ffca42";
+                        ctx.fillText(`► [${cat.catName}] ◄`, catStartX, modalY + 42);
+                        catStartX += ctx.measureText(`► [${cat.catName}] ◄`).width + 10;
+                    } else {
+                        ctx.fillStyle = "rgba(255, 176, 0, 0.5)";
+                        ctx.fillText(`  ${cat.catName}  `, catStartX, modalY + 42);
+                        catStartX += ctx.measureText(`  ${cat.catName}  `).width + 10;
+                    }
+                });
+
+                ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(modalX + 15, modalY + 56);
+                ctx.lineTo(modalX + modalW - 15, modalY + 56);
+                ctx.stroke();
+
+                const currentCat = PART_CATEGORIES[selectedPartCatIndex];
+                const listX = modalX + 25;
+                let listY = modalY + 75;
+
+                ctx.font = "bold 12px 'Courier New', monospace";
+                ctx.fillStyle = "#ffca42";
+                ctx.fillText(`CATEGORY: ${currentCat.catName}`, listX, listY);
+                listY += 20;
+
+                currentCat.parts.forEach((p, idx) => {
+                    const isHovered = (idx === selectedPartItemIndex);
+                    const dimStr = p.mount === "top" ? "TOP MOUNT" : `${p.dimX}x${p.dimY}m`;
+                    if (isHovered) {
+                        ctx.fillStyle = "#ffca42";
+                        ctx.fillText(` ► ${p.name.padEnd(20)} (${dimStr})`, listX, listY);
+                    } else {
+                        ctx.fillStyle = "rgba(255, 176, 0, 0.6)";
+                        ctx.fillText(`   ${p.name.padEnd(20)} (${dimStr})`, listX, listY);
+                    }
+                    listY += 22;
+                });
+
+                const hoveredPart = currentCat.parts[selectedPartItemIndex];
+                const specX = modalX + modalW * 0.48;
+                let specY = modalY + 75;
+
+                ctx.strokeStyle = "rgba(255, 176, 0, 0.3)";
+                ctx.beginPath();
+                ctx.moveTo(specX - 15, modalY + 65);
+                ctx.lineTo(specX - 15, modalY + modalH - 45);
+                ctx.stroke();
+
+                if (hoveredPart) {
+                    ctx.fillStyle = "#ffca42";
+                    ctx.font = "bold 13px 'Courier New', monospace";
+                    ctx.fillText(`SPECIFICATIONS: ${hoveredPart.name.toUpperCase()}`, specX, specY);
+                    specY += 22;
+
+                    ctx.font = "11px 'Courier New', monospace";
+                    ctx.fillStyle = "#ffb000";
+                    ctx.fillText(`  Dimensions (X x Y): ${hoveredPart.dimX} x ${hoveredPart.dimY} m`, specX, specY); specY += 16;
+                    ctx.fillText(`  Footprint Area    : ${(hoveredPart.dimX * hoveredPart.dimY).toFixed(3)} m²`, specX, specY); specY += 16;
+                    ctx.fillText(`  Power Draw        : ${hoveredPart.watts} Watts @ ${hoveredPart.volts} Volts`, specX, specY); specY += 16;
+                    ctx.fillText(`  Battery Capacity  : ${hoveredPart.capAh} Ah`, specX, specY); specY += 16;
+                    ctx.fillText(`  Heat Generation   : ${hoveredPart.heatGen} W`, specX, specY); specY += 16;
+                    ctx.fillText(`  Heat Dissipation  : ${hoveredPart.heatDiss} W`, specX, specY); specY += 22;
+
+                    ctx.fillStyle = "#ffca42";
+                    ctx.fillText(`DESCRIPTION:`, specX, specY); specY += 16;
+                    ctx.fillStyle = "rgba(255, 176, 0, 0.85)";
+                    
+                    const words = hoveredPart.desc.split(" ");
+                    let line = "  ";
+                    words.forEach(w => {
+                        if ((line + w).length > 32) {
+                            ctx.fillText(line, specX, specY);
+                            specY += 15;
+                            line = "  " + w + " ";
+                        } else {
+                            line += w + " ";
+                        }
+                    });
+                    if (line.trim()) ctx.fillText(line, specX, specY);
+                }
+
+                ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
+                ctx.beginPath();
+                ctx.moveTo(modalX + 15, modalY + modalH - 35);
+                ctx.lineTo(modalX + modalW - 15, modalY + modalH - 35);
+                ctx.stroke();
+
+                ctx.fillStyle = "#ffca42";
+                ctx.font = "bold 11px 'Courier New', monospace";
+                ctx.textAlign = "center";
+                ctx.fillText("[A / D] Category | [W / S] Highlight | [E] Install Module | [Q] Exit", w / 2, modalY + modalH - 15);
+            }
+
+            animFrameId = requestAnimationFrame(renderProbeGraphicsLoop);
+        }
+
+        function processCommand(input) {
+            if (isExecutingProgram) return;
+
+            const trimmedInput = input.trim();
+            const lowerInput = trimmedInput.toLowerCase();
+
+            if (currentMode === "NEW_PASS" || currentMode === "LOAD_PASS") {
+                print(`${promptEl.textContent} ********`, "amber");
+            } else {
+                print(`${promptEl.textContent} ${trimmedInput}`, "amber");
+            }
+
+            if (lowerInput === "terminate") {
+                if (animFrameId) cancelAnimationFrame(animFrameId);
+                inRDModule = false;
+                isRDNavActive = false;
+                inVABModule = false;
+                inPayloadDesigner = false;
+                isRenderingCanvas = false;
+                inPartPicker = false;
+                isInspecting = false;
+                canvasContainerEl.style.display = "none";
+                outputEl.style.display = "block";
+                activeVABApp = null;
+                outputEl.innerHTML = "";
+                print("[SYS] ACTIVE PROGRAM TERMINATED.");
+                print("");
+                printLoggedInHelp();
+                updatePrompt();
+                return;
+            }
+
+            if (inPayloadDesigner) {
+                if (isRenderingCanvas) {
+                    if (lowerInput === "add") {
+                        inPartPicker = true;
+                        selectedPartCatIndex = 0;
+                        selectedPartItemIndex = 0;
+                        updatePrompt();
+                        return;
+                    }
+                    if (lowerInput === "pressurize") {
+                        payloadSpecs.isPressurized = true;
+                        print("[SYS] Initialized payload pressurization process (2.0 sec).");
+                        return;
+                    }
+                    if (lowerInput === "depressurize") {
+                        payloadSpecs.isPressurized = false;
+                        print("[SYS] Initialized payload depressurization process (2.0 sec).");
+                        return;
+                    }
+                    if (lowerInput.startsWith("add ")) {
+                        const search = lowerInput.substring(4).trim();
+                        const part = AVAILABLE_PARTS.find(p => p.id === search || p.name.toLowerCase() === search);
+                        if (!part) {
+                            print(`[ERR] Unknown module '${search}'. Type 'add' to open interactive part menu.`);
+                            return;
+                        }
+
+                        const currentArea = payloadSpecs.modules.reduce((a, m) => a + (m.dimX * m.dimY), 0);
+                        const addedArea = part.dimX * part.dimY;
+                        if (currentArea + addedArea > (payloadSpecs.maxArea || 0.25) + 0.0001) {
+                            print(`[ERR] Cannot install '${part.name}' (${addedArea.toFixed(3)} m²). Exceeds footprint limit (${(payloadSpecs.maxArea || 0.25).toFixed(2)} m²).`);
+                            return;
+                        }
+
+                        payloadSpecs.modules.push({ ...part });
+                        print(`[SYS] Installed '${part.name}' into chassis.`);
+
+                        const rect = canvasContainerEl.getBoundingClientRect();
+                        spawnSparks((rect.width || 700) * 0.30, (rect.height || 400) * 0.50);
+                        return;
+                    }
+
+                    if (lowerInput.startsWith("remove ")) {
+                        const search = lowerInput.substring(7).trim();
+                        const idx = payloadSpecs.modules.findIndex(m => m.id === search || m.name.toLowerCase() === search);
+                        if (idx >= 0) {
+                            const removed = payloadSpecs.modules.splice(idx, 1)[0];
+                            print(`[SYS] Removed '${removed.name}' from chassis.`);
+                        } else {
+                            print(`[ERR] Module '${search}' not found inside current payload.`);
+                        }
+                        return;
+                    }
+
+                    if (lowerInput === "save") {
+                        if (!GameState.data.savedPayloads) GameState.data.savedPayloads = [];
+                        const existingIdx = GameState.data.savedPayloads.findIndex(p => p.name.toLowerCase() === payloadSpecs.name.toLowerCase());
+                        if (existingIdx >= 0) {
+                            GameState.data.savedPayloads[existingIdx] = JSON.parse(JSON.stringify(payloadSpecs));
+                        } else {
+                            GameState.data.savedPayloads.push(JSON.parse(JSON.stringify(payloadSpecs)));
+                        }
+                        localStorage.setItem(`orbital_save_${GameState.activeSlot}`, JSON.stringify(GameState.data));
+                        renderPayloadListScreen();
+                        print(`[SYS] Payload design '${payloadSpecs.name}' successfully saved to memory.`);
+                        return;
+                    }
+
+                    if (lowerInput === "back") {
+                        renderPayloadDesignerCriteria();
+                        return;
+                    }
+
+                    print("[SYS] Canvas Commands: 'add' (Parts Menu), 'remove [item]', 'pressurize', 'depressurize', 'save', 'back', 'terminate'.");
+                    return;
+                }
+
+                if (payloadSubMode === "LIST") {
+                    if (lowerInput === "back") {
+                        inPayloadDesigner = false;
+                        activeVABApp = null;
+                        renderVABMenu();
+                        return;
+                    }
+                    if (lowerInput === "new") {
+                        payloadSubMode = "CRITERIA";
+                        payloadStep = "NAME";
+                        payloadSpecs = {
+                            name: "",
+                            maxArea: 0.25,
+                            sideX: 0.50,
+                            sideY: 0.50,
+                            shape: "Cubic",
+                            purpose: "Payload",
+                            isPressurized: false,
+                            modules: []
+                        };
+                        renderPayloadDesignerCriteria();
+                        return;
+                    }
+
+                    const selIdx = parseInt(lowerInput, 10);
+                    if (!isNaN(selIdx) && GameState.data.savedPayloads && selIdx >= 1 && selIdx <= GameState.data.savedPayloads.length) {
+                        payloadSpecs = JSON.parse(JSON.stringify(GameState.data.savedPayloads[selIdx - 1]));
+                        if (!payloadSpecs.modules) payloadSpecs.modules = [];
+                        payloadSubMode = "CRITERIA";
+                        payloadStep = "CONFIRM";
+                        renderPayloadDesignerCriteria();
+                        print(`[SYS] Loaded saved payload design '${payloadSpecs.name}'.`);
+                        return;
+                    }
+
+                    if (lowerInput.startsWith("load ")) {
+                        const targetName = trimmedInput.substring(5).trim();
+                        const foundPayload = GameState.data.savedPayloads ? GameState.data.savedPayloads.find(p => p.name.toLowerCase() === targetName.toLowerCase()) : null;
+                        if (foundPayload) {
+                            payloadSpecs = JSON.parse(JSON.stringify(foundPayload));
+                            if (!payloadSpecs.modules) payloadSpecs.modules = [];
+                            payloadSubMode = "CRITERIA";
+                            payloadStep = "CONFIRM";
+                            renderPayloadDesignerCriteria();
+                            print(`[SYS] Loaded saved payload design '${payloadSpecs.name}'.`);
+                            return;
+                        } else {
+                            print(`[ERR] Payload '${targetName}' not found in registry.`);
+                            return;
+                        }
+                    }
+
+                    if (lowerInput.startsWith("delete")) {
+                        const targetName = trimmedInput.substring(6).trim();
+                        if (!targetName) {
+                            print("[SYS] Usage: delete [payload name]");
+                            return;
+                        }
+                        const exists = GameState.data.savedPayloads && GameState.data.savedPayloads.some(p => p.name.toLowerCase() === targetName.toLowerCase());
+                        if (!exists) {
+                            print(`[ERR] Payload '${targetName}' not found in registry.`);
+                            return;
+                        }
+                        payloadDeleteTarget = targetName;
+                        payloadSubMode = "DELETE_CONFIRM";
+                        print(`[WARN] Confirm deletion of payload '${targetName}'? (type 'yes' or 'no')`, "title");
+                        updatePrompt();
+                        return;
+                    }
+                    print("[SYS] Options: 'new', [1-N] / 'load [name]', 'delete [name]', 'back', or 'terminate'.");
+                    return;
+                }
+
+                if (payloadSubMode === "DELETE_CONFIRM") {
+                    if (lowerInput === "yes" || lowerInput === "y") {
+                        GameState.data.savedPayloads = GameState.data.savedPayloads.filter(p => p.name.toLowerCase() !== payloadDeleteTarget.toLowerCase());
+                        localStorage.setItem(`orbital_save_${GameState.activeSlot}`, JSON.stringify(GameState.data));
+                        const removed = payloadDeleteTarget;
+                        payloadDeleteTarget = "";
+                        renderPayloadListScreen();
+                        print(`[SYS] Payload design '${removed}' deleted.`);
+                        return;
+                    }
+                    if (lowerInput === "no" || lowerInput === "n" || lowerInput === "back") {
+                        payloadDeleteTarget = "";
+                        renderPayloadListScreen();
+                        print("[SYS] Deletion canceled.");
+                        return;
+                    }
+                    print("[SYS] Confirm deletion of payload? Type 'yes' or 'no'.");
+                    return;
+                }
+
+                if (payloadSubMode === "CRITERIA") {
+                    if (lowerInput === "back") {
+                        renderPayloadListScreen();
+                        return;
+                    }
+
+                    if (payloadStep === "NAME") {
+                        if (!trimmedInput) {
+                            print("[SYS] Please enter a valid payload name.");
+                            return;
+                        }
+                        payloadSpecs.name = trimmedInput;
+                        payloadStep = "SIZE";
+                        renderPayloadDesignerCriteria();
+                        return;
+                    }
+
+                    if (payloadStep === "SIZE") {
+                        if (lowerInput === "1") {
+                            payloadSpecs.sideX = 0.50; payloadSpecs.sideY = 0.50; payloadSpecs.maxArea = 0.25;
+                        } else if (lowerInput === "2") {
+                            payloadSpecs.sideX = 0.50; payloadSpecs.sideY = 1.00; payloadSpecs.maxArea = 0.50;
+                        } else if (lowerInput === "3") {
+                            payloadSpecs.sideX = 1.00; payloadSpecs.sideY = 1.00; payloadSpecs.maxArea = 1.00;
+                        } else {
+                            print("[SYS] Select size option 1, 2, or 3.");
+                            return;
+                        }
+                        payloadStep = "SHAPE";
+                        renderPayloadDesignerCriteria();
+                        return;
+                    }
+
+                    if (payloadStep === "SHAPE") {
+                        if (lowerInput === "1") payloadSpecs.shape = "Cubic";
+                        else if (lowerInput === "2") payloadSpecs.shape = "Spherical";
+                        else {
+                            print("[SYS] Select shape option 1 or 2.");
+                            return;
+                        }
+                        payloadStep = "PURPOSE";
+                        renderPayloadDesignerCriteria();
+                        return;
+                    }
+
+                    if (payloadStep === "PURPOSE") {
+                        if (lowerInput === "1") payloadSpecs.purpose = "Payload";
+                        else {
+                            print("[SYS] Select purpose option 1.");
+                            return;
+                        }
+                        payloadStep = "CONFIRM";
+                        renderPayloadDesignerCriteria();
+                        return;
+                    }
+
+                    if (payloadStep === "CONFIRM") {
+                        if (lowerInput === "start") {
+                            outputEl.style.display = "none";
+                            canvasContainerEl.style.display = "flex";
+                            isRenderingCanvas = true;
+                            lastFrameTime = performance.now();
+                            updatePrompt();
+                            renderProbeGraphicsLoop();
+                            return;
+                        }
+                        print("[SYS] Type 'start' to initialize chassis canvas, or 'back' to return.");
+                        return;
+                    }
+                }
+            }
+
+            if (inRDModule) {
+                if (lowerInput === "move") {
+                    isRDNavActive = true;
+                    updatePrompt();
+                    print("[SYS] WASD Navigation Unlocked. Use WASD keys to browse tree, 'E' to select/inspect, 'Q' to return to typing.");
+                    return;
+                }
+
+                if (isRDNavActive) {
+                    if (lowerInput === "q") {
+                        isRDNavActive = false;
+                        updatePrompt();
+                        print("[SYS] Exited WASD navigation mode. Type 'move' to enter again.");
+                        return;
+                    }
+                }
+
+                if (isInspecting) {
+                    if (lowerInput === "q" || lowerInput === "back") {
+                        renderRDLibrary();
+                        return;
+                    }
+                }
+
+                print(`[SYS] R&D Command: Type 'move' to activate tree navigation, or 'terminate' to exit.`);
+                return;
+            }
+
+            if (inVABModule) {
+                if (activeVABApp) {
+                    if (lowerInput === "back") {
+                        activeVABApp = null;
+                        renderVABMenu();
+                        return;
+                    }
+                    const v = GameState.data.vessel;
+                    if (lowerInput === "1") {
+                        v.fuelRatio = (v.fuelRatio + 10) > 100 ? 10 : v.fuelRatio + 10;
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    if (lowerInput === "2") {
+                        v.gimbal = (v.gimbal + 20) > 100 ? 20 : v.gimbal + 20;
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    if (lowerInput === "3") {
+                        v.finArea = (v.finArea + 2) > 20 ? 2 : v.finArea + 2;
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    if (lowerInput === "4") {
+                        v.sepDelay = (v.sepDelay >= 3.0) ? 0.5 : parseFloat((v.sepDelay + 0.5).toFixed(1));
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    print("[SYS] Type '1'-'4' to adjust, 'back' for menu, or 'terminate'.");
+                    return;
+                } else {
+                    const option = parseInt(lowerInput, 10);
+                    if (!isNaN(option) && option >= 1 && option <= vabApplications.length) {
+                        activeVABApp = vabApplications[option - 1];
+                        if (activeVABApp.id === "payload") {
+                            inPayloadDesigner = true;
+                            renderPayloadListScreen();
+                            return;
+                        }
+                        renderVABAppStudio(activeVABApp);
+                        return;
+                    }
+                    print("[SYS] Enter an application number (1-7), or type 'terminate'.");
+                    return;
+                }
+            }
+
+            if (currentMode === "NEW_NAME") {
+                if (!trimmedInput) return;
+                tempName = trimmedInput;
+                currentMode = "NEW_PASS";
+                inputEl.type = "password";
+                updatePrompt();
+                return;
+            }
+
+            if (currentMode === "NEW_PASS") {
+                if (!trimmedInput) return;
+                const password = trimmedInput;
+                inputEl.type = "text";
+
+                const slotName = tempName.toLowerCase().replace(/\s+/g, '_');
+                GameState.activeSlot = slotName;
+                GameState.data.saveName = slotName;
+                GameState.data.user.name = tempName;
+                GameState.data.user.password = password;
+                GameState.data.timestamp = new Date().toISOString();
+                if (!GameState.data.savedPayloads) GameState.data.savedPayloads = [];
+
+                localStorage.setItem(`orbital_save_${slotName}`, JSON.stringify(GameState.data));
+
+                outputEl.innerHTML = "";
+                currentMode = "LOGGED_IN";
+                updatePrompt();
+                print(`[SYS] User profile '${tempName}' created.`);
+                print(`[SYS] Profile ID: [${slotName}]`);
+                print("");
+                printProgramTree();
+                printLoggedInHelp();
+                return;
+            }
+
+            if (currentMode === "LOAD_SELECT") {
+                if (!trimmedInput) return;
+                const targetSlot = trimmedInput.toLowerCase().replace(/\s+/g, '_');
+
+                if (lowerInput === "cancel") {
+                    currentMode = "MAIN_MENU";
+                    updatePrompt();
+                    printMainMenuHelp();
+                    return;
+                }
+
+                const rawData = localStorage.getItem(`orbital_save_${targetSlot}`);
+                if (!rawData) {
+                    print(`[ERR] Save file '${trimmedInput}' not found.`);
+                    return;
+                }
+
+                pendingLoadSlot = targetSlot;
+                currentMode = "LOAD_PASS";
+                inputEl.type = "password";
+                updatePrompt();
+                return;
+            }
+
+            if (currentMode === "LOAD_PASS") {
+                if (!trimmedInput) return;
+                inputEl.type = "text";
+                const rawData = localStorage.getItem(`orbital_save_${pendingLoadSlot}`);
+                const parsedData = JSON.parse(rawData);
+
+                if (parsedData.user.password === trimmedInput) {
+                    GameState.data = parsedData;
+                    if (!GameState.data.savedPayloads) GameState.data.savedPayloads = [];
+                    GameState.activeSlot = pendingLoadSlot;
+                    pendingLoadSlot = "";
+                    currentMode = "LOGGED_IN";
+                    
+                    outputEl.innerHTML = "";
+                    updatePrompt();
+                    
+                    print(`[SYS] Access granted for user '${GameState.data.user.name}'.`);
+                    print("");
+                    printProgramTree();
+                    printLoggedInHelp();
+                } else {
+                    print("[ERR] Access denied. Invalid password.");
+                    currentMode = "MAIN_MENU";
+                    pendingLoadSlot = "";
+                    updatePrompt();
+                    printMainMenuHelp();
+                }
+                return;
+            }
+
+            const parts = lowerInput.split(" ");
+            const cmd = parts[0];
+            const subCmd = parts[1] || "";
+
+            if (currentMode === "LOGGED_IN") {
+                if ((cmd === "run" && subCmd === "r&d") || cmd === "r&d") {
+                    runModuleBootSequence("RD", () => {
+                        inRDModule = true;
+                        isRDNavActive = false;
+                        renderRDLibrary();
+                    });
+                    return;
+                }
+
+                if ((cmd === "run" && subCmd === "vab") || cmd === "vab") {
+                    runModuleBootSequence("VAB", () => {
+                        inVABModule = true;
+                        renderVABMenu();
+                    });
+                    return;
+                }
+
+                switch (cmd) {
+                    case "help":
+                        printLoggedInHelp();
+                        break;
+
+                    case "programs":
+                    case "dir":
+                        printProgramTree();
+                        break;
+
+                    case "status":
+                        print(`User: ${GameState.data.user.name}`);
+                        print(`Vessel: ${GameState.data.vessel.name}`);
+                        print(`Mass: ${GameState.data.vessel.mass_kg} kg`);
+                        print(`Saved Payloads: ${GameState.data.savedPayloads ? GameState.data.savedPayloads.length : 0}`);
+                        break;
+
+                    case "save":
+                        GameState.data.timestamp = new Date().toISOString();
+                        localStorage.setItem(`orbital_save_${GameState.activeSlot}`, JSON.stringify(GameState.data));
+                        print(`[SYS] Data written to slot '${GameState.activeSlot}'.`);
+                        break;
+
+                    case "logout":
+                        GameState.activeSlot = "default_save";
+                        bootTerminal();
+                        break;
+
+                    case "clear":
+                        outputEl.innerHTML = "";
+                        break;
+
+                    default:
+                        print(`Unknown command: '${cmd}'. Type 'help', 'run r&d', or 'run vab'.`);
+                        break;
+                }
+                return;
+            }
+
+            if (currentMode === "MAIN_MENU") {
+                switch (cmd) {
+                    case "help":
+                        printMainMenuHelp();
+                        break;
+
+                    case "new":
+                        currentMode = "NEW_NAME";
+                        updatePrompt();
+                        break;
+
+                    case "saves":
+                        print("[SYS] Reading save records...");
+                        const saveFiles = getSaveList();
+                        if (saveFiles.length === 0) {
+                            print("  No save files found.");
+                        } else {
+                            saveFiles.forEach(slot => print(`  - ${slot}`));
+                        }
+                        break;
+
+                    case "load":
+                        const loadSaves = getSaveList();
+                        if (loadSaves.length === 0) {
+                            print("[ERR] No save files present in memory.");
+                            return;
+                        }
+
+                        print("[SYS] Available Save Files:");
+                        loadSaves.forEach(slot => print(`  - ${slot}`));
+                        print("");
+                        currentMode = "LOAD_SELECT";
+                        updatePrompt();
+                        break;
+
+                    case "clear":
+                        outputEl.innerHTML = "";
+                        break;
+
+                    default:
+                        print(`Unknown command: '${cmd}'.`);
+                        break;
+                }
+            }
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (isExecutingProgram) return;
+
+            if (inPayloadDesigner && isRenderingCanvas && inPartPicker) {
+                const k = e.key.toUpperCase();
+                if (["W", "A", "S", "D", "E", "Q"].includes(k)) {
+                    e.preventDefault();
+                }
+
+                if (k === "A") {
+                    selectedPartCatIndex = (selectedPartCatIndex - 1 + PART_CATEGORIES.length) % PART_CATEGORIES.length;
+                    selectedPartItemIndex = 0;
+                } else if (k === "D") {
+                    selectedPartCatIndex = (selectedPartCatIndex + 1) % PART_CATEGORIES.length;
+                    selectedPartItemIndex = 0;
+                } else if (k === "W") {
+                    const catLen = PART_CATEGORIES[selectedPartCatIndex].parts.length;
+                    selectedPartItemIndex = (selectedPartItemIndex - 1 + catLen) % catLen;
+                } else if (k === "S") {
+                    const catLen = PART_CATEGORIES[selectedPartCatIndex].parts.length;
+                    selectedPartItemIndex = (selectedPartItemIndex + 1) % catLen;
+                } else if (k === "E") {
+                    const activeCat = PART_CATEGORIES[selectedPartCatIndex];
+                    const part = activeCat.parts[selectedPartItemIndex];
+                    const currentArea = payloadSpecs.modules.reduce((a, m) => a + (m.dimX * m.dimY), 0);
+                    const addedArea = part.dimX * part.dimY;
+
+                    if (currentArea + addedArea > (payloadSpecs.maxArea || 0.25) + 0.0001) {
+                        print(`[ERR] Cannot install '${part.name}' (${addedArea.toFixed(3)} m²). Exceeds footprint limit (${(payloadSpecs.maxArea || 0.25).toFixed(2)} m²).`);
                     } else {
                         payloadSpecs.modules.push({ ...part });
                         print(`[SYS] Installed '${part.name}' into chassis.`);
