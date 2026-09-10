@@ -233,37 +233,31 @@
             {
                 catName: "ELECTRONICS",
                 parts: [
-                    { id: "computer", name: "Computer", ivu: 0.25, watts: 4, volts: 12, heatGen: 8, heatDiss: 0, capAh: 0, desc: "Central computer processing relay unit." },
-                    { id: "fan", name: "Computer Fan", ivu: 0.10, watts: 1.5, volts: 12, heatGen: 0, heatDiss: 10, capAh: 0, desc: "Active cooling fan for internal thermal convection. Requires pressure." },
-                    { id: "small_fan", name: "Small Computer Fan", ivu: 0.05, watts: 0.75, volts: 12, heatGen: 0, heatDiss: 5, capAh: 0, desc: "Compact active cooling fan. Requires atmospheric pressure." }
+                    { id: "analog_computer", name: "Analog Computer", dimX: 0.45, dimY: 0.10, watts: 10, volts: 12, heatGen: 10, heatDiss: 0, capAh: 0, desc: "Analog computing logic system. Generates 10W heat." },
+                    { id: "single_fan", name: "Single Fan", dimX: 0.05, dimY: 0.10, watts: 1.0, volts: 12, heatGen: 0, heatDiss: 10, capAh: 0, desc: "Compact cooling fan. Cools 10W heat. Must touch a computer directly and requires atmospheric pressure." },
+                    { id: "fan_array", name: "Fan Array", dimX: 0.05, dimY: 0.30, watts: 3.0, volts: 12, heatGen: 0, heatDiss: 30, capAh: 0, desc: "Triple active cooling array. Cools 30W heat. Must touch a computer directly and requires atmospheric pressure." }
                 ]
             },
             {
                 catName: "POWER",
                 parts: [
-                    { id: "small_battery", name: "Small Battery", ivu: 0.15, watts: 0, volts: 12, heatGen: 0, heatDiss: 0, capAh: 2.5, desc: "Compact chemical power storage cell." },
-                    { id: "battery", name: "Battery", ivu: 0.50, watts: 0, volts: 12, heatGen: 0, heatDiss: 0, capAh: 10.0, desc: "Standard high-density battery cell." }
+                    { id: "small_battery_nicd", name: "Small battery Ni/Cd", dimX: 0.15, dimY: 0.40, watts: 0, volts: 12, heatGen: 0, heatDiss: 0, capAh: 2.5, desc: "Compact Nickel-Cadmium energy storage cell." },
+                    { id: "battery_nicd", name: "Battery Ni/Cd", dimX: 0.50, dimY: 0.20, watts: 0, volts: 12, heatGen: 0, heatDiss: 0, capAh: 10.0, desc: "High-density Nickel-Cadmium battery module." }
                 ]
             },
             {
                 catName: "SENSORS",
                 parts: [
-                    { id: "thermometer", name: "Thermometer", ivu: 0.05, watts: 0.2, volts: 5, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "Ambient temperature sensor telemetry unit." },
-                    { id: "barometer", name: "Barometer", ivu: 0.05, watts: 0.2, volts: 5, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "Atmospheric pressure gauge telemetry unit." },
-                    { id: "geiger", name: "Geiger Counter", ivu: 0.10, watts: 0.5, volts: 12, heatGen: 1.0, heatDiss: 0, capAh: 0, desc: "Ionizing radiation level detector." }
+                    { id: "thermometer", name: "Thermometer", dimX: 0.05, dimY: 0.10, watts: 0.2, volts: 5, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "Ambient temperature sensor telemetry unit." },
+                    { id: "barometer", name: "Barometer", dimX: 0.05, dimY: 0.10, watts: 0.2, volts: 5, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "Atmospheric pressure gauge telemetry unit." },
+                    { id: "geiger", name: "Geiger Counter", dimX: 0.25, dimY: 0.10, watts: 0.5, volts: 12, heatGen: 1.0, heatDiss: 0, capAh: 0, desc: "Ionizing radiation level detector." }
                 ]
             },
             {
                 catName: "COMMS",
                 parts: [
-                    { id: "dipole", name: "Dipole Antenna", ivu: 0.05, watts: 0.5, volts: 5, heatGen: 0.2, heatDiss: 0, capAh: 0, desc: "Omnidirectional whip antenna mounted to external top frame.", mount: "top" },
-                    { id: "helical", name: "Helical Antenna", ivu: 0.10, watts: 1.0, volts: 12, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "High-gain directional helical antenna mounted to external top frame.", mount: "top" }
-                ]
-            },
-            {
-                catName: "PAYLOAD / BIO",
-                parts: [
-                    { id: "amphibian", name: "Amphibian", ivu: 1.00, watts: 2.0, volts: 12, heatGen: 3.0, heatDiss: 0, capAh: 0, desc: "Pressurized habitat module for biological specimen." }
+                    { id: "dipole", name: "Dipole Antenna", dimX: 0, dimY: 0, watts: 0.5, volts: 5, heatGen: 0.2, heatDiss: 0, capAh: 0, desc: "Large dual-branching top antenna. Excellent broad transmission/reception.", mount: "top" },
+                    { id: "helical", name: "Helical Antenna", dimX: 0, dimY: 0, watts: 1.0, volts: 12, heatGen: 0.5, heatDiss: 0, capAh: 0, desc: "Large directional coil antenna with central axial feed line mounted to top shell.", mount: "top" }
                 ]
             }
         ];
@@ -306,7 +300,7 @@
         let payloadStep = "NAME";
         let payloadSpecs = {
             name: "",
-            sizeIVU: 0.5,
+            maxArea: 0.50,
             shape: "Cubic",
             purpose: "Payload",
             isPressurized: false,
@@ -338,30 +332,15 @@
                 tier: 0,
                 tierName: "TIER 0: FOUNDATION TECH",
                 categories: [
-                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny volume (0.5 - 2 IVU). Used for sub-orbital vertical hops to test instruments in vacuum." },
-                    { cat: "Computers", name: "Mechanical / Manual Relays", desc: "Computers are mechanical and slow, operating purely via radio command execution." },
+                    { cat: "Probes", name: "Sounding Rocket Payloads", desc: "Tiny 2D footprint payloads (0.25 - 1.0 m² area). Used for sub-orbital vertical hops." },
+                    { cat: "Computers", name: "Mechanical / Analog Relays", desc: "Computers are analog and slow, operating purely via direct electronic relay execution." },
                     { cat: "Lifting Bodies", name: "Unpressurized Sounding Rockets", desc: "Solid/liquid rockets for potential energy testing." },
                     { cat: "Fuels", name: "Kerosene & Solid Propellants", desc: "Volatile mixtures with higher failure risks." },
                     { cat: "RCS", name: "Cold Gas Thrusters", desc: "Pressurized Nitrogen systems for simple attitude holds." },
-                    { cat: "Power", name: "Primary Silver-Zinc Batteries", desc: "Non-rechargeable energy cells." },
-                    { cat: "Heat", name: "Passive Conduction Fins", desc: "Basic structural cooling surfaces." },
-                    { cat: "Comms", name: "Omnidirectional Whips", desc: "360-degree broad-spectrum radio emissions." },
+                    { cat: "Power", name: "Primary Silver-Zinc & Ni/Cd Batteries", desc: "Rechargeable and primary energy cells." },
+                    { cat: "Heat", name: "Convection Fans & Fins", desc: "Active cooling units requiring pressure contact." },
+                    { cat: "Comms", name: "Dipole & Helical Antennas", desc: "Large directional and omnidirectional top-mounted antenna arrays." },
                     { cat: "Science", name: "Basic Sounding Suite", desc: "Thermometers, Barometers, and Geiger counters." }
-                ]
-            },
-            {
-                tier: 1,
-                tierName: "TIER 1: FIRST STEPS",
-                categories: [
-                    { cat: "Probes", name: "Impactors & Early Satellites", desc: "Short-lived orbital probes and lunar impact capsules." },
-                    { cat: "Computers", name: "Analog Guidance Computers", desc: "Basic analog calculation relays for trajectory correction." },
-                    { cat: "Lifting Bodies", name: "ICBM-derived Launchers", desc: "Unpressurized ballistic launch systems for low orbit entry." },
-                    { cat: "Fuels", name: "Refined RP-1 / LOX", desc: "Higher efficiency, safer chemical propellant mixtures." },
-                    { cat: "RCS", name: "Hydrogen Peroxide Monopropellant", desc: "Catalytic thrust systems for fine directional control." },
-                    { cat: "Power", name: "Basic Solar Panels", desc: "First-generation photovoltaic power generation." },
-                    { cat: "Heat", name: "Multi-Layer Insulation (MLI)", desc: "Gold/Silver skin wraps for vacuum radiation shielding." },
-                    { cat: "Comms", name: "Yagi-Uda Directional Antennas", desc: "Point-to-point focused radio communication dishes." },
-                    { cat: "Science", name: "Deployable Boom Magnetometers", desc: "Extended sensors for cleaner planetary magnetic field mapping." }
                 ]
             }
         ];
@@ -761,8 +740,9 @@
             } else {
                 GameState.data.savedPayloads.forEach((p, i) => {
                     const modCount = p.modules ? p.modules.length : 0;
-                    const usedIVU = p.modules ? p.modules.reduce((a, m) => a + m.ivu, 0).toFixed(2) : "0.00";
-                    print(`  [${i + 1}] ${p.name.padEnd(18)} | Size: ${p.sizeIVU} IVU | Used: ${usedIVU} IVU | Modules: ${modCount} | Shape: ${p.shape}`);
+                    const usedArea = p.modules ? p.modules.reduce((a, m) => a + (m.dimX * m.dimY), 0).toFixed(3) : "0.000";
+                    const maxArea = p.maxArea || 0.50;
+                    print(`  [${i + 1}] ${p.name.padEnd(18)} | Max Area: ${maxArea.toFixed(2)} m² | Used: ${usedArea} m² | Parts: ${modCount} | Shape: ${p.shape}`);
                 });
             }
 
@@ -790,7 +770,7 @@
             print("STUDIO TOOLKIT: PAYLOAD / PROBE DESIGNER (SPECIFICATION)", "title");
             print("================================================================================", "title");
             print(`Name    : ${payloadSpecs.name !== "" ? payloadSpecs.name : "(enter payload name)"}`);
-            print(`Size    : ${payloadSpecs.sizeIVU !== null ? payloadSpecs.sizeIVU + " IVU (m³)" : "(current IVU limits)"}`);
+            print(`Footprint Area Limit: ${payloadSpecs.maxArea !== null ? payloadSpecs.maxArea.toFixed(2) + " m²" : "(current area limit)"}`);
             print(`Shape   : ${payloadSpecs.shape !== null ? payloadSpecs.shape : "(select shape criteria)"}`);
             print(`Purpose : ${payloadSpecs.purpose !== null ? payloadSpecs.purpose : "(select operational purpose)"}`);
             print("================================================================================", "title");
@@ -800,10 +780,10 @@
                 print("ENTER PAYLOAD NAME:", "title");
                 print("  Type a unique identifier name for this probe design.");
             } else if (payloadStep === "SIZE") {
-                print("SELECT SIZE (IVU LIMITS):", "title");
-                print("  [1] 0.5 IVU (Sounding Micro-Probe)");
-                print("  [2] 1.0 IVU (Standard CubeSat Core)");
-                print("  [3] 2.0 IVU (Heavy Sounding Payload)");
+                print("SELECT CHASSIS FOOTPRINT AREA LIMIT:", "title");
+                print("  [1] 0.25 m² (Micro Sounding Probe Chassis)");
+                print("  [2] 0.50 m² (Standard Sounding Core)");
+                print("  [3] 1.00 m² (Expanded Payload Chassis)");
             } else if (payloadStep === "SHAPE") {
                 print("SELECT SHAPE:", "title");
                 print("  [1] Cubic");
@@ -831,12 +811,77 @@
             }
         }
 
+        // Calculates 2D shelf-layout positions for internal parts
+        function compute2DLayout(modules) {
+            let curX = 0;
+            let curY = 0;
+            let rowH = 0;
+
+            return modules.map(mod => {
+                if (mod.mount === "top") {
+                    return { ...mod, posX: 0, posY: 0, relW: 0, relH: 0 };
+                }
+
+                let pw = mod.dimX;
+                let ph = mod.dimY;
+
+                if (curX + pw > 1.001) {
+                    curX = 0;
+                    curY += rowH;
+                    rowH = 0;
+                }
+
+                const item = {
+                    ...mod,
+                    posX: curX,
+                    posY: curY,
+                    relW: pw,
+                    relH: ph
+                };
+
+                curX += pw;
+                if (ph > rowH) rowH = ph;
+
+                return item;
+            });
+        }
+
+        // Checks if a fan unit is touching any computer in 2D space directly
+        function isFanTouchingComputer(fanItem, placedModules) {
+            const computers = placedModules.filter(m => m.id === "analog_computer");
+            if (computers.length === 0) return false;
+
+            const fX1 = fanItem.posX;
+            const fY1 = fanItem.posY;
+            const fX2 = fanItem.posX + fanItem.relW;
+            const fY2 = fanItem.posY + fanItem.relH;
+
+            const eps = 0.02; // Small tolerance threshold for 2D edge contact
+
+            for (let c of computers) {
+                const cX1 = c.posX;
+                const cY1 = c.posY;
+                const cX2 = c.posX + c.relW;
+                const cY2 = c.posY + c.relH;
+
+                const touchX = (fX1 <= cX2 + eps) && (fX2 >= cX1 - eps);
+                const touchY = (fY1 <= cY2 + eps) && (fY2 >= cY1 - eps);
+
+                if (touchX && touchY) return true;
+            }
+
+            return false;
+        }
+
         function renderProbeGraphicsLoop() {
             if (!isRenderingCanvas) return;
 
             const now = performance.now();
             const dt = (now - lastFrameTime) / 1000;
             lastFrameTime = now;
+
+            const flashVal = 0.5 + 0.5 * Math.sin(now * 0.008); // Uniform amber flashing alpha
+            const flashAmber = `rgba(255, 202, 66, ${0.35 + 0.65 * flashVal})`;
 
             const rect = canvasContainerEl.getBoundingClientRect();
             probeCanvas.width = rect.width || 700;
@@ -849,18 +894,18 @@
             ctx.fillStyle = "#050300";
             ctx.fillRect(0, 0, w, h);
 
-            // Left side positioning (2.2x scale)
+            // Probe placement layout
             const probeCenterX = w * 0.30;
-            const probeCenterY = h * 0.50;
+            const probeCenterY = h * 0.52;
 
-            const scaleFactor = Math.sqrt(payloadSpecs.sizeIVU || 0.5);
-            const baseW = Math.min(w * 0.52, 484 * scaleFactor);
+            const scaleFactor = Math.sqrt(payloadSpecs.maxArea || 0.50);
+            const baseW = Math.min(w * 0.52, 380 * scaleFactor);
             const baseH = baseW;
 
             const left = probeCenterX - (baseW / 2);
             const top = probeCenterY - (baseH / 2);
 
-            // Calculate Pressurization Fill/Empty over 2 seconds
+            // Calculate Pressurization status
             const pressTarget = payloadSpecs.isPressurized ? 1.0 : 0.0;
             if (pressurizeCurrent < pressTarget) {
                 pressurizeCurrent = Math.min(pressTarget, pressurizeCurrent + dt / 2.0);
@@ -868,9 +913,11 @@
                 pressurizeCurrent = Math.max(pressTarget, pressurizeCurrent - dt / 2.0);
             }
 
-            // Top-mounted antenna rendering (Comms parts mounted on probe top)
             const modules = payloadSpecs.modules || [];
-            const topAntennas = modules.filter(m => m.mount === "top");
+            const placedModules = compute2DLayout(modules);
+
+            // Top-mounted antennas
+            const topAntennas = placedModules.filter(m => m.mount === "top");
 
             if (topAntennas.length > 0) {
                 const antennaSpacing = baseW / (topAntennas.length + 1);
@@ -879,31 +926,63 @@
                     const antStartY = payloadSpecs.shape === "Spherical" ? probeCenterY - Math.sqrt(Math.max(0, (baseW / 2) ** 2 - (antX - probeCenterX) ** 2)) : top;
                     
                     ctx.strokeStyle = "#ffca42";
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
+                    ctx.fillStyle = "#ffca42";
+                    ctx.lineWidth = 2.5;
 
                     if (ant.id === "dipole") {
-                        // Dipole Antenna line with T-bar
-                        ctx.moveTo(antX, antStartY);
-                        ctx.lineTo(antX, antStartY - 40);
-                        ctx.moveTo(antX - 12, antStartY - 40);
-                        ctx.lineTo(antX + 12, antStartY - 40);
+                        // Large dual-branching top Dipole Antenna
+                        ctx.beginPath();
+                        ctx.fillRect(antX - 8, antStartY - 4, 16, 5); // Antenna mount block
+                        ctx.moveTo(antX, antStartY - 4);
+                        ctx.lineTo(antX, antStartY - 20); // Central stem
+
+                        // Two big branching antennas
+                        ctx.lineTo(antX - 35, antStartY - 70); // Left branch
+                        ctx.moveTo(antX, antStartY - 20);
+                        ctx.lineTo(antX + 35, antStartY - 70); // Right branch
                         ctx.stroke();
+
+                        // Branching end tip caps
+                        ctx.beginPath();
+                        ctx.arc(antX - 35, antStartY - 70, 3, 0, Math.PI * 2);
+                        ctx.arc(antX + 35, antStartY - 70, 3, 0, Math.PI * 2);
+                        ctx.fill();
+
                     } else if (ant.id === "helical") {
-                        // Helical Antenna coil
-                        ctx.moveTo(antX, antStartY);
-                        let curY = antStartY;
-                        for (let c = 0; c < 5; c++) {
-                            const offset = (c % 2 === 0) ? 8 : -8;
-                            curY -= 8;
+                        // Large Helical Antenna with central axial line and top connector
+                        ctx.beginPath();
+                        ctx.fillRect(antX - 10, antStartY - 4, 20, 5); // Antenna mount block
+                        
+                        // Central line going through coil
+                        const coilHeight = 75;
+                        const topY = antStartY - coilHeight;
+                        ctx.moveTo(antX, antStartY - 4);
+                        ctx.lineTo(antX, topY);
+                        ctx.stroke();
+
+                        // Winding coil loops
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(antX, antStartY - 4);
+                        const turns = 6;
+                        for (let c = 0; c <= turns; c++) {
+                            const curY = antStartY - 4 - (c * (coilHeight / turns));
+                            const offset = (c % 2 === 0) ? 14 : -14;
                             ctx.lineTo(antX + offset, curY);
                         }
+                        ctx.stroke();
+
+                        // Connect coil top to central line at top with a straight line
+                        const lastOffset = (turns % 2 === 0) ? 14 : -14;
+                        ctx.beginPath();
+                        ctx.moveTo(antX + lastOffset, topY);
+                        ctx.lineTo(antX, topY); // Straight connecting horizontal line
                         ctx.stroke();
                     }
                 });
             }
 
-            // Set up shape clipping path
+            // Internal Bounds Clipping
             ctx.save();
             ctx.beginPath();
             if (payloadSpecs.shape === "Spherical") {
@@ -913,20 +992,16 @@
             }
             ctx.clip();
 
-            // Lighter Amber Hue Pressurization Effect
+            // Amber Pressurization Hue Background
             if (pressurizeCurrent > 0.001) {
-                ctx.fillStyle = `rgba(255, 200, 80, ${0.30 * pressurizeCurrent})`;
+                ctx.fillStyle = `rgba(255, 200, 80, ${0.28 * pressurizeCurrent})`;
                 ctx.fillRect(left - 20, top - 20, baseW + 40, baseH + 40);
             }
 
-            // Render installed internal modules bottom-up inside usable inner bounds
-            const internalModules = modules.filter(m => m.mount !== "top");
-            const totalIVU = payloadSpecs.sizeIVU || 0.5;
-
+            // Usable 2D internal rectangle
             let innerWidth, innerHeight, innerLeft, innerTop;
 
             if (payloadSpecs.shape === "Spherical") {
-                // Inscribed square inside circle: side length = baseW / sqrt(2)
                 innerWidth = baseW / Math.SQRT2;
                 innerHeight = baseH / Math.SQRT2;
                 innerLeft = probeCenterX - (innerWidth / 2);
@@ -938,30 +1013,37 @@
                 innerTop = top + 8;
             }
 
-            let currentY = innerTop + innerHeight;
-            const availableHeight = innerHeight;
+            // Render 2D Modules placed inside chassis
+            placedModules.forEach((mod) => {
+                if (mod.mount === "top") return;
 
-            internalModules.forEach((mod) => {
-                const modHeight = (mod.ivu / totalIVU) * availableHeight;
-                currentY -= modHeight;
+                const mX = innerLeft + mod.posX * innerWidth;
+                const mY = innerTop + mod.posY * innerHeight;
+                const mW = mod.relW * innerWidth;
+                const mH = mod.relH * innerHeight;
 
                 ctx.fillStyle = "rgba(255, 176, 0, 0.22)";
                 ctx.strokeStyle = "#ffb000";
                 ctx.lineWidth = 1.5;
 
-                ctx.fillRect(innerLeft, currentY, innerWidth, modHeight - 2);
-                ctx.strokeRect(innerLeft, currentY, innerWidth, modHeight - 2);
+                ctx.fillRect(mX, mY, mW - 1, mH - 1);
+                ctx.strokeRect(mX, mY, mW - 1, mH - 1);
 
-                ctx.fillStyle = "#ffb000";
-                ctx.font = `${Math.max(9, Math.floor(Math.min(modHeight * 0.5, 15)))}px 'Courier New', monospace`;
+                ctx.fillStyle = "#ffca42";
+                const fontSize = Math.max(8, Math.min(12, Math.floor(mH * 0.45)));
+                ctx.font = `${fontSize}px 'Courier New', monospace`;
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
-                ctx.fillText(`${mod.name.toUpperCase()} (${mod.ivu} IVU)`, innerLeft + innerWidth / 2, currentY + (modHeight / 2));
+
+                // Clean truncated part label inside 2D box
+                let shortName = mod.name.replace("Analog ", "").replace(" battery", "");
+                if (mW < 35) shortName = shortName.substring(0, 3);
+                ctx.fillText(shortName, mX + mW / 2, mY + mH / 2);
             });
 
-            ctx.restore(); // Restore from clip
+            ctx.restore();
 
-            // Spherical Inscribed Box Debug Outline
+            // Outline of chassis
             if (payloadSpecs.shape === "Spherical") {
                 ctx.strokeStyle = "rgba(255, 176, 0, 0.25)";
                 ctx.lineWidth = 1;
@@ -970,11 +1052,10 @@
                 ctx.setLineDash([]);
             }
 
-            // Outer Frame Glow Outline
             ctx.strokeStyle = pressurizeCurrent > 0.01 ? "#ffca42" : "#ffb000";
             ctx.lineWidth = 2.5;
-            ctx.shadowColor = pressurizeCurrent > 0.01 ? "#ffca42" : "#ffb000";
-            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#ffb000";
+            ctx.shadowBlur = 8;
             ctx.beginPath();
             if (payloadSpecs.shape === "Spherical") {
                 ctx.ellipse(probeCenterX, probeCenterY, baseW / 2, baseH / 2, 0, 0, Math.PI * 2);
@@ -984,9 +1065,10 @@
             ctx.stroke();
             ctx.shadowBlur = 0;
 
-            // Render Right Side UI: Module List & IVU Usage Tracker
-            const rightX = w * 0.60;
-            const usedIVU = modules.reduce((acc, m) => acc + m.ivu, 0);
+            // Right HUD: Specs & 2D Area Usage
+            const rightX = w * 0.58;
+            const usedArea = modules.reduce((acc, m) => acc + (m.dimX * m.dimY), 0);
+            const totalArea = payloadSpecs.maxArea || 0.50;
 
             ctx.fillStyle = "#ffb000";
             ctx.font = "bold 13px 'Courier New', monospace";
@@ -996,8 +1078,9 @@
             ctx.fillText(`CHASSIS: ${payloadSpecs.name.toUpperCase()} [${payloadSpecs.shape.toUpperCase()}]`, rightX, 15);
             ctx.fillText(`ATMOSPHERE: ${pressurizeCurrent > 0.01 ? `PRESSURIZING (${Math.floor(pressurizeCurrent * 100)}%)` : "VACUUM"}`, rightX, 32);
 
-            ctx.fillStyle = usedIVU > totalIVU ? "#ff3333" : "#ffca42";
-            ctx.fillText(`USAGE: ${usedIVU.toFixed(2)} / ${totalIVU.toFixed(2)} IVU used`, rightX, 55);
+            const areaExceeded = usedArea > totalArea + 0.0001;
+            ctx.fillStyle = areaExceeded ? flashAmber : "#ffca42";
+            ctx.fillText(`FOOTPRINT AREA: ${usedArea.toFixed(3)} / ${totalArea.toFixed(2)} m² used`, rightX, 55);
 
             ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
             ctx.beginPath();
@@ -1007,31 +1090,40 @@
 
             ctx.fillStyle = "#ffb000";
             ctx.font = "bold 11px 'Courier New', monospace";
-            ctx.fillText("INSTALLED MODULES:", rightX, 80);
+            ctx.fillText("INSTALLED 2D MODULES:", rightX, 80);
 
             if (modules.length === 0) {
                 ctx.fillStyle = "rgba(255, 176, 0, 0.5)";
-                ctx.fillText("  (No modules installed - type 'add' to open parts)", rightX, 98);
+                ctx.fillText("  (No modules installed - type 'add' to open parts menu)", rightX, 98);
             } else {
                 modules.forEach((mod, idx) => {
                     ctx.fillStyle = "#ffb000";
-                    ctx.fillText(`  ${idx + 1}. ${mod.name.padEnd(18)} [${mod.ivu.toFixed(2)} IVU]`, rightX, 98 + (idx * 16));
+                    const dimStr = mod.mount === "top" ? "[TOP MOUNT]" : `[${mod.dimX}x${mod.dimY}m]`;
+                    ctx.fillText(`  ${idx + 1}. ${mod.name.padEnd(20)} ${dimStr}`, rightX, 98 + (idx * 16));
                 });
             }
 
-            // Bottom Right HUD: Electrical & Heat (Brighter text, word telemetry removed, no box)
+            // Heat & Electrical Telemetry Logic
             let totalWatts = modules.reduce((a, m) => a + m.watts, 0);
             let totalVolts = modules.some(m => m.volts === 12) ? 12 : (modules.some(m => m.volts === 5) ? 5 : 0);
             let totalCapAh = modules.reduce((a, m) => a + m.capAh, 0);
             let heatGen = modules.reduce((a, m) => a + m.heatGen, 0);
             
-            // Cooling fans ONLY dissipate heat if probe atmosphere is pressurized
-            let heatDiss = modules.reduce((a, m) => {
-                let diss = m.heatDiss;
-                if ((m.id === "fan" || m.id === "small_fan") && pressurizeCurrent < 0.5) {
-                    diss = 0;
+            // Fans dissipate heat ONLY IF probe is pressurized AND touching computer directly
+            let isolatedFanCount = 0;
+            let heatDiss = placedModules.reduce((a, m) => {
+                if (m.id === "single_fan" || m.id === "fan_array") {
+                    const isTouching = isFanTouchingComputer(m, placedModules);
+                    if (!isTouching) {
+                        isolatedFanCount++;
+                        return a; // 0 heat diss if not touching computer
+                    }
+                    if (pressurizeCurrent < 0.5) {
+                        return a; // 0 heat diss in vacuum
+                    }
+                    return a + m.heatDiss;
                 }
-                return a + diss;
+                return a + m.heatDiss;
             }, 0);
 
             let timeStr = "0h 00m";
@@ -1049,19 +1141,19 @@
 
             const hudY = h - 110;
 
-            // Brighter text rendering without background box
-            ctx.fillStyle = "#ffe066";
+            // Electrical & Heat Telemetry HUD
+            ctx.fillStyle = "#ffca42";
             ctx.font = "bold 12px 'Courier New', monospace";
             ctx.fillText(`ELECTRICAL:`, rightX, hudY);
             
-            ctx.fillStyle = "#ffca42";
+            ctx.fillStyle = "#ffb000";
             ctx.font = "11px 'Courier New', monospace";
             ctx.fillText(`  Watts                 : ${totalWatts.toFixed(1)} W`, rightX, hudY + 15);
             ctx.fillText(`  Volts                 : ${totalVolts} V`, rightX, hudY + 28);
             ctx.fillText(`  Time until power loss : ~${timeStr}`, rightX, hudY + 41);
 
-            // Heat ASCII Bars
-            const maxBar = 25;
+            // Heat Telemetry
+            const maxBar = 22;
             const genFilled = Math.min(maxBar, Math.floor((heatGen / 30) * maxBar));
             const genBar = "[" + "█".repeat(genFilled) + "░".repeat(maxBar - genFilled) + "]";
             
@@ -1069,18 +1161,25 @@
             const dissBar = "[" + "█".repeat(dissFilled) + "░".repeat(maxBar - dissFilled) + "]";
 
             const heatWarning = heatGen > heatDiss;
-            ctx.fillStyle = heatWarning ? "#ff4444" : "#ffe066";
+            ctx.fillStyle = heatWarning ? flashAmber : "#ffca42";
             ctx.font = "bold 12px 'Courier New', monospace";
             ctx.fillText(`HEAT ${heatWarning ? "[OVERHEAT RISK!]" : "[STABLE]"}`, rightX, hudY + 58);
             
-            ctx.fillStyle = "#ffca42";
+            ctx.fillStyle = "#ffb000";
             ctx.font = "11px 'Courier New', monospace";
             ctx.fillText(`  Heat Generated: ${genBar} ${heatGen.toFixed(1)}W`, rightX, hudY + 71);
             
-            const fanInactivatedNote = modules.some(m => m.id === "fan" || m.id === "small_fan") && pressurizeCurrent < 0.5 ? " (Fan inactive in vacuum)" : "";
-            ctx.fillText(`  Heat Dealt With: ${dissBar} ${heatDiss.toFixed(1)}W${fanInactivatedNote}`, rightX, hudY + 84);
+            let fanStatusNote = "";
+            if (isolatedFanCount > 0) {
+                fanStatusNote = " (Fan detached - must touch computer)";
+            } else if (modules.some(m => m.id === "single_fan" || m.id === "fan_array") && pressurizeCurrent < 0.5) {
+                fanStatusNote = " (Fan inactive in vacuum)";
+            }
 
-            // Physics update and render gravity spark particles
+            ctx.fillStyle = (isolatedFanCount > 0 || (modules.some(m => m.id.includes("fan")) && pressurizeCurrent < 0.5)) ? flashAmber : "#ffb000";
+            ctx.fillText(`  Heat Dealt With: ${dissBar} ${heatDiss.toFixed(1)}W${fanStatusNote}`, rightX, hudY + 84);
+
+            // Spark particles
             for (let i = sparkParticles.length - 1; i >= 0; i--) {
                 const sp = sparkParticles[i];
                 sp.x += sp.vx;
@@ -1099,26 +1198,24 @@
                 ctx.fill();
             }
 
-            // Interactive Part Selector WASD Overlay
+            // Interactive Part Selector WASD Modal
             if (inPartPicker) {
                 const modalW = w * 0.88;
                 const modalH = h * 0.82;
                 const modalX = (w - modalW) / 2;
                 const modalY = (h - modalH) / 2;
 
-                ctx.fillStyle = "rgba(8, 5, 0, 0.94)";
+                ctx.fillStyle = "rgba(8, 5, 0, 0.95)";
                 ctx.fillRect(modalX, modalY, modalW, modalH);
                 ctx.strokeStyle = "#ffb000";
                 ctx.lineWidth = 2;
                 ctx.strokeRect(modalX, modalY, modalW, modalH);
 
-                // Top Modal Banner
-                ctx.fillStyle = "#ffb000";
+                ctx.fillStyle = "#ffca42";
                 ctx.font = "bold 14px 'Courier New', monospace";
                 ctx.textAlign = "center";
                 ctx.fillText("=== HARDWARE PARTS CATALOG [WASD TO NAVIGATE] ===", w / 2, modalY + 18);
 
-                // Categories Row (A / D)
                 let catStartX = modalX + 15;
                 ctx.textAlign = "left";
                 ctx.font = "bold 11px 'Courier New', monospace";
@@ -1126,7 +1223,7 @@
                 PART_CATEGORIES.forEach((cat, idx) => {
                     const isSelected = (idx === selectedPartCatIndex);
                     if (isSelected) {
-                        ctx.fillStyle = "#ffb000";
+                        ctx.fillStyle = "#ffca42";
                         ctx.fillText(`► [${cat.catName}] ◄`, catStartX, modalY + 42);
                         catStartX += ctx.measureText(`► [${cat.catName}] ◄`).width + 10;
                     } else {
@@ -1143,29 +1240,28 @@
                 ctx.lineTo(modalX + modalW - 15, modalY + 56);
                 ctx.stroke();
 
-                // Left Column: Items List (W / S)
                 const currentCat = PART_CATEGORIES[selectedPartCatIndex];
                 const listX = modalX + 25;
                 let listY = modalY + 75;
 
                 ctx.font = "bold 12px 'Courier New', monospace";
-                ctx.fillStyle = "#ffb000";
+                ctx.fillStyle = "#ffca42";
                 ctx.fillText(`CATEGORY: ${currentCat.catName}`, listX, listY);
                 listY += 20;
 
                 currentCat.parts.forEach((p, idx) => {
                     const isHovered = (idx === selectedPartItemIndex);
+                    const dimStr = p.mount === "top" ? "TOP MOUNT" : `${p.dimX}x${p.dimY}m`;
                     if (isHovered) {
                         ctx.fillStyle = "#ffca42";
-                        ctx.fillText(` ► ${p.name.padEnd(18)} (${p.ivu} IVU)`, listX, listY);
+                        ctx.fillText(` ► ${p.name.padEnd(20)} (${dimStr})`, listX, listY);
                     } else {
                         ctx.fillStyle = "rgba(255, 176, 0, 0.6)";
-                        ctx.fillText(`   ${p.name.padEnd(18)} (${p.ivu} IVU)`, listX, listY);
+                        ctx.fillText(`   ${p.name.padEnd(20)} (${dimStr})`, listX, listY);
                     }
                     listY += 22;
                 });
 
-                // Right Column: Active Part Specs & Description
                 const hoveredPart = currentCat.parts[selectedPartItemIndex];
                 const specX = modalX + modalW * 0.48;
                 let specY = modalY + 75;
@@ -1177,17 +1273,19 @@
                 ctx.stroke();
 
                 if (hoveredPart) {
-                    ctx.fillStyle = "#ffb000";
+                    ctx.fillStyle = "#ffca42";
                     ctx.font = "bold 13px 'Courier New', monospace";
                     ctx.fillText(`SPECIFICATIONS: ${hoveredPart.name.toUpperCase()}`, specX, specY);
                     specY += 22;
 
                     ctx.font = "11px 'Courier New', monospace";
-                    ctx.fillText(`  Volume Size     : ${hoveredPart.ivu} IVU`, specX, specY); specY += 16;
-                    ctx.fillText(`  Power Draw      : ${hoveredPart.watts} Watts @ ${hoveredPart.volts} Volts`, specX, specY); specY += 16;
-                    ctx.fillText(`  Battery Capacity: ${hoveredPart.capAh} Ah`, specX, specY); specY += 16;
-                    ctx.fillText(`  Heat Generation : ${hoveredPart.heatGen} W`, specX, specY); specY += 16;
-                    ctx.fillText(`  Heat Dissipation: ${hoveredPart.heatDiss} W`, specX, specY); specY += 22;
+                    ctx.fillStyle = "#ffb000";
+                    ctx.fillText(`  Dimensions (X x Y): ${hoveredPart.dimX} x ${hoveredPart.dimY} m`, specX, specY); specY += 16;
+                    ctx.fillText(`  Footprint Area    : ${(hoveredPart.dimX * hoveredPart.dimY).toFixed(3)} m²`, specX, specY); specY += 16;
+                    ctx.fillText(`  Power Draw        : ${hoveredPart.watts} Watts @ ${hoveredPart.volts} Volts`, specX, specY); specY += 16;
+                    ctx.fillText(`  Battery Capacity  : ${hoveredPart.capAh} Ah`, specX, specY); specY += 16;
+                    ctx.fillText(`  Heat Generation   : ${hoveredPart.heatGen} W`, specX, specY); specY += 16;
+                    ctx.fillText(`  Heat Dissipation  : ${hoveredPart.heatDiss} W`, specX, specY); specY += 22;
 
                     ctx.fillStyle = "#ffca42";
                     ctx.fillText(`DESCRIPTION:`, specX, specY); specY += 16;
@@ -1207,14 +1305,13 @@
                     if (line.trim()) ctx.fillText(line, specX, specY);
                 }
 
-                // Bottom Overlay Controls Footer
                 ctx.strokeStyle = "rgba(255, 176, 0, 0.4)";
                 ctx.beginPath();
                 ctx.moveTo(modalX + 15, modalY + modalH - 35);
                 ctx.lineTo(modalX + modalW - 15, modalY + modalH - 35);
                 ctx.stroke();
 
-                ctx.fillStyle = "#ffb000";
+                ctx.fillStyle = "#ffca42";
                 ctx.font = "bold 11px 'Courier New', monospace";
                 ctx.textAlign = "center";
                 ctx.fillText("[A / D] Category | [W / S] Highlight | [E] Install Module | [Q] Exit", w / 2, modalY + modalH - 15);
@@ -1278,13 +1375,14 @@
                         const search = lowerInput.substring(4).trim();
                         const part = AVAILABLE_PARTS.find(p => p.id === search || p.name.toLowerCase() === search);
                         if (!part) {
-                            print(`[ERR] Unknown module '${search}'. Type 'add' to open the interactive part menu.`);
+                            print(`[ERR] Unknown module '${search}'. Type 'add' to open interactive part menu.`);
                             return;
                         }
 
-                        const currentIVU = payloadSpecs.modules.reduce((a, m) => a + m.ivu, 0);
-                        if (currentIVU + part.ivu > payloadSpecs.sizeIVU + 0.001) {
-                            print(`[ERR] Cannot install '${part.name}' (${part.ivu} IVU). Exceeds capacity limit (${payloadSpecs.sizeIVU} IVU).`);
+                        const currentArea = payloadSpecs.modules.reduce((a, m) => a + (m.dimX * m.dimY), 0);
+                        const addedArea = part.dimX * part.dimY;
+                        if (currentArea + addedArea > payloadSpecs.maxArea + 0.0001) {
+                            print(`[ERR] Cannot install '${part.name}' (${addedArea.toFixed(3)} m²). Exceeds footprint area limit (${payloadSpecs.maxArea.toFixed(2)} m²).`);
                             return;
                         }
 
@@ -1343,7 +1441,7 @@
                         payloadStep = "NAME";
                         payloadSpecs = {
                             name: "",
-                            sizeIVU: 0.5,
+                            maxArea: 0.50,
                             shape: "Cubic",
                             purpose: "Payload",
                             isPressurized: false,
@@ -1394,7 +1492,7 @@
                         }
                         payloadDeleteTarget = targetName;
                         payloadSubMode = "DELETE_CONFIRM";
-                        print(`[WARN] Are you sure you want to permanently delete '${targetName}'? (type 'yes' or 'no')`, "title");
+                        print(`[WARN] Confirm deletion of payload '${targetName}'? (type 'yes' or 'no')`, "title");
                         updatePrompt();
                         return;
                     }
@@ -1440,9 +1538,9 @@
                     }
 
                     if (payloadStep === "SIZE") {
-                        if (lowerInput === "1") payloadSpecs.sizeIVU = 0.5;
-                        else if (lowerInput === "2") payloadSpecs.sizeIVU = 1.0;
-                        else if (lowerInput === "3") payloadSpecs.sizeIVU = 2.0;
+                        if (lowerInput === "1") payloadSpecs.maxArea = 0.25;
+                        else if (lowerInput === "2") payloadSpecs.maxArea = 0.50;
+                        else if (lowerInput === "3") payloadSpecs.maxArea = 1.00;
                         else {
                             print("[SYS] Select size option 1, 2, or 3.");
                             return;
@@ -1765,7 +1863,6 @@
         window.addEventListener("keydown", (e) => {
             if (isExecutingProgram) return;
 
-            // Interactive Part Selector Keyboard WASD Listener
             if (inPayloadDesigner && isRenderingCanvas && inPartPicker) {
                 const k = e.key.toUpperCase();
                 if (["W", "A", "S", "D", "E", "Q"].includes(k)) {
@@ -1787,10 +1884,11 @@
                 } else if (k === "E") {
                     const activeCat = PART_CATEGORIES[selectedPartCatIndex];
                     const part = activeCat.parts[selectedPartItemIndex];
-                    const currentIVU = payloadSpecs.modules.reduce((a, m) => a + m.ivu, 0);
+                    const currentArea = payloadSpecs.modules.reduce((a, m) => a + (m.dimX * m.dimY), 0);
+                    const addedArea = part.dimX * part.dimY;
 
-                    if (currentIVU + part.ivu > payloadSpecs.sizeIVU + 0.001) {
-                        print(`[ERR] Cannot install '${part.name}' (${part.ivu} IVU). Exceeds capacity limit (${payloadSpecs.sizeIVU} IVU).`);
+                    if (currentArea + addedArea > payloadSpecs.maxArea + 0.0001) {
+                        print(`[ERR] Cannot install '${part.name}' (${addedArea.toFixed(3)} m²). Exceeds footprint limit (${payloadSpecs.maxArea.toFixed(2)} m²).`);
                     } else {
                         payloadSpecs.modules.push({ ...part });
                         print(`[SYS] Installed '${part.name}' into chassis.`);
@@ -1805,7 +1903,6 @@
                 return;
             }
 
-            // Research & Development Tree WASD Listener
             if (inRDModule && isRDNavActive) {
                 const key = e.key.toUpperCase();
                 
